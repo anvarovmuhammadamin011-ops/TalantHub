@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Bell, Briefcase, Users, MessageSquare, BarChart3, User, LogOut } from "lucide-react";
+import { Menu, X, Bell, Briefcase, Users, MessageSquare, BarChart3, User, LogOut, Sparkles } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
 const navLinks = [
   { to: "/", label: "Bosh sahifa" },
   { to: "/vacancies", label: "Vakansiyalar", icon: Briefcase },
   { to: "/specialists", label: "Mutaxassislar", icon: Users },
+  { to: "/ai-chat", label: "AI Chat", icon: Sparkles },
   { to: "/applications", label: "Arizalar", icon: BarChart3 },
   { to: "/chat", label: "Xabarlar", icon: MessageSquare },
 ];

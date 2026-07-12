@@ -11,6 +11,7 @@ import Specialists from "./pages/Specialists";
 import Applications from "./pages/Applications";
 import EmployerDashboard from "./pages/EmployerDashboard";
 import Chat from "./pages/Chat";
+import AiChat from "./pages/AiChat";
 import Statistics from "./pages/Statistics";
 
 export default function App() {
@@ -29,6 +30,7 @@ export default function App() {
             <Route path="/applications" element={<Applications />} />
             <Route path="/dashboard" element={<EmployerDashboard />} />
             <Route path="/chat" element={<Chat />} />
+            <Route path="/ai-chat" element={<AiChat />} />
             <Route path="/statistics" element={<Statistics />} />
           </Route>
         </Route>
