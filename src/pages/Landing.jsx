@@ -1,8 +1,11 @@
-import { Link } from "react-router-dom";
-import { ArrowRight, ArrowUpRight, Users, Briefcase, TrendingUp, Star, CheckCircle, Shield, Zap } from "lucide-react";
+import { Link, Navigate } from "react-router-dom";
+import { ArrowRight, Users, Briefcase, TrendingUp, Star, CheckCircle, Shield, Zap } from "lucide-react";
 import { categories, stats } from "../data/mockData";
+import { useAuth } from "../context/AuthContext";
 
 export default function Landing() {
+  const { isLoggedIn } = useAuth();
+  if (isLoggedIn) return <Navigate to="/vacancies" replace />;
   return (
     <div>
       {/* Hero */}

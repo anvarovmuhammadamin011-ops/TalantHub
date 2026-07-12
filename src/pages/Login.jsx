@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { LogIn, Mail, Lock } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
@@ -7,10 +7,15 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { login } = useAuth();
+  const { login, isLoggedIn, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [submitting, setSubmitting] = useState(false);
+
+  if (!loading && isLoggedIn) {
+    return <Navigate to={location.state?.from || "/"} replace />;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,7 +28,7 @@ export default function Login() {
     const result = await login(email, password);
     setSubmitting(false);
     if (result.success) {
-      navigate("/vacancies");
+      navigate(location.state?.from || "/", { replace: true });
     } else {
       setError(result.error);
     }

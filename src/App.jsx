@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/layout/Layout";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Landing from "./pages/Landing";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
@@ -18,16 +19,18 @@ export default function App() {
       <Routes>
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
-        <Route element={<Layout />}>
-          <Route path="/" element={<Landing />} />
-          <Route path="/vacancies" element={<Vacancies />} />
-          <Route path="/vacancies/:id" element={<VacancyDetail />} />
-          <Route path="/specialists" element={<Specialists />} />
-          <Route path="/profile" element={<SpecialistProfile />} />
-          <Route path="/applications" element={<Applications />} />
-          <Route path="/dashboard" element={<EmployerDashboard />} />
-          <Route path="/chat" element={<Chat />} />
-          <Route path="/statistics" element={<Statistics />} />
+        <Route element={<ProtectedRoute />}>
+          <Route element={<Layout />}>
+            <Route path="/" element={<Landing />} />
+            <Route path="/vacancies" element={<Vacancies />} />
+            <Route path="/vacancies/:id" element={<VacancyDetail />} />
+            <Route path="/specialists" element={<Specialists />} />
+            <Route path="/profile" element={<SpecialistProfile />} />
+            <Route path="/applications" element={<Applications />} />
+            <Route path="/dashboard" element={<EmployerDashboard />} />
+            <Route path="/chat" element={<Chat />} />
+            <Route path="/statistics" element={<Statistics />} />
+          </Route>
         </Route>
       </Routes>
     </BrowserRouter>

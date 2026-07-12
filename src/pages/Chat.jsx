@@ -1,11 +1,8 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Send, Calendar, Search, MoreVertical, Phone, Video, LogIn } from "lucide-react";
+import { Send, Calendar, Search, MoreVertical, Phone, Video } from "lucide-react";
 import { api } from "../lib/api";
-import { useAuth } from "../context/AuthContext";
 
 export default function Chat() {
-  const { isLoggedIn, loading: authLoading } = useAuth();
   const [chats, setChats] = useState([]);
   const [chatsLoading, setChatsLoading] = useState(true);
   const [activeChat, setActiveChat] = useState(null);
@@ -16,17 +13,13 @@ export default function Chat() {
   const [scheduleForm, setScheduleForm] = useState({ date: "", time: "", note: "" });
 
   useEffect(() => {
-    if (!isLoggedIn) {
-      setChatsLoading(false);
-      return;
-    }
     api("/chats")
       .then(({ chats }) => {
         setChats(chats);
         if (chats[0]) setActiveChat(chats[0]);
       })
       .finally(() => setChatsLoading(false));
-  }, [isLoggedIn]);
+  }, []);
 
   useEffect(() => {
     if (!activeChat) return;
@@ -47,22 +40,6 @@ export default function Chat() {
       setSending(false);
     }
   };
-
-  if (!authLoading && !isLoggedIn) {
-    return (
-      <div className="max-w-md mx-auto px-4 py-24 text-center">
-        <div className="w-14 h-14 mx-auto flex items-center justify-center rounded-full bg-surface border border-border text-2xl mb-5">💬</div>
-        <h3 className="text-base font-semibold text-ink mb-1.5">Xabarlarni ko'rish uchun tizimga kiring</h3>
-        <p className="text-ink-3 text-sm mb-6">Suhbatlaringiz hisobingizga bog'liq holda saqlanadi</p>
-        <Link
-          to="/login"
-          className="inline-flex items-center gap-2 bg-ink text-white px-6 py-3 rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors"
-        >
-          <LogIn className="w-4 h-4" /> Tizimga kirish
-        </Link>
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">

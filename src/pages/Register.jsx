@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, Navigate } from "react-router-dom";
 import { ArrowRight, ArrowLeft, Briefcase, User, Code, BookOpen, CheckCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
@@ -17,8 +17,12 @@ export default function Register() {
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", city: "" });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const { register } = useAuth();
+  const { register, isLoggedIn, loading } = useAuth();
   const navigate = useNavigate();
+
+  if (!loading && isLoggedIn) {
+    return <Navigate to="/" replace />;
+  }
 
   const next = () => setStep(Math.min(step + 1, 3));
   const prev = () => setStep(Math.max(step - 1, 0));
