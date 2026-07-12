@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0A0A0B;
+  --color-ink-2: #52525B;
+  --color-ink-3: #8A8A93;
+  --color-bg: #FFFFFF;
+  --color-surface: #FAFAFA;
+  --color-border: #E7E7EA;
+  --color-border-soft: #F0F0F1;
+  --color-accent: #3730A3;
+  --color-accent-soft: #EEF2FF;
+  --color-accent-hover: #262471;
+  --color-success: #15803D;
+  --color-success-soft: #F0FDF4;
+  --color-danger: #B91C1C;
+  --color-danger-soft: #FEF2F2;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* legacy aliases kept during migration */
+  --color-primary: var(--color-ink);
+  --color-primary-light: var(--color-ink-2);
+  --color-primary-dark: #000000;
+  --color-accent-light: var(--color-accent);
+  --color-accent-dark: var(--color-accent-hover);
+  --color-text-primary: var(--color-ink);
+  --color-text-secondary: var(--color-ink-2);
+  --color-text-muted: var(--color-ink-3);
+}
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-bg);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.011em;
+  }
+
+  ::selection {
+    background-color: var(--color-accent-soft);
+    color: var(--color-accent);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
