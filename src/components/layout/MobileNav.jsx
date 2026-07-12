@@ -1,11 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, Briefcase, Users, Sparkles, User } from "lucide-react";
+import { Home, Briefcase, Users, MessageSquare, User } from "lucide-react";
 
 const tabs = [
   { to: "/", label: "Bosh", icon: Home },
   { to: "/vacancies", label: "Vakansiyalar", icon: Briefcase },
-  { to: "/ai-chat", label: "AI Chat", icon: Sparkles },
   { to: "/specialists", label: "Mutaxassislar", icon: Users },
+  { to: "/chat", label: "Xabarlar", icon: MessageSquare },
   { to: "/profile", label: "Profil", icon: User },
 ];
 
