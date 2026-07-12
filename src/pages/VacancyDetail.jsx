@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, MapPin, Clock, Star, CheckCircle, XCircle, Building, Briefcase } from "lucide-react";
+import { ArrowLeft, MapPin, Clock, Star, CheckCircle, XCircle, Building, Briefcase, Send } from "lucide-react";
 import { vacancies } from "../data/mockData";
 import MatchIndicator from "../components/ui/MatchIndicator";
 import StatusBadge from "../components/ui/StatusBadge";
@@ -7,6 +8,17 @@ import StatusBadge from "../components/ui/StatusBadge";
 export default function VacancyDetail() {
   const { id } = useParams();
   const vacancy = vacancies.find((v) => v.id === +id) || vacancies[0];
+  const [applied, setApplied] = useState(false);
+  const [applying, setApplying] = useState(false);
+
+  const handleApply = () => {
+    if (applied || applying) return;
+    setApplying(true);
+    setTimeout(() => {
+      setApplied(true);
+      setApplying(false);
+    }, 1000);
+  };
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-28 md:pb-10">
@@ -155,8 +167,28 @@ export default function VacancyDetail() {
             <div className="text-xs text-ink-3">Maosh</div>
             <div className="font-semibold text-ink text-sm">{vacancy.salary}</div>
           </div>
-          <button className="px-8 py-3 bg-ink text-white rounded-lg font-medium text-sm hover:bg-ink/90 transition-colors">
-            Ariza yuborish
+          <button
+            onClick={handleApply}
+            disabled={applied || applying}
+            className={`px-8 py-3 rounded-lg font-medium text-sm transition-colors flex items-center gap-2 ${
+              applied
+                ? "bg-accent text-white cursor-default"
+                : applying
+                ? "bg-ink/60 text-white cursor-wait"
+                : "bg-ink text-white hover:bg-ink/90"
+            }`}
+          >
+            {applied ? (
+              <>
+                <CheckCircle className="w-4 h-4" /> Yuborildi
+              </>
+            ) : applying ? (
+              "Yuborilmoqda..."
+            ) : (
+              <>
+                <Send className="w-4 h-4" /> Ariza yuborish
+              </>
+            )}
           </button>
         </div>
       </div>

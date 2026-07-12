@@ -19,9 +19,29 @@ const profileSections = [
 export default function SpecialistProfile() {
   const [anonMode, setAnonMode] = useState(false);
   const [activeTab, setActiveTab] = useState("about");
-  const specialist = specialists[0];
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const specialist = specialists.find((s) => s.name === user?.name) || {
+    id: 0,
+    name: user?.name || "Foydalanuvchi",
+    avatar: "👤",
+    title: `${user?.category || "IT"} mutaxassis`,
+    location: "Toshkent",
+    experience: "Tajriba kiritilmagan",
+    experienceLevel: "Junior",
+    salary: "Maosh kiritilmagan",
+    category: user?.category || "IT",
+    tags: [],
+    rating: 0,
+    reviews: 0,
+    verified: false,
+    matchPercent: 0,
+    bio: "Profil ma'lumotlari hali to'ldirilmagan. O'z haqingizda ma'lumot qo'shing.",
+    skills: [],
+    certificates: [],
+    timeline: [],
+  };
 
   const displayName = user?.name || specialist.name;
   const initials = displayName.split(" ").map((n) => n[0]).join("").slice(0, 2);

@@ -24,7 +24,16 @@ export default function Register() {
     return <Navigate to="/" replace />;
   }
 
-  const next = () => setStep(Math.min(step + 1, 3));
+  const [passwordError, setPasswordError] = useState("");
+
+  const next = () => {
+    if (step === 2 && form.password.length < 8) {
+      setPasswordError("Parol kamida 8 ta belgi bo'lishi kerak");
+      return;
+    }
+    setPasswordError("");
+    setStep(Math.min(step + 1, 3));
+  };
   const prev = () => setStep(Math.max(step - 1, 0));
 
   const handleFinish = async () => {
@@ -190,9 +199,15 @@ export default function Register() {
                       type={f.type || "text"}
                       placeholder={f.placeholder}
                       value={form[f.key]}
-                      onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-                      className="w-full px-4 py-3 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors text-sm"
+                      onChange={(e) => {
+                        setForm({ ...form, [f.key]: e.target.value });
+                        if (f.key === "password") setPasswordError("");
+                      }}
+                      className={`w-full px-4 py-3 rounded-lg border ${passwordError && f.key === "password" ? "border-red-300" : "border-border"} focus:border-ink/30 outline-none transition-colors text-sm`}
                     />
+                    {passwordError && f.key === "password" && (
+                      <p className="text-xs text-red-500 mt-1">{passwordError}</p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -206,10 +221,10 @@ export default function Register() {
           {step === 3 && (
             <div className="text-center">
               <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle className="w-8 h-8 text-accent" strokeWidth={1.75} />
+                <CheckCircle className="w-8 h-8 text-ink" strokeWidth={1.75} />
               </div>
-              <h2 className="text-xl font-semibold text-ink mb-1.5 tracking-tight">Tayyor!</h2>
-              <p className="text-ink-3 text-sm mb-6">Profilingiz muvaffaqiyatli yaratildi.</p>
+              <h2 className="text-xl font-semibold text-ink mb-1.5 tracking-tight">Ma'lumotlarni tasdiqlang</h2>
+              <p className="text-ink-3 text-sm mb-6">Barcha ma'lumotlar to'g'rimi? "Boshlash" tugmasini bosing.</p>
               <div className="bg-surface rounded-xl p-5 mb-8 text-left space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-ink-3">Rol:</span>

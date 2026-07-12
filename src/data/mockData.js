@@ -93,7 +93,7 @@ export const vacancies = [
       "Xalqaro o'quv dasturlari",
       "Mehnat ta'tili (50 kun)",
       "O'qituvchi rivojlanish kurslari",
-      "Qo'shimcha oz刷",
+      "Qo'shimcha oz miqdorda",
     ],
     companyRating: 4.8,
     companyReviews: 67,

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Send, Calendar, Search, MoreVertical, Phone, Video } from "lucide-react";
-import { api } from "../lib/api";
+import { chats as mockChats } from "../data/mockData";
 
 export default function Chat() {
   const [chats, setChats] = useState([]);
@@ -13,28 +13,27 @@ export default function Chat() {
   const [scheduleForm, setScheduleForm] = useState({ date: "", time: "", note: "" });
 
   useEffect(() => {
-    api("/chats")
-      .then(({ chats }) => {
-        setChats(chats);
-        if (chats[0]) setActiveChat(chats[0]);
-      })
-      .finally(() => setChatsLoading(false));
+    setChats(mockChats);
+    if (mockChats[0]) setActiveChat(mockChats[0]);
+    setChatsLoading(false);
   }, []);
 
   useEffect(() => {
     if (!activeChat) return;
-    api(`/chats/${activeChat.id}/messages`).then(({ messages }) => setMessages(messages));
+    setMessages(activeChat.messages || []);
   }, [activeChat]);
 
   const handleSend = async () => {
     if (!newMessage.trim() || !activeChat || sending) return;
     setSending(true);
     try {
-      const { message } = await api(`/chats/${activeChat.id}/messages`, {
-        method: "POST",
-        body: { text: newMessage.trim() },
-      });
-      setMessages((prev) => [...prev, message]);
+      const newMsg = {
+        id: Date.now(),
+        sender: "me",
+        text: newMessage.trim(),
+        time: new Date().toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" }),
+      };
+      setMessages((prev) => [...prev, newMsg]);
       setNewMessage("");
     } finally {
       setSending(false);
