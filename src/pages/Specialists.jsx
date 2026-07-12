@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Search, SlidersHorizontal, MapPin, Star } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Search, SlidersHorizontal, MapPin, Star, Wifi, WifiOff } from "lucide-react";
 import { specialists } from "../data/mockData";
 import MatchIndicator from "../components/ui/MatchIndicator";
 import StatusBadge from "../components/ui/StatusBadge";
@@ -41,7 +42,7 @@ export default function Specialists() {
     <div className="space-y-6">
       <FilterGroup label="Kategoriya" options={["", "IT", "Ta'lim"]} value={filters.category} onChange={(v) => setFilters({ ...filters, category: v })} />
       <FilterGroup label="Tajriba" options={["", "Junior", "Middle", "Senior"]} value={filters.experience} onChange={(v) => setFilters({ ...filters, experience: v })} />
-      <FilterGroup label="Shahar" options={["", "Toshkent", "Samarqand", "Buxoro"]} value={filters.city} onChange={(v) => setFilters({ ...filters, city: v })} />
+      <FilterGroup label="Shahar" options={["", "Toshkent", "Samarqand", "Buxoro", "Farg'ona"]} value={filters.city} onChange={(v) => setFilters({ ...filters, city: v })} />
     </div>
   );
 
@@ -81,10 +82,18 @@ export default function Specialists() {
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
         {filtered.map((s) => (
-          <div key={s.id} className="bg-white rounded-xl border border-border p-6 hover:border-ink/20 transition-colors">
+          <Link key={s.id} to="/profile"
+            className="bg-white rounded-xl border border-border p-6 hover:border-ink/20 hover:shadow-md transition-all">
             <div className="flex items-start gap-3 mb-4">
-              <div className="w-12 h-12 bg-surface rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
-                {s.avatar}
+              <div className="relative">
+                <div className="w-12 h-12 bg-surface rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
+                  {s.avatar}
+                </div>
+                {s.online && (
+                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-accent rounded-full border-2 border-white flex items-center justify-center">
+                    <Wifi className="w-2 h-2 text-white" />
+                  </div>
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
@@ -110,15 +119,25 @@ export default function Specialists() {
               ))}
             </div>
 
-            <div className="flex items-center justify-between pt-4 border-t border-border-soft">
-              <div className="flex items-center gap-1 text-sm">
-                <Star className="w-3.5 h-3.5 text-ink fill-ink" />
-                <span className="font-medium text-ink">{s.rating}</span>
-                <span className="text-ink-3">({s.reviews})</span>
+            <div className="pt-4 border-t border-border-soft">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1 text-sm">
+                  <Star className="w-3.5 h-3.5 text-ink fill-ink" />
+                  <span className="font-medium text-ink">{s.rating}</span>
+                  <span className="text-ink-3">({s.reviews})</span>
+                </div>
+                {s.online && (
+                  <span className="flex items-center gap-1 text-xs text-accent font-medium">
+                    <Wifi className="w-3 h-3" /> Online
+                  </span>
+                )}
               </div>
-              <span className="text-sm font-medium text-ink-3">{s.salary}</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-ink-3">{s.hourlyPrice}</span>
+                <span className="text-sm font-medium text-ink">{s.salary}</span>
+              </div>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 
