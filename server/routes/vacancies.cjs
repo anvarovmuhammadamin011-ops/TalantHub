@@ -150,4 +150,52 @@ router.delete("/:id", authMiddleware, (req, res) => {
   }
 });
 
+router.patch("/:id", authMiddleware, (req, res) => {
+  try {
+    const vacancy = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(req.params.id);
+    if (!vacancy) return res.status(404).json({ error: "Vakansiya topilmadi" });
+    if (vacancy.employer_id !== req.userId) return res.status(403).json({ error: "Ruxsat yo'q" });
+
+    const { title, company, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions, status } = req.body;
+
+    db.prepare(`
+      UPDATE vacancies SET
+        title = COALESCE(?, title),
+        company = COALESCE(?, company),
+        location = COALESCE(?, location),
+        salary = COALESCE(?, salary),
+        salary_min = COALESCE(?, salary_min),
+        salary_max = COALESCE(?, salary_max),
+        format = COALESCE(?, format),
+        experience = COALESCE(?, experience),
+        category = COALESCE(?, category),
+        tags = COALESCE(?, tags),
+        description = COALESCE(?, description),
+        requirements = COALESCE(?, requirements),
+        conditions = COALESCE(?, conditions),
+        status = COALESCE(?, status)
+      WHERE id = ?
+    `).run(
+      title || null, company || null, location || null, salary || null,
+      salary_min || null, salary_max || null, format || null, experience || null,
+      category || null, tags ? JSON.stringify(tags) : null,
+      description || null,
+      requirements ? JSON.stringify(requirements) : null,
+      conditions ? JSON.stringify(conditions) : null,
+      status || null,
+      req.params.id
+    );
+
+    const updated = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(req.params.id);
+    updated.tags = JSON.parse(updated.tags);
+    updated.requirements = JSON.parse(updated.requirements);
+    updated.conditions = JSON.parse(updated.conditions);
+
+    res.json({ vacancy: updated });
+  } catch (err) {
+    console.error("Vacancy update error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
 module.exports = router;

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Briefcase, Users, Package, TrendingUp, Plus, Clock, MessageSquare } from "lucide-react";
+import { Briefcase, Users, Package, TrendingUp, Plus, Clock, MessageSquare, Trash2, Edit3, Eye, EyeOff } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import StatusBadge from "../components/ui/StatusBadge";
@@ -26,6 +26,7 @@ export default function EmployerDashboard() {
   const [applications, setApplications] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -46,6 +47,29 @@ export default function EmployerDashboard() {
     }
     load();
   }, []);
+
+  const deleteVacancy = async (id) => {
+    if (!confirm("Vakansiyani o'chirishni xohlaysizmi?")) return;
+    setDeletingId(id);
+    try {
+      await api(`/vacancies/${id}`, { method: "DELETE" });
+      setVacancies((prev) => prev.filter((v) => v.id !== id));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const toggleVacancyStatus = async (id, currentStatus) => {
+    const newStatus = currentStatus === "Faol" ? "Nofaol" : "Faol";
+    try {
+      await api(`/vacancies/${id}`, { method: "PATCH", body: { status: newStatus } });
+      setVacancies((prev) => prev.map((v) => v.id === id ? { ...v, status: newStatus } : v));
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   if (loading) {
     return <div className="max-w-6xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">Yuklanmoqda...</div>;
@@ -71,8 +95,8 @@ export default function EmployerDashboard() {
           <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Dashboard</h1>
           <p className="text-ink-3 text-sm mt-1">{user?.name} boshqaruvi</p>
         </div>
-        <Link to="/vacancies" className="flex items-center gap-2 bg-ink text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors">
-          <Plus className="w-4 h-4" /> Vakansiya e'lon qilish
+        <Link to="/vacancies/new" className="flex items-center gap-2 bg-ink text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors">
+          <Plus className="w-4 h-4" /> Yangi vakansiya
         </Link>
       </div>
 
@@ -151,20 +175,44 @@ export default function EmployerDashboard() {
           )}
         </div>
         <div className="bg-white rounded-xl border border-border p-5">
-          <h2 className="font-semibold text-ink text-sm mb-5">Faol vakansiyalar</h2>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="font-semibold text-ink text-sm">Vakansiyalarim</h2>
+            <Link to="/vacancies/new" className="text-xs text-ink font-medium hover:text-accent transition-colors flex items-center gap-1">
+              <Plus className="w-3 h-3" /> Yangi
+            </Link>
+          </div>
           {vacancies.length === 0 ? (
-            <p className="text-sm text-ink-3 text-center py-8">Hali vakansiya yo'q</p>
+            <div className="text-center py-6">
+              <p className="text-sm text-ink-3 mb-3">Hali vakansiya yo'q</p>
+              <Link to="/vacancies/new" className="text-sm text-ink font-medium hover:underline">Vakansiya yaratish</Link>
+            </div>
           ) : (
             <div className="space-y-2">
-              {vacancies.slice(0, 5).map((v) => (
-                <Link key={v.id} to={`/vacancies/${v.id}`} className="block p-3 rounded-lg hover:bg-surface transition-colors">
-                  <div className="font-medium text-ink text-sm">{v.title}</div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-ink-3">{v.location}</span>
-                    <span className="text-xs text-ink-3">·</span>
-                    <span className="text-xs text-ink-3">{v.applications_count} ta ariza</span>
+              {vacancies.map((v) => (
+                <div key={v.id} className="p-3 rounded-lg hover:bg-surface transition-colors group">
+                  <div className="flex items-start justify-between gap-2">
+                    <Link to={`/vacancies/${v.id}`} className="flex-1 min-w-0">
+                      <div className="font-medium text-ink text-sm truncate">{v.title}</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-ink-3">{v.location}</span>
+                        <span className="text-xs text-ink-3">·</span>
+                        <span className="text-xs text-ink-3">{v.applications_count} ta ariza</span>
+                      </div>
+                    </Link>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => toggleVacancyStatus(v.id, v.status || "Faol")}
+                        className="w-7 h-7 flex items-center justify-center rounded-md text-ink-3 hover:bg-surface transition-colors"
+                        title={v.status === "Nofaol" ? "Faollashtirish" : "O'chirish"}>
+                        {v.status === "Nofaol" ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                      <button onClick={() => deleteVacancy(v.id)} disabled={deletingId === v.id}
+                        className="w-7 h-7 flex items-center justify-center rounded-md text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                        title="O'chirish">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           )}

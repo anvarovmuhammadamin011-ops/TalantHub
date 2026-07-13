@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Search, SlidersHorizontal, MapPin, Star, Wifi } from "lucide-react";
+import { Search, SlidersHorizontal, MapPin, Star, Wifi, DollarSign } from "lucide-react";
 import { api } from "../lib/api";
 import { computeMatch } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
@@ -12,7 +12,7 @@ export default function Specialists() {
   const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState({ category: "", experience: "", city: "" });
+  const [filters, setFilters] = useState({ category: "", experience: "", city: "", priceMin: "", priceMax: "" });
   const [specialists, setSpecialists] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,9 +32,25 @@ export default function Specialists() {
       if (filters.city) params.set("city", filters.city);
 
       const data = await api(`/specialists?${params.toString()}`);
-      const list = filters.experience
+      let list = filters.experience
         ? data.specialists.filter((s) => s.experience_level === filters.experience)
         : data.specialists;
+
+      if (filters.priceMin) {
+        const min = Number(filters.priceMin);
+        list = list.filter((s) => {
+          const price = parseInt((s.hourly_price || "0").replace(/[^0-9]/g, ""));
+          return price >= min;
+        });
+      }
+      if (filters.priceMax) {
+        const max = Number(filters.priceMax);
+        list = list.filter((s) => {
+          const price = parseInt((s.hourly_price || "0").replace(/[^0-9]/g, ""));
+          return price <= max || price === 0;
+        });
+      }
+
       setSpecialists(list);
     } catch (err) {
       console.error(err);
@@ -68,7 +84,17 @@ export default function Specialists() {
     <div className="space-y-6">
       <FilterGroup label="Kategoriya" options={["", "IT", "Ta'lim"]} value={filters.category} onChange={(v) => setFilters({ ...filters, category: v })} />
       <FilterGroup label="Tajriba" options={["", "Junior", "Middle", "Senior", "Expert"]} value={filters.experience} onChange={(v) => setFilters({ ...filters, experience: v })} />
-      <FilterGroup label="Shahar" options={["", "Toshkent", "Samarqand", "Buxoro", "Farg'ona"]} value={filters.city} onChange={(v) => setFilters({ ...filters, city: v })} />
+      <FilterGroup label="Shahar" options={["", "Toshkent", "Samarqand", "Buxoro", "Farg'ona", "Namangan", "Xiva"]} value={filters.city} onChange={(v) => setFilters({ ...filters, city: v })} />
+      <div>
+        <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-2.5">Narx diapazoni (soatlik, so'm)</label>
+        <div className="flex gap-2 items-center">
+          <input type="number" value={filters.priceMin} onChange={(e) => setFilters({ ...filters, priceMin: e.target.value })}
+            placeholder="Min" className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:border-ink/30 outline-none" />
+          <span className="text-ink-3">—</span>
+          <input type="number" value={filters.priceMax} onChange={(e) => setFilters({ ...filters, priceMax: e.target.value })}
+            placeholder="Max" className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:border-ink/30 outline-none" />
+        </div>
+      </div>
     </div>
   );
 
@@ -115,9 +141,13 @@ export default function Specialists() {
               className="bg-white rounded-xl border border-border p-6 hover:border-ink/20 hover:shadow-md transition-all">
               <div className="flex items-start gap-3 mb-4">
                 <div className="relative">
-                  <div className="w-12 h-12 bg-surface rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
-                    {s.avatar || s.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-                  </div>
+                  {s.avatar ? (
+                    <img src={s.avatar} alt={s.name} className="w-12 h-12 rounded-xl object-cover" />
+                  ) : (
+                    <div className="w-12 h-12 bg-surface rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
+                      {s.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                    </div>
+                  )}
                   {!!s.online && (
                     <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-accent rounded-full border-2 border-white flex items-center justify-center">
                       <Wifi className="w-2 h-2 text-white" />
@@ -162,7 +192,9 @@ export default function Specialists() {
                   )}
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-ink-3">{s.hourly_price ? `${s.hourly_price} so'm/soat` : ""}</span>
+                  <span className="text-xs text-ink-3 flex items-center gap-1">
+                    {s.hourly_price && <><DollarSign className="w-3 h-3" /> {s.hourly_price} so'm/soat</>}
+                  </span>
                   <span className="text-sm font-medium text-ink">{s.salary}</span>
                 </div>
               </div>

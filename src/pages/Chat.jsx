@@ -8,9 +8,11 @@ export default function Chat() {
   const { user } = useAuth();
   const { sendMessage, joinChat, leaveChat, startTyping, stopTyping, onlineUsers, typingUsers } = useSocket();
   const [chats, setChats] = useState([]);
+  const [allChats, setAllChats] = useState([]);
   const [activeChat, setActiveChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
+  const [chatSearch, setChatSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [showMobileChat, setShowMobileChat] = useState(false);
@@ -25,6 +27,7 @@ export default function Chat() {
       try {
         const data = await api("/chats");
         setChats(data.chats);
+        setAllChats(data.chats);
         if (data.chats.length > 0) {
           setActiveChat(data.chats[0]);
         }
@@ -36,6 +39,15 @@ export default function Chat() {
     }
     loadChats();
   }, []);
+
+  useEffect(() => {
+    if (!chatSearch.trim()) {
+      setChats(allChats);
+    } else {
+      const q = chatSearch.toLowerCase();
+      setChats(allChats.filter((c) => (c.other_name || "").toLowerCase().includes(q)));
+    }
+  }, [chatSearch, allChats]);
 
   useEffect(() => {
     if (!activeChat) return;
@@ -118,6 +130,7 @@ export default function Chat() {
               <div className="relative">
                 <Search className="w-4 h-4 text-ink-3 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input type="text" placeholder="Suhbat qidirish..."
+                  value={chatSearch} onChange={(e) => setChatSearch(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 rounded-lg border border-border text-sm focus:border-ink/30 outline-none transition-colors" />
               </div>
             </div>

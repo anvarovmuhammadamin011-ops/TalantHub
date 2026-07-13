@@ -109,4 +109,18 @@ router.patch("/:id/status", authMiddleware, (req, res) => {
   }
 });
 
+router.delete("/:id", authMiddleware, (req, res) => {
+  try {
+    const application = db.prepare("SELECT * FROM applications WHERE id = ?").get(req.params.id);
+    if (!application) return res.status(404).json({ error: "Ariza topilmadi" });
+    if (application.user_id !== req.userId) return res.status(403).json({ error: "Ruxsat yo'q" });
+
+    db.prepare("DELETE FROM applications WHERE id = ?").run(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Application delete error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
 module.exports = router;

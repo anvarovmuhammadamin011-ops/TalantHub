@@ -10,6 +10,8 @@ export default function SpecialistProfile() {
   const [activeTab, setActiveTab] = useState("about");
   const [editing, setEditing] = useState(false);
   const [newSkill, setNewSkill] = useState("");
+  const [newCert, setNewCert] = useState({ name: "", year: "" });
+  const [newTimeline, setNewTimeline] = useState({ role: "", company: "", period: "", description: "" });
   const [orders, setOrders] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -36,6 +38,7 @@ export default function SpecialistProfile() {
         social_telegram: user.social_telegram || "",
         social_instagram: user.social_instagram || "",
         social_github: user.social_github || "",
+        avatar: user.avatar || "",
       });
     }
   }, [user]);
@@ -96,6 +99,28 @@ export default function SpecialistProfile() {
     }
   };
 
+  const addCert = async () => {
+    if (!newCert.name.trim()) return;
+    const certs = [...certificates, { name: newCert.name.trim(), year: newCert.year || "" }];
+    await updateProfile({ certificates: certs });
+    setNewCert({ name: "", year: "" });
+  };
+
+  const removeCert = async (idx) => {
+    await updateProfile({ certificates: certificates.filter((_, i) => i !== idx) });
+  };
+
+  const addTimeline = async () => {
+    if (!newTimeline.role.trim()) return;
+    const items = [...timeline, { ...newTimeline }];
+    await updateProfile({ timeline: items });
+    setNewTimeline({ role: "", company: "", period: "", description: "" });
+  };
+
+  const removeTimeline = async (idx) => {
+    await updateProfile({ timeline: timeline.filter((_, i) => i !== idx) });
+  };
+
   const tabs = [
     { id: "about", label: "Ma'lumotlar" },
     { id: "experience", label: "Tajriba" },
@@ -113,9 +138,13 @@ export default function SpecialistProfile() {
         </div>
         <div className="px-4 sm:px-6 pb-5 sm:pb-6 relative">
           <div className="absolute -top-8 sm:-top-10 left-4 sm:left-6">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-ink rounded-2xl flex items-center justify-center border-4 border-white shadow-md">
-              <span className="text-white text-lg sm:text-xl font-bold">{initials}</span>
-            </div>
+            {user.avatar ? (
+              <img src={user.avatar} alt={user.name} className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-4 border-white shadow-md" />
+            ) : (
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-ink rounded-2xl flex items-center justify-center border-4 border-white shadow-md">
+                <span className="text-white text-lg sm:text-xl font-bold">{initials}</span>
+              </div>
+            )}
           </div>
           <div className="pt-10 sm:pt-14">
             <div className="flex items-start justify-between gap-3">
@@ -182,6 +211,15 @@ export default function SpecialistProfile() {
                 <div className="space-y-6">
                   {editing ? (
                     <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Profil rasmi URL</label>
+                        <input value={form.avatar || ""} onChange={(e) => setForm({ ...form, avatar: e.target.value })}
+                          placeholder="https://example.com/photo.jpg"
+                          className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:border-ink/30 outline-none" />
+                        {form.avatar && (
+                          <img src={form.avatar} alt="Avatar" className="w-12 h-12 rounded-xl object-cover mt-2" />
+                        )}
+                      </div>
                       <div>
                         <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">O'zim haqimda</label>
                         <textarea value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} rows={3}
@@ -269,23 +307,45 @@ export default function SpecialistProfile() {
               )}
               {activeTab === "experience" && (
                 <div>
-                  {timeline.length === 0 && <p className="text-sm text-ink-3">Tajriba ma'lumotlari kiritilmagan</p>}
+                  {timeline.length === 0 && <p className="text-sm text-ink-3 mb-4">Tajriba ma'lumotlari kiritilmagan</p>}
                   {timeline.map((item, i) => (
                     <div key={i} className="flex gap-4">
                       <div className="flex flex-col items-center">
                         <div className={`w-3 h-3 rounded-full mt-1 ${i === 0 ? "bg-accent ring-4 ring-accent/10" : "bg-border"}`} />
                         {i < timeline.length - 1 && <div className="w-px flex-1 bg-border my-1" />}
                       </div>
-                      <div className="pb-8">
-                        <div className="text-xs text-ink-3 mb-1 flex items-center gap-1"><Clock className="w-3 h-3" /> {item.period || item.year}</div>
-                        <div className="font-semibold text-ink text-sm">{item.role || item.title}</div>
-                        <div className="text-sm text-ink-2">{item.company || item.place}</div>
-                        {(item.description || item.desc) && (
-                          <p className="text-xs text-ink-3 mt-2 leading-relaxed max-w-md">{item.description || item.desc}</p>
-                        )}
+                      <div className="pb-8 flex-1">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="text-xs text-ink-3 mb-1 flex items-center gap-1"><Clock className="w-3 h-3" /> {item.period || item.year}</div>
+                            <div className="font-semibold text-ink text-sm">{item.role || item.title}</div>
+                            <div className="text-sm text-ink-2">{item.company || item.place}</div>
+                            {(item.description || item.desc) && (
+                              <p className="text-xs text-ink-3 mt-2 leading-relaxed max-w-md">{item.description || item.desc}</p>
+                            )}
+                          </div>
+                          <button onClick={() => removeTimeline(i)} className="text-ink-3 hover:text-red-500 p-1"><X className="w-3 h-3" /></button>
+                        </div>
                       </div>
                     </div>
                   ))}
+                  <div className="bg-surface rounded-xl p-4 mt-2">
+                    <h4 className="text-xs font-medium text-ink-3 uppercase tracking-wide mb-3">Yangi tajriba qo'shish</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                      <input value={newTimeline.role} onChange={(e) => setNewTimeline({ ...newTimeline, role: e.target.value })}
+                        placeholder="Lavozim" className="px-3 py-2 rounded-lg border border-border text-sm focus:border-ink/30 outline-none bg-white" />
+                      <input value={newTimeline.company} onChange={(e) => setNewTimeline({ ...newTimeline, company: e.target.value })}
+                        placeholder="Kompaniya" className="px-3 py-2 rounded-lg border border-border text-sm focus:border-ink/30 outline-none bg-white" />
+                      <input value={newTimeline.period} onChange={(e) => setNewTimeline({ ...newTimeline, period: e.target.value })}
+                        placeholder="2020-2023" className="px-3 py-2 rounded-lg border border-border text-sm focus:border-ink/30 outline-none bg-white" />
+                    </div>
+                    <input value={newTimeline.description} onChange={(e) => setNewTimeline({ ...newTimeline, description: e.target.value })}
+                      placeholder="Vazifalar (ixtiyoriy)" className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:border-ink/30 outline-none bg-white mb-3" />
+                    <button onClick={addTimeline} disabled={!newTimeline.role.trim()}
+                      className="px-4 py-2 bg-ink text-white rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors flex items-center gap-1 disabled:opacity-60">
+                      <Plus className="w-4 h-4" /> Qo'shish
+                    </button>
+                  </div>
                 </div>
               )}
               {activeTab === "skills" && (
@@ -380,14 +440,25 @@ export default function SpecialistProfile() {
 
           <div className="bg-white rounded-xl border border-border p-4 sm:p-5">
             <h3 className="font-semibold text-ink text-xs sm:text-sm mb-3">Sertifikatlar</h3>
-            <div className="space-y-3">
+            <div className="space-y-3 mb-3">
               {certificates.length === 0 && <p className="text-[11px] sm:text-xs text-ink-3">Sertifikatlar qo'shilmagan</p>}
               {certificates.map((cert, i) => (
-                <div key={i} className="flex items-start gap-3">
+                <div key={i} className="flex items-start gap-3 group">
                   <div className="w-8 h-8 bg-surface rounded-lg flex items-center justify-center flex-shrink-0"><Award className="w-4 h-4 text-ink-2" /></div>
-                  <div className="min-w-0"><div className="text-sm font-medium text-ink truncate">{cert.name}</div><div className="text-xs text-ink-3">{cert.year}</div></div>
+                  <div className="min-w-0 flex-1"><div className="text-sm font-medium text-ink truncate">{cert.name}</div><div className="text-xs text-ink-3">{cert.year}</div></div>
+                  <button onClick={() => removeCert(i)} className="opacity-0 group-hover:opacity-100 text-ink-3 hover:text-red-500 p-1 transition-opacity"><X className="w-3 h-3" /></button>
                 </div>
               ))}
+            </div>
+            <div className="space-y-2">
+              <input value={newCert.name} onChange={(e) => setNewCert({ ...newCert, name: e.target.value })}
+                placeholder="Sertifikat nomi" className="w-full px-3 py-2 rounded-lg border border-border text-xs focus:border-ink/30 outline-none bg-white" />
+              <input value={newCert.year} onChange={(e) => setNewCert({ ...newCert, year: e.target.value })}
+                placeholder="Yil (masalan: 2024)" className="w-full px-3 py-2 rounded-lg border border-border text-xs focus:border-ink/30 outline-none bg-white" />
+              <button onClick={addCert} disabled={!newCert.name.trim()}
+                className="w-full px-3 py-2 bg-surface text-ink-2 rounded-lg text-xs font-medium hover:bg-border-soft transition-colors border border-border disabled:opacity-60 flex items-center justify-center gap-1">
+                <Plus className="w-3 h-3" /> Qo'shish
+              </button>
             </div>
           </div>
 

@@ -35,3 +35,5 @@ android/app/src/main/assets/capacitor.config.json
 *.njsproj
 *.sln
 *.sw?
+
+.claude/

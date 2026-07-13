@@ -16,6 +16,7 @@ import EmployerDashboard from "./pages/EmployerDashboard";
 import Chat from "./pages/Chat";
 import AiChat from "./pages/AiChat";
 import Statistics from "./pages/Statistics";
+import VacancyCreate from "./pages/VacancyCreate";
 import ScrollToTop from "./components/ScrollToTop";
 
 export default function App() {
@@ -30,6 +31,7 @@ export default function App() {
             <Route element={<Layout />}>
               <Route path="/" element={<Landing />} />
               <Route path="/vacancies" element={<Vacancies />} />
+              <Route path="/vacancies/new" element={<VacancyCreate />} />
               <Route path="/vacancies/:id" element={<VacancyDetail />} />
               <Route path="/specialists" element={<Specialists />} />
               <Route path="/specialists/:id" element={<SpecialistDetail />} />
