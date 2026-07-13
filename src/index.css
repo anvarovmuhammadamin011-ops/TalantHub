@@ -17,7 +17,6 @@
   --color-danger-soft: #FEF2F2;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 
-  /* legacy aliases kept during migration */
   --color-primary: var(--color-ink);
   --color-primary-light: var(--color-ink-2);
   --color-primary-dark: #000000;
@@ -37,6 +36,7 @@
 
   html {
     scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {
@@ -46,16 +46,30 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     letter-spacing: -0.011em;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
   }
 
   ::selection {
     background-color: var(--color-accent-soft);
     color: var(--color-accent);
   }
+
+  input, textarea, select {
+    font-size: 16px !important;
+  }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }
