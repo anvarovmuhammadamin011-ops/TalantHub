@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useLocation, Navigate } from "react-router-dom";
-import { LogIn, Mail, Lock } from "lucide-react";
+import { LogIn, Mail, Lock, Info } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
@@ -10,7 +10,6 @@ export default function Login() {
   const { login, isLoggedIn, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-
   const [submitting, setSubmitting] = useState(false);
 
   if (!loading && isLoggedIn) {
@@ -32,6 +31,12 @@ export default function Login() {
     } else {
       setError(result.error);
     }
+  };
+
+  const fillDemo = (demoEmail, demoPassword) => {
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    setError("");
   };
 
   return (
@@ -101,6 +106,41 @@ export default function Login() {
               Ro'yxatdan o'ting
             </Link>
           </p>
+        </div>
+
+        {/* Demo Accounts */}
+        <div className="bg-white rounded-2xl border border-border p-6 mt-4">
+          <div className="flex items-center gap-2 mb-4">
+            <Info className="w-4 h-4 text-ink-3" />
+            <h3 className="text-sm font-semibold text-ink">Demo akkauntlar</h3>
+          </div>
+          <div className="space-y-2">
+            <button
+              onClick={() => fillDemo("aziz@demo.com", "12345678")}
+              className="w-full text-left p-3 bg-surface rounded-lg hover:bg-border-soft transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium text-ink">Aziz Karimov</div>
+                  <div className="text-xs text-ink-3">aziz@demo.com</div>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 bg-ink/5 text-ink-3 rounded-full">IT</span>
+              </div>
+            </button>
+            <button
+              onClick={() => fillDemo("nilufar@demo.com", "12345678")}
+              className="w-full text-left p-3 bg-surface rounded-lg hover:bg-border-soft transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium text-ink">Nilufar Rahimova</div>
+                  <div className="text-xs text-ink-3">nilufar@demo.com</div>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 bg-ink/5 text-ink-3 rounded-full">Ta'lim</span>
+              </div>
+            </button>
+          </div>
+          <p className="text-[10px] text-ink-3 mt-3 text-center">Parol: 12345678</p>
         </div>
       </div>
     </div>

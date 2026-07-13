@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { api, getToken, setToken } from "../lib/api";
+import { getToken, setToken, api } from "../lib/api";
 
 const AuthContext = createContext(null);
 
@@ -9,7 +9,8 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     async function loadSession() {
-      if (!getToken()) {
+      const token = getToken();
+      if (!token) {
         setLoading(false);
         return;
       }
@@ -32,7 +33,7 @@ export function AuthProvider({ children }) {
       setUser(user);
       return { success: true };
     } catch (err) {
-      return { success: false, error: err.message };
+      return { success: false, error: err.message || "Xatolik yuz berdi" };
     }
   };
 
@@ -43,7 +44,7 @@ export function AuthProvider({ children }) {
       setUser(user);
       return { success: true };
     } catch (err) {
-      return { success: false, error: err.message };
+      return { success: false, error: err.message || "Xatolik yuz berdi" };
     }
   };
 
