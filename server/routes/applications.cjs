@@ -80,7 +80,28 @@ router.post("/", authMiddleware, (req, res) => {
 router.patch("/:id/status", authMiddleware, (req, res) => {
   try {
     const { status } = req.body;
+
+    const application = db.prepare(`
+      SELECT a.*, v.employer_id FROM applications a
+      JOIN vacancies v ON a.vacancy_id = v.id
+      WHERE a.id = ?
+    `).get(req.params.id);
+
+    if (!application) return res.status(404).json({ error: "Ariza topilmadi" });
+    if (application.employer_id !== req.userId) return res.status(403).json({ error: "Ruxsat yo'q" });
+
     db.prepare("UPDATE applications SET status = ? WHERE id = ?").run(status, req.params.id);
+
+    db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'application', 'Ariza yangilandi', ?, '/applications')`).run(
+      application.user_id, `Arizangiz holati "${status}" ga o'zgartirildi`
+    );
+
+    if (req.app.get("io")) {
+      req.app.get("io").to(`user_${application.user_id}`).emit("notification", {
+        type: "application", title: "Ariza yangilandi", description: `Arizangiz holati "${status}" ga o'zgartirildi`
+      });
+    }
+
     res.json({ success: true });
   } catch (err) {
     console.error("Application update error:", err);

@@ -1,6 +1,22 @@
 const jwt = require("jsonwebtoken");
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
 
-const JWT_SECRET = process.env.JWT_SECRET || "talenthub_secret_key_2026";
+function loadOrCreateSecret() {
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+
+  const secretPath = path.join(__dirname, "../.jwt_secret");
+  if (fs.existsSync(secretPath)) {
+    return fs.readFileSync(secretPath, "utf8").trim();
+  }
+
+  const secret = crypto.randomBytes(48).toString("hex");
+  fs.writeFileSync(secretPath, secret, { mode: 0o600 });
+  return secret;
+}
+
+const JWT_SECRET = loadOrCreateSecret();
 
 function authMiddleware(req, res, next) {
   const header = req.headers.authorization;

@@ -25,7 +25,14 @@ const io = new Server(server, { cors: { origin: "*" } });
 app.set("io", io);
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
+
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  next();
+});
 
 app.use("/api/auth", authRoutes);
 app.use("/api/vacancies", vacancyRoutes);
@@ -50,7 +57,13 @@ io.on("connection", (socket) => {
 
     io.emit("user_online", { userId, online: true });
 
+    function isChatMember(chatId) {
+      const chat = db.prepare("SELECT * FROM chats WHERE id = ?").get(chatId);
+      return chat && (chat.user1_id === userId || chat.user2_id === userId);
+    }
+
     socket.on("join_chat", (chatId) => {
+      if (!isChatMember(chatId)) return;
       socket.join(`chat_${chatId}`);
     });
 
@@ -59,7 +72,7 @@ io.on("connection", (socket) => {
     });
 
     socket.on("send_message", ({ chatId, text }) => {
-      if (!text || !chatId) return;
+      if (!text || !chatId || !isChatMember(chatId)) return;
 
       const result = db.prepare("INSERT INTO messages (chat_id, sender_id, text) VALUES (?, ?, ?)").run(chatId, userId, text);
 
@@ -81,10 +94,12 @@ io.on("connection", (socket) => {
     });
 
     socket.on("typing", ({ chatId }) => {
+      if (!isChatMember(chatId)) return;
       socket.to(`chat_${chatId}`).emit("user_typing", { userId, chatId });
     });
 
     socket.on("stop_typing", ({ chatId }) => {
+      if (!isChatMember(chatId)) return;
       socket.to(`chat_${chatId}`).emit("user_stop_typing", { userId, chatId });
     });
 

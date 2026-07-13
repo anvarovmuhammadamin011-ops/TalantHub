@@ -28,8 +28,19 @@ router.get("/", authMiddleware, (req, res) => {
   }
 });
 
+function assertChatMember(chatId, userId) {
+  const chat = db.prepare("SELECT * FROM chats WHERE id = ?").get(chatId);
+  if (!chat) return null;
+  if (chat.user1_id !== userId && chat.user2_id !== userId) return false;
+  return chat;
+}
+
 router.get("/:id/messages", authMiddleware, (req, res) => {
   try {
+    const chat = assertChatMember(req.params.id, req.userId);
+    if (chat === null) return res.status(404).json({ error: "Suhbat topilmadi" });
+    if (chat === false) return res.status(403).json({ error: "Ruxsat yo'q" });
+
     const messages = db.prepare(`
       SELECT m.*, u.name as sender_name
       FROM messages m
@@ -49,6 +60,10 @@ router.get("/:id/messages", authMiddleware, (req, res) => {
 
 router.post("/:id/messages", authMiddleware, (req, res) => {
   try {
+    const chat = assertChatMember(req.params.id, req.userId);
+    if (chat === null) return res.status(404).json({ error: "Suhbat topilmadi" });
+    if (chat === false) return res.status(403).json({ error: "Ruxsat yo'q" });
+
     const { text } = req.body;
     if (!text) return res.status(400).json({ error: "Xabar matni kerak" });
 

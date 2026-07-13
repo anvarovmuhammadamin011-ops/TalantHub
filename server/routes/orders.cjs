@@ -82,6 +82,9 @@ router.patch("/:id/status", authMiddleware, (req, res) => {
     const { status } = req.body;
     const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(req.params.id);
     if (!order) return res.status(404).json({ error: "Zakaz topilmadi" });
+    if (order.employer_id !== req.userId && order.specialist_id !== req.userId) {
+      return res.status(403).json({ error: "Ruxsat yo'q" });
+    }
 
     db.prepare("UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(status, req.params.id);
 

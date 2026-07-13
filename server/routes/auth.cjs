@@ -3,10 +3,12 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const db = require("../db.cjs");
 const { authMiddleware, JWT_SECRET } = require("../middleware/auth.cjs");
+const { rateLimit } = require("../middleware/rateLimit.cjs");
 
 const router = express.Router();
+const authRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
 
-router.post("/register", (req, res) => {
+router.post("/register", authRateLimit, (req, res) => {
   try {
     const { name, email, password, phone, city, role, fields, categories, category } = req.body;
 
@@ -47,7 +49,7 @@ router.post("/register", (req, res) => {
   }
 });
 
-router.post("/login", (req, res) => {
+router.post("/login", authRateLimit, (req, res) => {
   try {
     const { email, password } = req.body;
 
