@@ -1,23 +1,49 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Search, SlidersHorizontal, MapPin, Star, Wifi, WifiOff } from "lucide-react";
-import { specialists } from "../data/mockData";
+import { Search, SlidersHorizontal, MapPin, Star, Wifi } from "lucide-react";
+import { api } from "../lib/api";
+import { computeMatch } from "../lib/format";
+import { useAuth } from "../context/AuthContext";
 import MatchIndicator from "../components/ui/MatchIndicator";
 import StatusBadge from "../components/ui/StatusBadge";
 import VerifiedBadge from "../components/ui/VerifiedBadge";
 
 export default function Specialists() {
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({ category: "", experience: "", city: "" });
+  const [specialists, setSpecialists] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = specialists.filter((s) => {
-    if (search && !s.name.toLowerCase().includes(search.toLowerCase()) && !s.title.toLowerCase().includes(search.toLowerCase())) return false;
-    if (filters.category && s.category !== filters.category) return false;
-    if (filters.experience && s.experienceLevel !== filters.experience) return false;
-    if (filters.city && s.location !== filters.city) return false;
-    return true;
-  });
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      loadSpecialists();
+    }, 250);
+    return () => clearTimeout(timeout);
+  }, [search, filters]);
+
+  const loadSpecialists = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (search) params.set("search", search);
+      if (filters.category) params.set("category", filters.category);
+      if (filters.city) params.set("city", filters.city);
+
+      const data = await api(`/specialists?${params.toString()}`);
+      const list = filters.experience
+        ? data.specialists.filter((s) => s.experience_level === filters.experience)
+        : data.specialists;
+      setSpecialists(list);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filtered = specialists.map((s) => ({ ...s, matchPercent: computeMatch(user?.skills, s.skills) }));
 
   const FilterGroup = ({ label, options, value, onChange }) => (
     <div>
@@ -41,7 +67,7 @@ export default function Specialists() {
   const FilterPanel = () => (
     <div className="space-y-6">
       <FilterGroup label="Kategoriya" options={["", "IT", "Ta'lim"]} value={filters.category} onChange={(v) => setFilters({ ...filters, category: v })} />
-      <FilterGroup label="Tajriba" options={["", "Junior", "Middle", "Senior"]} value={filters.experience} onChange={(v) => setFilters({ ...filters, experience: v })} />
+      <FilterGroup label="Tajriba" options={["", "Junior", "Middle", "Senior", "Expert"]} value={filters.experience} onChange={(v) => setFilters({ ...filters, experience: v })} />
       <FilterGroup label="Shahar" options={["", "Toshkent", "Samarqand", "Buxoro", "Farg'ona"]} value={filters.city} onChange={(v) => setFilters({ ...filters, city: v })} />
     </div>
   );
@@ -80,68 +106,72 @@ export default function Specialists() {
         </div>
       )}
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {filtered.map((s) => (
-          <Link key={s.id} to="/profile"
-            className="bg-white rounded-xl border border-border p-6 hover:border-ink/20 hover:shadow-md transition-all">
-            <div className="flex items-start gap-3 mb-4">
-              <div className="relative">
-                <div className="w-12 h-12 bg-surface rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
-                  {s.avatar}
-                </div>
-                {s.online && (
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-accent rounded-full border-2 border-white flex items-center justify-center">
-                    <Wifi className="w-2 h-2 text-white" />
+      {loading && <div className="text-center py-20 text-ink-3 text-sm">Yuklanmoqda...</div>}
+
+      {!loading && (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filtered.map((s) => (
+            <Link key={s.id} to={`/specialists/${s.id}`}
+              className="bg-white rounded-xl border border-border p-6 hover:border-ink/20 hover:shadow-md transition-all">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="relative">
+                  <div className="w-12 h-12 bg-surface rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
+                    {s.avatar || s.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
                   </div>
-                )}
+                  {!!s.online && (
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-accent rounded-full border-2 border-white flex items-center justify-center">
+                      <Wifi className="w-2 h-2 text-white" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="font-semibold text-ink truncate text-sm">{s.name}</h3>
+                    {!!s.verified && <VerifiedBadge size="sm" />}
+                  </div>
+                  <p className="text-sm text-ink-2 truncate">{s.category}</p>
+                  <div className="flex items-center gap-1.5 text-xs text-ink-3 mt-1">
+                    <MapPin className="w-3 h-3" /> {s.city}
+                    <span>·</span>
+                    <span>{s.experience}</span>
+                  </div>
+                </div>
+                <MatchIndicator percent={s.matchPercent} />
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <h3 className="font-semibold text-ink truncate text-sm">{s.name}</h3>
-                  {s.verified && <VerifiedBadge size="sm" />}
-                </div>
-                <p className="text-sm text-ink-2 truncate">{s.title}</p>
-                <div className="flex items-center gap-1.5 text-xs text-ink-3 mt-1">
-                  <MapPin className="w-3 h-3" /> {s.location}
-                  <span>·</span>
-                  <span>{s.experience}</span>
-                </div>
-              </div>
-              <MatchIndicator percent={s.matchPercent} />
-            </div>
 
-            <div className="flex flex-wrap gap-1.5 mb-4">
-              <StatusBadge status={s.experienceLevel} />
-              {s.tags.slice(0, 3).map((tag) => (
-                <span key={tag} className="px-2 py-1 bg-surface text-ink-2 rounded-full text-xs font-medium">
-                  {tag}
-                </span>
-              ))}
-            </div>
-
-            <div className="pt-4 border-t border-border-soft">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1 text-sm">
-                  <Star className="w-3.5 h-3.5 text-ink fill-ink" />
-                  <span className="font-medium text-ink">{s.rating}</span>
-                  <span className="text-ink-3">({s.reviews})</span>
-                </div>
-                {s.online && (
-                  <span className="flex items-center gap-1 text-xs text-accent font-medium">
-                    <Wifi className="w-3 h-3" /> Online
+              <div className="flex flex-wrap gap-1.5 mb-4">
+                <StatusBadge status={s.experience_level} />
+                {s.skills.slice(0, 3).map((tag) => (
+                  <span key={tag} className="px-2 py-1 bg-surface text-ink-2 rounded-full text-xs font-medium">
+                    {tag}
                   </span>
-                )}
+                ))}
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-ink-3">{s.hourlyPrice}</span>
-                <span className="text-sm font-medium text-ink">{s.salary}</span>
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
 
-      {filtered.length === 0 && (
+              <div className="pt-4 border-t border-border-soft">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1 text-sm">
+                    <Star className="w-3.5 h-3.5 text-ink fill-ink" />
+                    <span className="font-medium text-ink">{s.rating}</span>
+                    <span className="text-ink-3">({s.reviews_count})</span>
+                  </div>
+                  {!!s.online && (
+                    <span className="flex items-center gap-1 text-xs text-accent font-medium">
+                      <Wifi className="w-3 h-3" /> Online
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-ink-3">{s.hourly_price ? `${s.hourly_price} so'm/soat` : ""}</span>
+                  <span className="text-sm font-medium text-ink">{s.salary}</span>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {!loading && filtered.length === 0 && (
         <div className="text-center py-20">
           <div className="w-14 h-14 mx-auto flex items-center justify-center rounded-full bg-surface border border-border text-2xl mb-5">👤</div>
           <h3 className="text-base font-semibold text-ink mb-1.5">Mutaxassis topilmadi</h3>

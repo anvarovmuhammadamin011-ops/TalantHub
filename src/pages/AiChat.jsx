@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Send, Sparkles, Bot, MapPin, Star, Briefcase } from "lucide-react";
 import { generateGreeting, generateResponse } from "../lib/aiSearch";
+import { api } from "../lib/api";
 import VerifiedBadge from "../components/ui/VerifiedBadge";
 import StatusBadge from "../components/ui/StatusBadge";
 
@@ -15,10 +17,12 @@ export default function AiChat() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [specialists, setSpecialists] = useState([]);
   const chatEndRef = useRef(null);
 
   useEffect(() => {
     setMessages([{ id: 0, role: "ai", text: generateGreeting(), specialists: [] }]);
+    api("/specialists").then((data) => setSpecialists(data.specialists)).catch((err) => console.error(err));
   }, []);
 
   useEffect(() => {
@@ -32,7 +36,7 @@ export default function AiChat() {
     setMessages((prev) => [...prev, { id: Date.now(), role: "user", text: msg }]);
     setIsTyping(true);
     await new Promise((r) => setTimeout(r, 600 + Math.random() * 800));
-    const response = generateResponse(msg);
+    const response = generateResponse(msg, specialists);
     setMessages((prev) => [...prev, { id: Date.now() + 1, role: "ai", text: response.text, specialists: response.specialists }]);
     setIsTyping(false);
   };
@@ -66,7 +70,7 @@ export default function AiChat() {
                   {msg.specialists && msg.specialists.length > 0 && (
                     <div className="mt-4 space-y-3">
                       {msg.specialists.map((s) => (
-                        <div key={s.id} className="bg-white rounded-xl border border-border p-4 hover:border-ink/20 hover:shadow-sm transition-all">
+                        <Link key={s.id} to={`/specialists/${s.id}`} className="block bg-white rounded-xl border border-border p-4 hover:border-ink/20 hover:shadow-sm transition-all">
                           <div className="flex items-start gap-3">
                             <div className="w-12 h-12 bg-ink rounded-xl flex items-center justify-center flex-shrink-0">
                               <span className="text-white font-semibold text-sm">{s.name.split(" ").map((n) => n[0]).join("")}</span>
@@ -74,17 +78,17 @@ export default function AiChat() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5">
                                 <h3 className="font-semibold text-ink text-sm">{s.name}</h3>
-                                {s.verified && <VerifiedBadge size="sm" />}
+                                {!!s.verified && <VerifiedBadge size="sm" />}
                               </div>
-                              <p className="text-xs text-ink-2 mt-0.5">{s.title}</p>
+                              <p className="text-xs text-ink-2 mt-0.5">{s.category}</p>
                               <div className="flex items-center gap-3 mt-1.5 text-xs text-ink-3">
                                 <span className="flex items-center gap-1"><Star className="w-3 h-3 text-ink fill-ink" /> {s.rating}</span>
                                 <span className="flex items-center gap-1"><Briefcase className="w-3 h-3" /> {s.experience}</span>
-                                <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {s.location}</span>
+                                <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {s.city}</span>
                               </div>
                               <div className="flex flex-wrap gap-1 mt-2">
-                                <StatusBadge status={s.experienceLevel} />
-                                {s.tags.slice(0, 3).map((tag) => (
+                                <StatusBadge status={s.experience_level} />
+                                {(s.skills || []).slice(0, 3).map((tag) => (
                                   <span key={tag} className="px-1.5 py-0.5 bg-surface text-ink-3 rounded text-[10px] font-medium">{tag}</span>
                                 ))}
                               </div>
@@ -93,7 +97,7 @@ export default function AiChat() {
                               )}
                             </div>
                           </div>
-                        </div>
+                        </Link>
                       ))}
                     </div>
                   )}

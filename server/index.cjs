@@ -16,6 +16,7 @@ const applicationRoutes = require("./routes/applications.cjs");
 const chatRoutes = require("./routes/chats.cjs");
 const orderRoutes = require("./routes/orders.cjs");
 const notificationRoutes = require("./routes/notifications.cjs");
+const statsRoutes = require("./routes/stats.cjs");
 
 const app = express();
 const server = http.createServer(app);
@@ -33,6 +34,7 @@ app.use("/api/applications", applicationRoutes);
 app.use("/api/chats", chatRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/stats", statsRoutes);
 
 io.on("connection", (socket) => {
   const token = socket.handshake.auth?.token;

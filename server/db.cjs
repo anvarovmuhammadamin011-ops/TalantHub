@@ -83,6 +83,8 @@ db.exec(`
     deadline TEXT DEFAULT '',
     status TEXT DEFAULT 'Yangi',
     priority TEXT DEFAULT "O'rta",
+    rating INTEGER DEFAULT 0,
+    review TEXT DEFAULT '',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (employer_id) REFERENCES users(id),
@@ -121,5 +123,15 @@ db.exec(`
     FOREIGN KEY (sender_id) REFERENCES users(id)
   );
 `);
+
+try {
+  db.exec(`ALTER TABLE orders ADD COLUMN rating INTEGER DEFAULT 0`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE orders ADD COLUMN review TEXT DEFAULT ''`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN profile_updated_at DATETIME`);
+} catch (e) {}
 
 module.exports = db;

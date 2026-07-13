@@ -53,6 +53,27 @@ router.get("/", (req, res) => {
   }
 });
 
+router.get("/mine", authMiddleware, (req, res) => {
+  try {
+    const vacancies = db.prepare(`
+      SELECT v.*, (SELECT COUNT(*) FROM applications a WHERE a.vacancy_id = v.id) as applications_count
+      FROM vacancies v
+      WHERE v.employer_id = ?
+      ORDER BY v.created_at DESC
+    `).all(req.userId).map((v) => ({
+      ...v,
+      tags: JSON.parse(v.tags),
+      requirements: JSON.parse(v.requirements),
+      conditions: JSON.parse(v.conditions),
+    }));
+
+    res.json({ vacancies });
+  } catch (err) {
+    console.error("My vacancies error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
 router.get("/:id", (req, res) => {
   try {
     const vacancy = db.prepare(`

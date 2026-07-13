@@ -112,4 +112,45 @@ router.patch("/:id/status", authMiddleware, (req, res) => {
   }
 });
 
+router.patch("/:id/rate", authMiddleware, (req, res) => {
+  try {
+    const { rating, review } = req.body;
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: "Baholash 1-5 orasida bo'lishi kerak" });
+    }
+
+    const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(req.params.id);
+    if (!order) return res.status(404).json({ error: "Zakaz topilmadi" });
+    if (order.status !== "Tugatildi") return res.status(400).json({ error: "Faqat tugatilgan zakazlarni baholash mumkin" });
+    if (order.employer_id !== req.userId) return res.status(403).json({ error: "Faqat employer baholashi mumkin" });
+
+    db.prepare("UPDATE orders SET rating = ?, review = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(
+      rating, review || "", req.params.id
+    );
+
+    const specialist = db.prepare("SELECT rating, reviews_count FROM users WHERE id = ?").get(order.specialist_id);
+    if (specialist) {
+      const oldTotal = specialist.rating * specialist.reviews_count;
+      const newCount = specialist.reviews_count + 1;
+      const newRating = Math.round(((oldTotal + rating) / newCount) * 10) / 10;
+      db.prepare("UPDATE users SET rating = ?, reviews_count = ? WHERE id = ?").run(newRating, newCount, order.specialist_id);
+    }
+
+    db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'review', 'Baholash', ?, '/orders')`).run(
+      order.specialist_id, `"${order.title}" zakazi ${rating} yulduz bilan baholandi`
+    );
+
+    if (req.app.get("io")) {
+      req.app.get("io").to(`user_${order.specialist_id}`).emit("notification", {
+        type: "review", title: "Baholash", description: `"${order.title}" zakazi ${rating} yulduz bilan baholandi`
+      });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Order rate error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
 module.exports = router;

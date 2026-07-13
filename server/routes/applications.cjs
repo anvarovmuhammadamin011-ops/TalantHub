@@ -30,6 +30,27 @@ router.get("/", authMiddleware, (req, res) => {
   }
 });
 
+router.get("/employer", authMiddleware, (req, res) => {
+  try {
+    const applications = db.prepare(`
+      SELECT a.*, v.title as vacancy_title, v.id as vacancy_id_ref,
+             u.name as specialist_name, u.category as specialist_category, u.avatar as specialist_avatar,
+             u.rating as specialist_rating, u.reviews_count as specialist_reviews, u.experience as specialist_experience,
+             u.orders_count as specialist_orders
+      FROM applications a
+      JOIN vacancies v ON a.vacancy_id = v.id
+      JOIN users u ON a.user_id = u.id
+      WHERE v.employer_id = ?
+      ORDER BY a.created_at DESC
+    `).all(req.userId);
+
+    res.json({ applications });
+  } catch (err) {
+    console.error("Employer applications error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
 router.post("/", authMiddleware, (req, res) => {
   try {
     const { vacancy_id } = req.body;
@@ -40,7 +61,7 @@ router.post("/", authMiddleware, (req, res) => {
 
     const matchPercent = Math.floor(60 + Math.random() * 35);
 
-    const result = db.prepare("INSERT INTO applications (vacancy_id, user_id, status, match_percent) VALUES (?, ?, 'Ko'rib chiqilmoqda', ?)").run(vacancy_id, req.userId, matchPercent);
+    const result = db.prepare("INSERT INTO applications (vacancy_id, user_id, status, match_percent) VALUES (?, ?, ?, ?)").run(vacancy_id, req.userId, "Ko'rib chiqilmoqda", matchPercent);
 
     const application = db.prepare(`
       SELECT a.*, v.title as vacancy_title, v.company, v.salary, v.location

@@ -28,6 +28,11 @@ export default function Orders() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [updatingId, setUpdatingId] = useState(null);
+  const [ratingModal, setRatingModal] = useState(null);
+  const [ratingValue, setRatingValue] = useState(0);
+  const [ratingHover, setRatingHover] = useState(0);
+  const [ratingText, setRatingText] = useState("");
+  const [submittingRating, setSubmittingRating] = useState(false);
 
   useEffect(() => {
     loadOrders();
@@ -57,6 +62,25 @@ export default function Orders() {
     }
   };
 
+  const submitRating = async () => {
+    if (!ratingValue || !ratingModal) return;
+    setSubmittingRating(true);
+    try {
+      await api(`/orders/${ratingModal.id}/rate`, {
+        method: "PATCH",
+        body: { rating: ratingValue, review: ratingText },
+      });
+      setRatingModal(null);
+      setRatingValue(0);
+      setRatingText("");
+      await loadOrders();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSubmittingRating(false);
+    }
+  };
+
   const filtered = filter === "all" ? orders : orders.filter((o) => o.status === filter);
 
   const isEmployer = user?.role === "employer";
@@ -72,7 +96,6 @@ export default function Orders() {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[
           { label: "Jami", value: stats.total, icon: Package, color: "bg-ink/5 text-ink" },
@@ -92,7 +115,6 @@ export default function Orders() {
         ))}
       </div>
 
-      {/* Filter */}
       <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
         {["all", "Yangi", "Qabul qilindi", "Jarayonda", "Tugatildi", "Bekor qilindi"].map((f) => (
           <button key={f} onClick={() => setFilter(f)}
@@ -104,7 +126,6 @@ export default function Orders() {
         ))}
       </div>
 
-      {/* Orders list */}
       {loading ? (
         <div className="text-center py-20 text-ink-3">Yuklanmoqda...</div>
       ) : filtered.length === 0 ? (
@@ -143,7 +164,15 @@ export default function Orders() {
                         <span>Muddat: {order.deadline || "Belgilanmagan"}</span>
                       </div>
                       <span>{isEmployer ? order.specialist_name : order.employer_name}</span>
+                      {order.rating > 0 && (
+                        <span className="flex items-center gap-1 text-amber-500">
+                          <Star className="w-3.5 h-3.5 fill-amber-500" /> {order.rating}
+                        </span>
+                      )}
                     </div>
+                    {order.review && (
+                      <p className="text-xs text-ink-3 mt-2 italic">"{order.review}"</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {order.status === "Yangi" && !isEmployer && (
@@ -170,6 +199,12 @@ export default function Orders() {
                         Tugatish
                       </button>
                     )}
+                    {order.status === "Tugatildi" && isEmployer && !order.rating && (
+                      <button onClick={() => { setRatingModal(order); setRatingValue(0); setRatingText(""); }}
+                        className="px-4 py-2 bg-amber-50 text-amber-600 text-sm font-medium rounded-lg hover:bg-amber-100 transition-colors flex items-center gap-1">
+                        <Star className="w-4 h-4" /> Baholash
+                      </button>
+                    )}
                     <Link to="/chat" className="w-9 h-9 flex items-center justify-center rounded-lg bg-surface text-ink-2 hover:bg-border-soft transition-colors">
                       <MessageSquare className="w-4 h-4" />
                     </Link>
@@ -178,6 +213,37 @@ export default function Orders() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {ratingModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setRatingModal(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-ink text-lg mb-1">Baholash</h3>
+            <p className="text-sm text-ink-3 mb-4">"{ratingModal.title}" zakazini baholang</p>
+            <div className="flex items-center justify-center gap-2 mb-4">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button key={star} onMouseEnter={() => setRatingHover(star)} onMouseLeave={() => setRatingHover(0)}
+                  onClick={() => setRatingValue(star)}
+                  className="transition-transform hover:scale-110">
+                  <Star className={`w-8 h-8 ${(ratingHover || ratingValue) >= star ? "text-amber-400 fill-amber-400" : "text-gray-200"}`} />
+                </button>
+              ))}
+            </div>
+            <textarea value={ratingText} onChange={(e) => setRatingText(e.target.value)}
+              placeholder="Ixtiyoriy izoh..." rows={3}
+              className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:border-ink/30 outline-none resize-none mb-4" />
+            <div className="flex gap-2">
+              <button onClick={() => setRatingModal(null)}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-border text-ink-2 text-sm font-medium hover:bg-surface transition-colors">
+                Bekor qilish
+              </button>
+              <button onClick={submitRating} disabled={!ratingValue || submittingRating}
+                className="flex-1 px-4 py-2.5 bg-ink text-white rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors disabled:opacity-60">
+                {submittingRating ? "Yuborilmoqda..." : "Yuborish"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Vacancies from "./pages/Vacancies";
 import VacancyDetail from "./pages/VacancyDetail";
 import SpecialistProfile from "./pages/SpecialistProfile";
+import SpecialistDetail from "./pages/SpecialistDetail";
 import Specialists from "./pages/Specialists";
 import Applications from "./pages/Applications";
 import Orders from "./pages/Orders";
@@ -15,10 +16,12 @@ import EmployerDashboard from "./pages/EmployerDashboard";
 import Chat from "./pages/Chat";
 import AiChat from "./pages/AiChat";
 import Statistics from "./pages/Statistics";
+import ScrollToTop from "./components/ScrollToTop";
 
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <ErrorBoundary>
         <Routes>
           <Route path="/register" element={<Register />} />
@@ -29,6 +32,7 @@ export default function App() {
               <Route path="/vacancies" element={<Vacancies />} />
               <Route path="/vacancies/:id" element={<VacancyDetail />} />
               <Route path="/specialists" element={<Specialists />} />
+              <Route path="/specialists/:id" element={<SpecialistDetail />} />
               <Route path="/profile" element={<SpecialistProfile />} />
               <Route path="/applications" element={<Applications />} />
               <Route path="/orders" element={<Orders />} />

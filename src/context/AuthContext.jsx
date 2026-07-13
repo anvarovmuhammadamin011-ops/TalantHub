@@ -51,11 +51,20 @@ export function AuthProvider({ children }) {
   const logout = () => {
     setToken(null);
     setUser(null);
-    localStorage.removeItem("talenthub_mock_user");
+  };
+
+  const updateProfile = async (fields) => {
+    try {
+      const { user } = await api("/auth/me", { method: "PATCH", body: fields });
+      setUser(user);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message || "Xatolik yuz berdi" };
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, register, login, logout, isLoggedIn: !!user, loading }}>
+    <AuthContext.Provider value={{ user, register, login, logout, updateProfile, isLoggedIn: !!user, loading }}>
       {children}
     </AuthContext.Provider>
   );

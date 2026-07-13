@@ -99,4 +99,67 @@ router.get("/me", authMiddleware, (req, res) => {
   }
 });
 
+const EDITABLE_FIELDS = [
+  "bio", "phone", "city", "avatar", "experience", "experience_level",
+  "salary", "hourly_price", "social_telegram", "social_instagram", "social_github",
+];
+const EDITABLE_JSON_FIELDS = ["skills", "certificates", "timeline"];
+const PROFILE_EDIT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+router.patch("/me", authMiddleware, (req, res) => {
+  try {
+    const touchesProfileFields = EDITABLE_FIELDS.some((key) => req.body[key] !== undefined);
+
+    if (touchesProfileFields) {
+      const current = db.prepare("SELECT profile_updated_at FROM users WHERE id = ?").get(req.userId);
+      if (current?.profile_updated_at) {
+        const elapsed = Date.now() - new Date(current.profile_updated_at + "Z").getTime();
+        if (elapsed < PROFILE_EDIT_COOLDOWN_MS) {
+          return res.status(429).json({
+            error: "Profilni faqat 24 soatda bir marta tahrirlash mumkin",
+            retry_after_seconds: Math.ceil((PROFILE_EDIT_COOLDOWN_MS - elapsed) / 1000),
+          });
+        }
+      }
+    }
+
+    const sets = [];
+    const params = [];
+
+    for (const key of EDITABLE_FIELDS) {
+      if (req.body[key] !== undefined) {
+        sets.push(`${key} = ?`);
+        params.push(req.body[key]);
+      }
+    }
+    for (const key of EDITABLE_JSON_FIELDS) {
+      if (req.body[key] !== undefined) {
+        sets.push(`${key} = ?`);
+        params.push(JSON.stringify(req.body[key]));
+      }
+    }
+
+    if (sets.length === 0) {
+      return res.status(400).json({ error: "Yangilanadigan maydon topilmadi" });
+    }
+
+    if (touchesProfileFields) sets.push("profile_updated_at = CURRENT_TIMESTAMP");
+    params.push(req.userId);
+    db.prepare(`UPDATE users SET ${sets.join(", ")} WHERE id = ?`).run(...params);
+
+    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
+    const { password, ...safe } = user;
+    safe.fields = JSON.parse(safe.fields);
+    safe.categories = JSON.parse(safe.categories);
+    safe.skills = JSON.parse(safe.skills);
+    safe.certificates = JSON.parse(safe.certificates);
+    safe.timeline = JSON.parse(safe.timeline);
+
+    res.json({ user: safe });
+  } catch (err) {
+    console.error("Update profile error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
 module.exports = router;

@@ -1,24 +1,30 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Briefcase, Users, MessageSquare, BarChart3, User, LogOut, Sparkles, Package } from "lucide-react";
+import { Menu, X, Briefcase, Users, MessageSquare, BarChart3, User, LogOut, Sparkles, Package, LayoutDashboard, TrendingUp } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import Notifications from "../ui/Notifications";
-
-const navLinks = [
-  { to: "/", label: "Bosh sahifa" },
-  { to: "/vacancies", label: "Vakansiyalar", icon: Briefcase },
-  { to: "/specialists", label: "Mutaxassislar", icon: Users },
-  { to: "/ai-chat", label: "AI Chat", icon: Sparkles },
-  { to: "/applications", label: "Arizalar", icon: BarChart3 },
-  { to: "/orders", label: "Zakazlar", icon: Package },
-  { to: "/chat", label: "Xabarlar", icon: MessageSquare },
-];
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const isEmployer = user?.role === "employer";
+
+  const navLinks = [
+    { to: "/", label: "Bosh sahifa" },
+    { to: "/vacancies", label: "Vakansiyalar", icon: Briefcase },
+    { to: "/specialists", label: "Mutaxassislar", icon: Users },
+    ...(isEmployer
+      ? [{ to: "/dashboard", label: "Dashboard", icon: LayoutDashboard }]
+      : [
+          { to: "/ai-chat", label: "AI Chat", icon: Sparkles },
+          { to: "/applications", label: "Arizalar", icon: BarChart3 },
+          { to: "/statistics", label: "Statistika", icon: TrendingUp },
+        ]),
+    { to: "/orders", label: "Zakazlar", icon: Package },
+    { to: "/chat", label: "Xabarlar", icon: MessageSquare },
+  ];
 
   const handleLogout = () => { logout(); navigate("/login"); };
   const initials = user?.name ? user.name.split(" ").map((n) => n[0]).join("").slice(0, 2) : "U";

@@ -1,26 +1,74 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Search, SlidersHorizontal, MapPin, Heart, Clock, X } from "lucide-react";
-import { vacancies } from "../data/mockData";
+import { api } from "../lib/api";
+import { timeAgo, computeMatch } from "../lib/format";
+import { useAuth } from "../context/AuthContext";
 import MatchIndicator from "../components/ui/MatchIndicator";
 import StatusBadge from "../components/ui/StatusBadge";
 
 export default function Vacancies() {
+  const { user } = useAuth();
+  const isTeacher = user?.role === "specialist" && (user?.category === "Ta'lim" || (user?.fields || []).includes("Ta'lim"));
   const [search, setSearch] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState({ category: "", city: "", format: "", experience: "", salaryMin: 5, salaryMax: 30 });
+  const [showFilters, setShowFilters] = useState(isTeacher);
+  const [filters, setFilters] = useState({
+    category: isTeacher ? "Ta'lim" : "",
+    city: "",
+    format: "",
+    experience: "",
+    subcategory: "",
+  });
+  const [vacancies, setVacancies] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const cities = ["Toshkent", "Samarqand", "Buxoro", "Farg'ona", "Namangan", "Xiva", "Qo'qon"];
 
-  const filtered = vacancies.filter((v) => {
-    if (search && !v.title.toLowerCase().includes(search.toLowerCase()) && !v.company.toLowerCase().includes(search.toLowerCase())) return false;
-    if (filters.category && v.category !== filters.category) return false;
-    if (filters.city && v.location !== filters.city) return false;
-    if (filters.format && v.format !== filters.format) return false;
-    if (filters.experience && v.experience !== filters.experience) return false;
-    if (v.salaryMin < filters.salaryMin || v.salaryMax > filters.salaryMax) return false;
-    return true;
-  });
+  const teacherSubcategories = [
+    "Ingliz tili", "Matematika", "Fizika", "Kimyo", "Biologiya",
+    "Tarix", "Ona tili", "Informatika", "Geografiya", "Musiqa", "Jismoniy tarbiya",
+  ];
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      loadVacancies();
+    }, 250);
+    return () => clearTimeout(timeout);
+  }, [search, filters]);
+
+  const loadVacancies = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (search) params.set("search", search);
+      if (filters.category) params.set("category", filters.category);
+      if (filters.city) params.set("location", filters.city);
+      if (filters.format) params.set("format", filters.format);
+      if (filters.experience) params.set("experience", filters.experience);
+
+      const data = await api(`/vacancies?${params.toString()}`);
+      setVacancies(data.vacancies);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  let filtered = vacancies.map((v) => ({
+    ...v,
+    matchPercent: computeMatch(user?.skills, v.tags),
+  }));
+
+  if (filters.subcategory) {
+    const q = filters.subcategory.toLowerCase();
+    filtered = filtered.filter((v) =>
+      v.title.toLowerCase().includes(q) ||
+      v.description.toLowerCase().includes(q) ||
+      v.tags.some((t) => t.toLowerCase().includes(q)) ||
+      (v.category || "").toLowerCase().includes(q)
+    );
+  }
 
   const FilterGroup = ({ label, options, value, onChange }) => (
     <div>
@@ -43,42 +91,33 @@ export default function Vacancies() {
 
   const FilterPanel = () => (
     <div className="space-y-6">
+      {isTeacher && (
+        <FilterGroup
+          label="Yo'nalish"
+          options={["", ...teacherSubcategories]}
+          value={filters.subcategory}
+          onChange={(v) => setFilters({ ...filters, subcategory: v })}
+        />
+      )}
       <FilterGroup label="Kategoriya" options={["", "IT", "Ta'lim"]} value={filters.category} onChange={(v) => setFilters({ ...filters, category: v })} />
       <FilterGroup label="Shahar" options={["", ...cities]} value={filters.city} onChange={(v) => setFilters({ ...filters, city: v })} />
       <FilterGroup label="Tajriba" options={["", "Junior", "Middle", "Senior"]} value={filters.experience} onChange={(v) => setFilters({ ...filters, experience: v })} />
       <FilterGroup label="Ish formati" options={["", "Ofis", "Masofaviy", "Gibrid"]} value={filters.format} onChange={(v) => setFilters({ ...filters, format: v })} />
-
-      <div>
-        <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-2.5">
-          Maosh: {filters.salaryMin} - {filters.salaryMax} mln so'm
-        </label>
-        <div className="flex gap-3">
-          <input
-            type="range"
-            min="5"
-            max="30"
-            value={filters.salaryMin}
-            onChange={(e) => setFilters({ ...filters, salaryMin: +e.target.value })}
-            className="flex-1 accent-ink"
-          />
-          <input
-            type="range"
-            min="5"
-            max="30"
-            value={filters.salaryMax}
-            onChange={(e) => setFilters({ ...filters, salaryMax: +e.target.value })}
-            className="flex-1 accent-ink"
-          />
-        </div>
-      </div>
     </div>
   );
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="mb-8">
-        <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight mb-1.5">Vakansiyalar</h1>
-        <p className="text-ink-3 text-sm">{filtered.length} ta vakansiya topildi</p>
+        <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight mb-1.5">
+          {isTeacher ? "O'qituvchilar uchun ishlar" : "Vakansiyalar"}
+        </h1>
+        <p className="text-ink-3 text-sm">
+          {isTeacher
+            ? `${filtered.length} ta o'qituvchilik vakansiyasi topildi`
+            : `${filtered.length} ta vakansiya topildi`
+          }
+        </p>
       </div>
 
       {/* Search */}
@@ -122,11 +161,15 @@ export default function Vacancies() {
 
         {/* Vacancy cards */}
         <div className="flex-1 space-y-3">
-          {filtered.map((v) => (
+          {loading && (
+            <div className="text-center py-20 text-ink-3 text-sm">Yuklanmoqda...</div>
+          )}
+
+          {!loading && filtered.map((v) => (
             <div key={v.id} className="bg-white rounded-xl border border-border p-6 hover:border-ink/20 transition-colors">
               <div className="flex items-start gap-4">
                 <div className="w-11 h-11 bg-surface rounded-lg flex items-center justify-center text-xl flex-shrink-0">
-                  {v.companyLogo}
+                  {v.company_logo || "🏢"}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-4">
@@ -163,7 +206,7 @@ export default function Vacancies() {
                     <div className="flex items-center gap-4">
                       <span className="font-semibold text-ink text-sm">{v.salary}</span>
                       <span className="text-xs text-ink-3 flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5" /> {v.postedAgo}
+                        <Clock className="w-3.5 h-3.5" /> {timeAgo(v.created_at)}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
@@ -183,7 +226,7 @@ export default function Vacancies() {
             </div>
           ))}
 
-          {filtered.length === 0 && (
+          {!loading && filtered.length === 0 && (
             <div className="text-center py-20">
               <div className="w-14 h-14 mx-auto flex items-center justify-center rounded-full bg-surface border border-border text-2xl mb-5">🔍</div>
               <h3 className="text-base font-semibold text-ink mb-1.5">Vakansiya topilmadi</h3>

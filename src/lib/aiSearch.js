@@ -1,5 +1,3 @@
-import { specialists } from "../data/mockData";
-
 const synonyms = {
   "dasturchi": ["developer", "dasturchi", "programmer", "frontend", "backend", "mobile"],
   "frontend": ["frontend", "react", "vue", "angular", "next.js", "javascript", "typescript"],
@@ -17,8 +15,6 @@ const synonyms = {
   "senior": ["senior", "sen", "tajribali", "yetuk"],
   "masofaviy": ["masofaviy", "remote", "uydan"],
   "ofis": ["ofis", "office"],
-  "ayol": ["ayol", "qiz", "female"],
-  "erkak": ["erkak", "o'g'il", "male"],
   "toshkent": ["toshkent", "tashkent"],
   "samarqand": ["samarqand", "samarkand"],
   "buxoro": ["buxoro"],
@@ -51,44 +47,35 @@ function calculateRelevance(specialist, query) {
   let score = 0;
   let reasons = [];
 
-  if (/o'qituvchi|teacher|ustoz|muallim|ingliz|matematika|fizika/.test(lower) && specialist.category === "Ta'lim") {
-    score += 30; reasons.push("Kategoriya: Ta'lim");
+  const category = specialist.category || "";
+  const isEducation = (specialist.fields || []).includes("Ta'lim") || category === "Ta'lim";
+  const isIT = (specialist.fields || []).includes("IT") || category !== "Ta'lim";
+
+  if (/o'qituvchi|teacher|ustoz|muallim|ingliz|matematika|fizika/.test(lower) && isEducation) {
+    score += 30; reasons.push(`Kategoriya: ${category}`);
   }
-  if (/dasturchi|developer|frontend|backend|mobile|ui.?ux|it/.test(lower) && specialist.category === "IT") {
-    score += 30; reasons.push("Kategoriya: IT");
+  if (/dasturchi|developer|frontend|backend|mobile|ui.?ux|it/.test(lower) && isIT) {
+    score += 30; reasons.push(`Kategoriya: ${category}`);
   }
 
-  const allText = [...specialist.tags, specialist.title, ...specialist.skills, specialist.bio].join(" ").toLowerCase();
+  const allText = [category, specialist.bio || "", ...(specialist.skills || [])].join(" ").toLowerCase();
   for (const kw of keywords) {
     if (allText.includes(kw)) { score += 15; reasons.push(`Ko'nikma: ${kw}`); }
   }
 
-  if (/senior|tajribali|yetuk|katta/.test(lower) && specialist.experienceLevel === "Senior") {
+  if (/senior|tajribali|yetuk|katta/.test(lower) && specialist.experience_level === "Senior") {
     score += 20; reasons.push("Tajriba: Senior");
   }
-  if (/middle|o'rta/.test(lower) && specialist.experienceLevel === "Middle") {
+  if (/middle|o'rta/.test(lower) && specialist.experience_level === "Middle") {
     score += 20; reasons.push("Tajriba: Middle");
   }
-  if (/junior|yangi|kam/.test(lower) && specialist.experienceLevel === "Junior") {
+  if (/junior|yangi|kam/.test(lower) && specialist.experience_level === "Junior") {
     score += 20; reasons.push("Tajriba: Junior");
   }
 
   const city = detectCity(query);
-  if (city && specialist.location.toLowerCase().includes(city)) {
-    score += 10; reasons.push(`Shahar: ${specialist.location}`);
-  }
-
-  if (/qiz|ayol|female/.test(lower)) {
-    const femaleNames = ["nilufar", "dilnoza", "malika"];
-    if (femaleNames.some(n => specialist.name.toLowerCase().includes(n))) {
-      score += 5; reasons.push("Jins: Ayol");
-    }
-  }
-  if (/erkak|o'g'il|male/.test(lower)) {
-    const maleNames = ["aziz", "sardor", "jamshid", "timur"];
-    if (maleNames.some(n => specialist.name.toLowerCase().includes(n))) {
-      score += 5; reasons.push("Jins: Erkak");
-    }
+  if (city && (specialist.city || "").toLowerCase().includes(city)) {
+    score += 10; reasons.push(`Shahar: ${specialist.city}`);
   }
 
   score += 5;
@@ -104,7 +91,7 @@ function generateGreeting() {
   return greetings[Math.floor(Math.random() * greetings.length)];
 }
 
-function generateResponse(query) {
+function generateResponse(query, specialists) {
   const lower = query.toLowerCase();
 
   if (/salom|assalom|hi|hello|hey/.test(lower) && lower.length < 20) {
@@ -112,10 +99,10 @@ function generateResponse(query) {
   }
 
   if (/nima|qanday|yordam|help/.test(lower) && lower.length < 30) {
-    return { text: "Men sizga mutaxassis topishda yordam beraman!\n\n• \"Frontend dasturchi kerak\"\n• \"5 yillik tajribaga ega UI/UX dizayner\"\n• \"Toshkentda o'qituvchi kerak\"\n• \"Senior Python developer, masofaviy\"\n• \"Qiz bola, ingliz tili o'qituvchisi\"", specialists: [] };
+    return { text: "Men sizga mutaxassis topishda yordam beraman!\n\n• \"Frontend dasturchi kerak\"\n• \"5 yillik tajribaga ega UI/UX dizayner\"\n• \"Toshkentda o'qituvchi kerak\"\n• \"Senior Python developer, masofaviy\"", specialists: [] };
   }
 
-  const results = specialists.map((s) => ({ specialist: s, ...calculateRelevance(s, query) }));
+  const results = (specialists || []).map((s) => ({ specialist: s, ...calculateRelevance(s, query) }));
   results.sort((a, b) => b.score - a.score);
   const matched = results.filter((r) => r.score > 10).slice(0, 4);
 
