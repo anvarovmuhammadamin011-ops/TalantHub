@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate, useLocation, Navigate } from "react-router-dom";
-import { LogIn, Mail, Lock, Info } from "lucide-react";
+import { LogIn, Mail, Lock, Info, Zap } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+
+const demoAccounts = [
+  { name: "Aziz Karimov", email: "aziz@demo.com", role: "IT mutaxassis", color: "bg-blue-50 text-blue-600" },
+  { name: "Nilufar Rahimova", email: "nilufar@demo.com", role: "Ta'lim o'qituvchisi", color: "bg-emerald-50 text-emerald-600" },
+  { name: "TexnoLabs HR", email: "hr@texnolabs.uz", role: "Ish beruvchi", color: "bg-purple-50 text-purple-600" },
+];
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -11,6 +17,7 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const [submitting, setSubmitting] = useState(false);
+  const [loggingDemo, setLoggingDemo] = useState(null);
 
   if (!loading && isLoggedIn) {
     return <Navigate to={location.state?.from || "/"} replace />;
@@ -33,10 +40,16 @@ export default function Login() {
     }
   };
 
-  const fillDemo = (demoEmail, demoPassword) => {
-    setEmail(demoEmail);
-    setPassword(demoPassword);
+  const quickLogin = async (demoEmail) => {
+    setLoggingDemo(demoEmail);
     setError("");
+    const result = await login(demoEmail, "12345678");
+    setLoggingDemo(null);
+    if (result.success) {
+      navigate(location.state?.from || "/", { replace: true });
+    } else {
+      setError(result.error);
+    }
   };
 
   return (
@@ -108,39 +121,43 @@ export default function Login() {
           </p>
         </div>
 
-        {/* Demo Accounts */}
+        {/* Demo Accounts — one-click login */}
         <div className="bg-white rounded-2xl border border-border p-6 mt-4">
           <div className="flex items-center gap-2 mb-4">
-            <Info className="w-4 h-4 text-ink-3" />
-            <h3 className="text-sm font-semibold text-ink">Demo akkauntlar</h3>
+            <Zap className="w-4 h-4 text-amber-500" />
+            <h3 className="text-sm font-semibold text-ink">Tezkor kirish</h3>
           </div>
           <div className="space-y-2">
-            <button
-              onClick={() => fillDemo("aziz@demo.com", "12345678")}
-              className="w-full text-left p-3 bg-surface rounded-lg hover:bg-border-soft transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-medium text-ink">Aziz Karimov</div>
-                  <div className="text-xs text-ink-3">aziz@demo.com</div>
+            {demoAccounts.map((acc) => (
+              <button
+                key={acc.email}
+                onClick={() => quickLogin(acc.email)}
+                disabled={loggingDemo !== null}
+                className="w-full text-left p-3 bg-surface rounded-xl hover:bg-border-soft transition-all hover:shadow-sm disabled:opacity-60 group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center border border-border-soft shadow-sm text-sm font-semibold text-ink-2">
+                      {acc.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-ink">{acc.name}</div>
+                      <div className="text-[11px] text-ink-3">{acc.email}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${acc.color}`}>{acc.role}</span>
+                    {loggingDemo === acc.email ? (
+                      <div className="w-4 h-4 border-2 border-ink border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <LogIn className="w-4 h-4 text-ink-3 group-hover:text-ink transition-colors" />
+                    )}
+                  </div>
                 </div>
-                <span className="text-[10px] px-2 py-0.5 bg-ink/5 text-ink-3 rounded-full">IT</span>
-              </div>
-            </button>
-            <button
-              onClick={() => fillDemo("nilufar@demo.com", "12345678")}
-              className="w-full text-left p-3 bg-surface rounded-lg hover:bg-border-soft transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-medium text-ink">Nilufar Rahimova</div>
-                  <div className="text-xs text-ink-3">nilufar@demo.com</div>
-                </div>
-                <span className="text-[10px] px-2 py-0.5 bg-ink/5 text-ink-3 rounded-full">Ta'lim</span>
-              </div>
-            </button>
+              </button>
+            ))}
           </div>
-          <p className="text-[10px] text-ink-3 mt-3 text-center">Parol: 12345678</p>
+          <p className="text-[10px] text-ink-3 mt-3 text-center">Bosing — darhol kiradi. Parol: 12345678</p>
         </div>
       </div>
     </div>

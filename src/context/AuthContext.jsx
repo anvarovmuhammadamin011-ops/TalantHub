@@ -51,6 +51,7 @@ export function AuthProvider({ children }) {
   const logout = () => {
     setToken(null);
     setUser(null);
+    localStorage.removeItem("talenthub_mock_user");
   };
 
   return (
