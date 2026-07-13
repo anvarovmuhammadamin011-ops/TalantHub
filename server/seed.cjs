@@ -180,10 +180,16 @@ function seed() {
 }
 
 function ensureAdmin() {
-  const existing = db.prepare("SELECT id FROM users WHERE email = ?").get("admin@talenthub.uz");
-  if (existing) return;
+  const adminPw = "Admin123!";
+  const existing = db.prepare("SELECT id, password FROM users WHERE email = ?").get("admin@talenthub.uz");
+  if (existing) {
+    if (bcrypt.compareSync(adminPw, existing.password)) return;
+    db.prepare("UPDATE users SET password = ?, role = 'admin' WHERE id = ?").run(bcrypt.hashSync(adminPw, 10), existing.id);
+    console.log("Admin password reset: admin@talenthub.uz / Admin123!");
+    return;
+  }
 
-  const hash = bcrypt.hashSync("Admin123!", 10);
+  const hash = bcrypt.hashSync(adminPw, 10);
   db.prepare(`
     INSERT INTO users (name, email, password, role, verified, city, phone)
     VALUES (?, ?, ?, 'admin', 1, 'Toshkent', '+998 90 000 00 00')
