@@ -48,6 +48,9 @@ router.post("/", authMiddleware, (req, res) => {
       return res.status(400).json({ error: "Mutaxassis va sarlavha majburiy" });
     }
 
+    const specialist = db.prepare("SELECT id FROM users WHERE id = ? AND role = 'specialist'").get(specialist_id);
+    if (!specialist) return res.status(400).json({ error: "Mutaxassis topilmadi" });
+
     const result = db.prepare(`
       INSERT INTO orders (employer_id, specialist_id, title, description, price, deadline, status, priority)
       VALUES (?, ?, ?, ?, ?, ?, 'Yangi', ?)
