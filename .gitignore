@@ -16,6 +16,9 @@ dist-ssr
 *.db-wal
 server/*.db
 .jwt_secret
+.env
+server/.env
+server/.tg-*
 
 # Capacitor copies the web build in here on every sync — regenerate with
 # `npm run android:sync` instead of committing it
