@@ -134,5 +134,14 @@ try {
 try {
   db.exec(`ALTER TABLE users ADD COLUMN profile_updated_at DATETIME`);
 } catch (e) {}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN blocked INTEGER DEFAULT 0`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN blocked_reason TEXT DEFAULT ''`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE vacancies ADD COLUMN status TEXT DEFAULT 'Faol'`);
+} catch (e) {}
 
 module.exports = db;

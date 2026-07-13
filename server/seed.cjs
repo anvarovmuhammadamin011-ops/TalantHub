@@ -179,4 +179,17 @@ function seed() {
   console.log("Database seeded successfully!");
 }
 
+function ensureAdmin() {
+  const existing = db.prepare("SELECT id FROM users WHERE email = ?").get("admin@talenthub.uz");
+  if (existing) return;
+
+  const hash = bcrypt.hashSync("Admin123!", 10);
+  db.prepare(`
+    INSERT INTO users (name, email, password, role, verified, city, phone)
+    VALUES (?, ?, ?, 'admin', 1, 'Toshkent', '+998 90 000 00 00')
+  `).run("Administrator", "admin@talenthub.uz", hash);
+  console.log("Admin account created: admin@talenthub.uz / Admin123!");
+}
+
 module.exports = seed;
+module.exports.ensureAdmin = ensureAdmin;

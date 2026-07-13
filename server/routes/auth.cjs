@@ -66,6 +66,10 @@ router.post("/login", authRateLimit, (req, res) => {
       return res.status(401).json({ error: "Email yoki parol noto'g'ri" });
     }
 
+    if (user.blocked) {
+      return res.status(403).json({ error: "Hisobingiz bloklangan. Administrator bilan bog'laning." });
+    }
+
     const { password: _, ...safe } = user;
     safe.fields = JSON.parse(safe.fields);
     safe.categories = JSON.parse(safe.categories);

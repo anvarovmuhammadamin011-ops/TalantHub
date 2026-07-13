@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate, useLocation, Navigate } from "react-router-dom";
-import { LogIn, Mail, Lock, Info, Zap } from "lucide-react";
+import { LogIn, Mail, Lock, Info, Zap, Shield } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 const demoAccounts = [
   { name: "Aziz Karimov", email: "aziz@demo.com", role: "IT mutaxassis", color: "bg-blue-50 text-blue-600" },
   { name: "Nilufar Rahimova", email: "nilufar@demo.com", role: "Ta'lim o'qituvchisi", color: "bg-emerald-50 text-emerald-600" },
   { name: "TexnoLabs HR", email: "hr@texnolabs.uz", role: "Ish beruvchi", color: "bg-purple-50 text-purple-600" },
+  { name: "Administrator", email: "admin@talenthub.uz", role: "Admin", color: "bg-amber-50 text-amber-600" },
 ];
 
 export default function Login() {
@@ -43,7 +44,8 @@ export default function Login() {
   const quickLogin = async (demoEmail) => {
     setLoggingDemo(demoEmail);
     setError("");
-    const result = await login(demoEmail, "12345678");
+    const pw = demoEmail === "admin@talenthub.uz" ? "Admin123!" : "12345678";
+    const result = await login(demoEmail, pw);
     setLoggingDemo(null);
     if (result.success) {
       navigate(location.state?.from || "/", { replace: true });
@@ -157,7 +159,7 @@ export default function Login() {
               </button>
             ))}
           </div>
-          <p className="text-[10px] text-ink-3 mt-3 text-center">Bosing — darhol kiradi. Parol: 12345678</p>
+          <p className="text-[10px] text-ink-3 mt-3 text-center">Bosing — darhol kiradi. Demo: 12345678 | Admin: Admin123!</p>
         </div>
       </div>
     </div>

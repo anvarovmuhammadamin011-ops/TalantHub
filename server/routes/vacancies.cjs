@@ -12,7 +12,7 @@ router.get("/", (req, res) => {
       SELECT v.*, u.name as author_name
       FROM vacancies v
       LEFT JOIN users u ON v.employer_id = u.id
-      WHERE 1=1
+      WHERE v.status = 'Faol'
     `;
     const params = [];
 

@@ -17,6 +17,8 @@ import Chat from "./pages/Chat";
 import AiChat from "./pages/AiChat";
 import Statistics from "./pages/Statistics";
 import VacancyCreate from "./pages/VacancyCreate";
+import Admin from "./pages/Admin";
+import AdminRoute from "./components/AdminRoute";
 import ScrollToTop from "./components/ScrollToTop";
 
 export default function App() {
@@ -42,6 +44,9 @@ export default function App() {
               <Route path="/chat" element={<Chat />} />
               <Route path="/ai-chat" element={<AiChat />} />
               <Route path="/statistics" element={<Statistics />} />
+              <Route element={<AdminRoute />}>
+                <Route path="/admin" element={<Admin />} />
+              </Route>
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

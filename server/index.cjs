@@ -17,6 +17,7 @@ const chatRoutes = require("./routes/chats.cjs");
 const orderRoutes = require("./routes/orders.cjs");
 const notificationRoutes = require("./routes/notifications.cjs");
 const statsRoutes = require("./routes/stats.cjs");
+const adminRoutes = require("./routes/admin.cjs");
 
 const app = express();
 const server = http.createServer(app);
@@ -42,6 +43,7 @@ app.use("/api/chats", chatRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/stats", statsRoutes);
+app.use("/api/admin", adminRoutes);
 
 io.on("connection", (socket) => {
   const token = socket.handshake.auth?.token;
@@ -118,6 +120,7 @@ app.get("/{*splat}", (req, res) => {
 });
 
 seed();
+seed.ensureAdmin();
 
 server.listen(process.env.PORT || 4000, () => {
   console.log(`TalentHub server running on http://localhost:${process.env.PORT || 4000}`);
