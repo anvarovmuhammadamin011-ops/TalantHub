@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TalentHub</string>
+    <string name="title_activity_main">TalentHub</string>
+    <string name="package_name">uz.talenthub.app</string>
+    <string name="custom_url_scheme">uz.talenthub.app</string>
+</resources>

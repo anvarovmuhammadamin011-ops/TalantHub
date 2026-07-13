@@ -19,7 +19,10 @@ export function SocketProvider({ children }) {
     const token = getToken();
     if (!token) return;
 
-    const socket = io("/", { auth: { token } });
+    const socketUrl = import.meta.env.VITE_API_URL
+      ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, "")
+      : "/";
+    const socket = io(socketUrl, { auth: { token } });
     socketRef.current = socket;
 
     socket.on("user_online", ({ userId, online }) => {
