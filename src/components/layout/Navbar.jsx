@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Briefcase, Users, MessageSquare, BarChart3, User, LogOut, Sparkles } from "lucide-react";
+import { Menu, X, Briefcase, Users, MessageSquare, BarChart3, User, LogOut, Sparkles, Package } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import Notifications from "../ui/Notifications";
 
@@ -10,6 +10,7 @@ const navLinks = [
   { to: "/specialists", label: "Mutaxassislar", icon: Users },
   { to: "/ai-chat", label: "AI Chat", icon: Sparkles },
   { to: "/applications", label: "Arizalar", icon: BarChart3 },
+  { to: "/orders", label: "Zakazlar", icon: Package },
   { to: "/chat", label: "Xabarlar", icon: MessageSquare },
 ];
 

@@ -1,6 +1,5 @@
 const Database = require("better-sqlite3");
 const path = require("path");
-const bcrypt = require("bcryptjs");
 
 const db = new Database(path.join(__dirname, "talenthub.db"));
 
@@ -44,7 +43,7 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
     company TEXT NOT NULL,
-    company_logo TEXT DEFAULT '🏢',
+    company_logo TEXT DEFAULT '',
     location TEXT DEFAULT '',
     salary TEXT DEFAULT '',
     salary_min INTEGER DEFAULT 0,
@@ -71,6 +70,34 @@ db.exec(`
     match_percent INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (vacancy_id) REFERENCES vacancies(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employer_id INTEGER NOT NULL,
+    specialist_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    price TEXT DEFAULT '',
+    deadline TEXT DEFAULT '',
+    status TEXT DEFAULT 'Yangi',
+    priority TEXT DEFAULT "O'rta",
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (employer_id) REFERENCES users(id),
+    FOREIGN KEY (specialist_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    type TEXT DEFAULT 'info',
+    title TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    read INTEGER DEFAULT 0,
+    link TEXT DEFAULT '',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
 
