@@ -144,4 +144,17 @@ try {
   db.exec(`ALTER TABLE vacancies ADD COLUMN status TEXT DEFAULT 'Faol'`);
 } catch (e) {}
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS admin_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    admin_id INTEGER NOT NULL,
+    action TEXT NOT NULL,
+    target_type TEXT DEFAULT '',
+    target_id INTEGER,
+    details TEXT DEFAULT '',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (admin_id) REFERENCES users(id)
+  );
+`);
+
 module.exports = db;

@@ -98,6 +98,11 @@ router.get("/:id", (req, res) => {
 
 router.post("/", authMiddleware, (req, res) => {
   try {
+    const requester = db.prepare("SELECT role FROM users WHERE id = ?").get(req.userId);
+    if (!requester || requester.role !== "employer") {
+      return res.status(403).json({ error: "Faqat ish beruvchilar vakansiya joylashi mumkin" });
+    }
+
     const { title, company, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions } = req.body;
 
     if (!title || !company) {

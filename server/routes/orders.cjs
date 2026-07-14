@@ -43,6 +43,11 @@ router.get("/", authMiddleware, (req, res) => {
 
 router.post("/", authMiddleware, (req, res) => {
   try {
+    const requester = db.prepare("SELECT role FROM users WHERE id = ?").get(req.userId);
+    if (!requester || requester.role !== "employer") {
+      return res.status(403).json({ error: "Faqat ish beruvchilar zakaz bera oladi" });
+    }
+
     const { specialist_id, title, description, price, deadline, priority } = req.body;
     if (!specialist_id || !title) {
       return res.status(400).json({ error: "Mutaxassis va sarlavha majburiy" });

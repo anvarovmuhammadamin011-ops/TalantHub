@@ -12,8 +12,6 @@ export default function MobileNav() {
     ? [
         { to: "/", label: "Bosh", icon: Home },
         { to: "/admin", label: "Admin", icon: Shield },
-        { to: "/vacancies", label: "Vakansiyalar", icon: Briefcase },
-        { to: "/orders", label: "Zakazlar", icon: Package },
         { to: "/chat", label: "Xabarlar", icon: MessageSquare },
       ]
     : [

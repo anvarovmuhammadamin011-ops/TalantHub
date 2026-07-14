@@ -5,6 +5,15 @@ const { requireAdmin } = require("../middleware/requireAdmin.cjs");
 
 const router = express.Router();
 
+function logAdmin(adminId, action, targetType, targetId, details) {
+  try {
+    db.prepare(`INSERT INTO admin_logs (admin_id, action, target_type, target_id, details) VALUES (?, ?, ?, ?, ?)`)
+      .run(adminId, action, targetType || "", targetId || null, details || "");
+  } catch (e) {
+    console.error("Admin log error:", e);
+  }
+}
+
 router.get("/stats", authMiddleware, requireAdmin, (req, res) => {
   try {
     const users_total = db.prepare("SELECT COUNT(*) as c FROM users").get().c;
@@ -61,26 +70,53 @@ router.get("/users", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
+const VALID_ROLES = ["specialist", "employer", "admin"];
+
 router.patch("/users/:id", authMiddleware, requireAdmin, (req, res) => {
   try {
-    if (Number(req.params.id) === req.userId) {
-      return res.status(400).json({ error: "O'zingizni bloklay olmaysiz" });
+    const targetId = Number(req.params.id);
+    const isSelf = targetId === req.userId;
+
+    const target = db.prepare("SELECT id, role, name FROM users WHERE id = ?").get(targetId);
+    if (!target) return res.status(404).json({ error: "Foydalanuvchi topilmadi" });
+
+    const { verified, blocked, blocked_reason, rating, reviews_count, role, name, phone, city } = req.body;
+
+    if (isSelf && (blocked !== undefined || role !== undefined)) {
+      return res.status(400).json({ error: "O'zingizni bloklay yoki rolingizni o'zgartira olmaysiz" });
+    }
+    if (role !== undefined && !VALID_ROLES.includes(role)) {
+      return res.status(400).json({ error: "Noto'g'ri rol" });
+    }
+    if (rating !== undefined && (Number(rating) < 0 || Number(rating) > 5)) {
+      return res.status(400).json({ error: "Reyting 0-5 orasida bo'lishi kerak" });
+    }
+    if (reviews_count !== undefined && Number(reviews_count) < 0) {
+      return res.status(400).json({ error: "Sharhlar soni manfiy bo'lishi mumkin emas" });
     }
 
-    const { verified, blocked, blocked_reason } = req.body;
     const sets = [];
     const params = [];
+    const logDetails = [];
 
-    if (verified !== undefined) { sets.push("verified = ?"); params.push(verified ? 1 : 0); }
-    if (blocked !== undefined) { sets.push("blocked = ?"); params.push(blocked ? 1 : 0); }
+    if (verified !== undefined) { sets.push("verified = ?"); params.push(verified ? 1 : 0); logDetails.push(`verified=${verified ? 1 : 0}`); }
+    if (blocked !== undefined) { sets.push("blocked = ?"); params.push(blocked ? 1 : 0); logDetails.push(`blocked=${blocked ? 1 : 0}`); }
     if (blocked_reason !== undefined) { sets.push("blocked_reason = ?"); params.push(blocked_reason); }
+    if (rating !== undefined) { sets.push("rating = ?"); params.push(Number(rating)); logDetails.push(`rating=${rating}`); }
+    if (reviews_count !== undefined) { sets.push("reviews_count = ?"); params.push(Number(reviews_count)); logDetails.push(`reviews_count=${reviews_count}`); }
+    if (role !== undefined) { sets.push("role = ?"); params.push(role); logDetails.push(`role=${role}`); }
+    if (name !== undefined && name.trim()) { sets.push("name = ?"); params.push(name.trim()); }
+    if (phone !== undefined) { sets.push("phone = ?"); params.push(phone); }
+    if (city !== undefined) { sets.push("city = ?"); params.push(city); }
 
     if (sets.length === 0) return res.status(400).json({ error: "Yangilanadigan maydon topilmadi" });
 
-    params.push(req.params.id);
+    params.push(targetId);
     db.prepare(`UPDATE users SET ${sets.join(", ")} WHERE id = ?`).run(...params);
 
-    const user = db.prepare("SELECT id,name,email,role,verified,blocked,blocked_reason FROM users WHERE id = ?").get(req.params.id);
+    logAdmin(req.userId, "user_update", "user", targetId, `${target.name}: ${logDetails.join(", ")}`);
+
+    const user = db.prepare("SELECT id,name,email,role,verified,blocked,blocked_reason,rating,reviews_count,phone,city FROM users WHERE id = ?").get(targetId);
     res.json({ user });
   } catch (err) {
     console.error("Admin user update error:", err);
@@ -123,6 +159,7 @@ router.patch("/vacancies/:id/status", authMiddleware, requireAdmin, (req, res) =
   try {
     const { status } = req.body;
     db.prepare("UPDATE vacancies SET status = ? WHERE id = ?").run(status, req.params.id);
+    logAdmin(req.userId, "vacancy_status", "vacancy", req.params.id, `status=${status}`);
     res.json({ success: true });
   } catch (err) {
     console.error("Admin vacancy status error:", err);
@@ -132,10 +169,11 @@ router.patch("/vacancies/:id/status", authMiddleware, requireAdmin, (req, res) =
 
 router.delete("/vacancies/:id", authMiddleware, requireAdmin, (req, res) => {
   try {
-    const vacancy = db.prepare("SELECT id FROM vacancies WHERE id = ?").get(req.params.id);
+    const vacancy = db.prepare("SELECT id, title FROM vacancies WHERE id = ?").get(req.params.id);
     if (!vacancy) return res.status(404).json({ error: "Vakansiya topilmadi" });
     db.prepare("DELETE FROM applications WHERE vacancy_id = ?").run(req.params.id);
     db.prepare("DELETE FROM vacancies WHERE id = ?").run(req.params.id);
+    logAdmin(req.userId, "vacancy_delete", "vacancy", req.params.id, vacancy.title);
     res.json({ success: true });
   } catch (err) {
     console.error("Admin vacancy delete error:", err);
@@ -160,6 +198,88 @@ router.get("/orders", authMiddleware, requireAdmin, (req, res) => {
     res.json({ orders });
   } catch (err) {
     console.error("Admin orders list error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.get("/applications", authMiddleware, requireAdmin, (req, res) => {
+  try {
+    const { search, status } = req.query;
+    let sql = `
+      SELECT a.*, v.title as vacancy_title, u.name as specialist_name, u.email as specialist_email
+      FROM applications a
+      JOIN vacancies v ON a.vacancy_id = v.id
+      JOIN users u ON a.user_id = u.id
+      WHERE 1=1
+    `;
+    const params = [];
+    if (search) {
+      sql += ` AND (v.title LIKE ? OR u.name LIKE ?)`;
+      params.push(`%${search}%`, `%${search}%`);
+    }
+    if (status) {
+      sql += ` AND a.status = ?`;
+      params.push(status);
+    }
+    sql += ` ORDER BY a.created_at DESC`;
+    const applications = db.prepare(sql).all(...params);
+    res.json({ applications });
+  } catch (err) {
+    console.error("Admin applications list error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.patch("/applications/:id/status", authMiddleware, requireAdmin, (req, res) => {
+  try {
+    const { status } = req.body;
+    const application = db.prepare("SELECT id, user_id FROM applications WHERE id = ?").get(req.params.id);
+    if (!application) return res.status(404).json({ error: "Ariza topilmadi" });
+
+    db.prepare("UPDATE applications SET status = ? WHERE id = ?").run(status, req.params.id);
+    logAdmin(req.userId, "application_status", "application", req.params.id, `status=${status}`);
+
+    db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'application', 'Ariza yangilandi', ?, '/applications')`).run(
+      application.user_id, `Administrator arizangiz holatini "${status}" ga o'zgartirdi`
+    );
+    if (req.app.get("io")) {
+      req.app.get("io").to(`user_${application.user_id}`).emit("notification", {
+        type: "application", title: "Ariza yangilandi", description: `Holat: "${status}"`
+      });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Admin application status error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.delete("/applications/:id", authMiddleware, requireAdmin, (req, res) => {
+  try {
+    const application = db.prepare("SELECT id FROM applications WHERE id = ?").get(req.params.id);
+    if (!application) return res.status(404).json({ error: "Ariza topilmadi" });
+    db.prepare("DELETE FROM applications WHERE id = ?").run(req.params.id);
+    logAdmin(req.userId, "application_delete", "application", req.params.id, "");
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Admin application delete error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.get("/logs", authMiddleware, requireAdmin, (req, res) => {
+  try {
+    const logs = db.prepare(`
+      SELECT l.*, a.name as admin_name
+      FROM admin_logs l
+      LEFT JOIN users a ON l.admin_id = a.id
+      ORDER BY l.created_at DESC
+      LIMIT 200
+    `).all();
+    res.json({ logs });
+  } catch (err) {
+    console.error("Admin logs error:", err);
     res.status(500).json({ error: "Server xatoligi" });
   }
 });

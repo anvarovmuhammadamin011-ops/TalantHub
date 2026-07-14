@@ -53,6 +53,11 @@ router.get("/employer", authMiddleware, (req, res) => {
 
 router.post("/", authMiddleware, (req, res) => {
   try {
+    const requester = db.prepare("SELECT role FROM users WHERE id = ?").get(req.userId);
+    if (!requester || requester.role !== "specialist") {
+      return res.status(403).json({ error: "Faqat mutaxassislar ariza yubora oladi" });
+    }
+
     const { vacancy_id } = req.body;
     if (!vacancy_id) return res.status(400).json({ error: "Vakansiya ID kerak" });
 
