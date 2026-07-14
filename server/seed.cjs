@@ -1,4 +1,5 @@
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const db = require("./db.cjs");
 
 function seed() {
@@ -180,21 +181,23 @@ function seed() {
 }
 
 function ensureAdmin() {
-  const adminPw = "Admin123!";
-  const existing = db.prepare("SELECT id, password FROM users WHERE email = ?").get("admin@talenthub.uz");
-  if (existing) {
-    if (bcrypt.compareSync(adminPw, existing.password)) return;
-    db.prepare("UPDATE users SET password = ?, role = 'admin' WHERE id = ?").run(bcrypt.hashSync(adminPw, 10), existing.id);
-    console.log("Admin password reset: admin@talenthub.uz / Admin123!");
-    return;
-  }
+  const existing = db.prepare("SELECT id FROM users WHERE email = ?").get("admin@talenthub.uz");
+  if (existing) return;
 
+  const generated = !process.env.ADMIN_PASSWORD;
+  const adminPw = process.env.ADMIN_PASSWORD || crypto.randomBytes(9).toString("base64url");
   const hash = bcrypt.hashSync(adminPw, 10);
+
   db.prepare(`
     INSERT INTO users (name, email, password, role, verified, city, phone)
     VALUES (?, ?, ?, 'admin', 1, 'Toshkent', '+998 90 000 00 00')
   `).run("Administrator", "admin@talenthub.uz", hash);
-  console.log("Admin account created: admin@talenthub.uz / Admin123!");
+
+  if (generated) {
+    console.log(`Admin account created: admin@talenthub.uz / ${adminPw}  (ADMIN_PASSWORD env o'rnatilmagani uchun tasodifiy parol generatsiya qilindi — buni saqlab qo'ying)`);
+  } else {
+    console.log("Admin account created: admin@talenthub.uz (parol ADMIN_PASSWORD env orqali o'rnatildi)");
+  }
 }
 
 module.exports = seed;
