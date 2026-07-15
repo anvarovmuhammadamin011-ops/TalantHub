@@ -31,7 +31,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
-              <Route path="/" element={<Navigate to="/vacancies" replace />} />
+              <Route path="/" element={<Vacancies />} />
               <Route path="/vacancies" element={<Vacancies />} />
               <Route path="/vacancies/new" element={<VacancyCreate />} />
               <Route path="/vacancies/:id" element={<VacancyDetail />} />
