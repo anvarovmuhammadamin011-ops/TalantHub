@@ -6,9 +6,11 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
+import EmployerHome from "./pages/EmployerHome";
 import Vacancies from "./pages/Vacancies";
 import VacancyDetail from "./pages/VacancyDetail";
 import SpecialistProfile from "./pages/SpecialistProfile";
+import EmployerProfile from "./pages/EmployerProfile";
 import SpecialistDetail from "./pages/SpecialistDetail";
 import Specialists from "./pages/Specialists";
 import Applications from "./pages/Applications";
@@ -22,15 +24,24 @@ import Admin from "./pages/Admin";
 import AdminUserDetail from "./pages/AdminUserDetail";
 import AdminRoute from "./components/AdminRoute";
 import ScrollToTop from "./components/ScrollToTop";
+import AuthCallback from "./pages/AuthCallback";
 
 function RootRoute() {
   const { user } = useAuth();
-  return user?.role === "specialist" ? <Home /> : <Vacancies />;
+  if (user?.role === "specialist") return <Home />;
+  if (user?.role === "employer") return <EmployerHome />;
+  return <Vacancies />;
+}
+
+function ProfileRoute() {
+  const { user } = useAuth();
+  return user?.role === "employer" ? <EmployerProfile /> : <SpecialistProfile />;
 }
 
 function FallbackRoute() {
   const { user } = useAuth();
-  return <Navigate to={user?.role === "specialist" ? "/" : "/vacancies"} replace />;
+  const goHome = user?.role === "specialist" || user?.role === "employer";
+  return <Navigate to={goHome ? "/" : "/vacancies"} replace />;
 }
 
 export default function App() {
@@ -41,6 +52,7 @@ export default function App() {
         <Routes>
           <Route path="/register" element={<Register />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
               <Route path="/" element={<RootRoute />} />
@@ -49,7 +61,7 @@ export default function App() {
               <Route path="/vacancies/:id" element={<VacancyDetail />} />
               <Route path="/specialists" element={<Specialists />} />
               <Route path="/specialists/:id" element={<SpecialistDetail />} />
-              <Route path="/profile" element={<SpecialistProfile />} />
+              <Route path="/profile" element={<ProfileRoute />} />
               <Route path="/applications" element={<Applications />} />
               <Route path="/orders" element={<Orders />} />
               <Route path="/dashboard" element={<EmployerDashboard />} />

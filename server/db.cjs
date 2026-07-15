@@ -328,6 +328,18 @@ try {
 try {
   db.exec(`ALTER TABLE categories ADD COLUMN type TEXT DEFAULT 'category'`);
 } catch (e) {}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN google_id TEXT DEFAULT ''`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN oauth_provider TEXT DEFAULT 'local'`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE orders ADD COLUMN specialist_rating INTEGER DEFAULT 0`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE orders ADD COLUMN specialist_review TEXT DEFAULT ''`);
+} catch (e) {}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS verification_requests (
@@ -336,6 +348,9 @@ db.exec(`
     type TEXT NOT NULL,
     document_url TEXT DEFAULT '',
     document_name TEXT DEFAULT '',
+    institution TEXT DEFAULT '',
+    specialty TEXT DEFAULT '',
+    year INTEGER DEFAULT 0,
     stir TEXT DEFAULT '',
     status TEXT DEFAULT 'Kutilmoqda',
     reject_reason TEXT DEFAULT '',

@@ -11,7 +11,7 @@ router.get("/", authMiddleware, (req, res) => {
 
     if (user && user.role === "employer") {
       orders = db.prepare(`
-        SELECT o.*, u.name as specialist_name, u.category as specialist_category, u.avatar as specialist_avatar, u.rating as specialist_rating
+        SELECT o.*, u.name as specialist_name, u.category as specialist_category, u.avatar as specialist_avatar, u.rating as specialist_rating_score
         FROM orders o
         LEFT JOIN users u ON o.specialist_id = u.id
         WHERE o.employer_id = ?
@@ -19,7 +19,7 @@ router.get("/", authMiddleware, (req, res) => {
       `).all(req.userId);
     } else {
       orders = db.prepare(`
-        SELECT o.*, u.name as employer_name, u.avatar as employer_avatar
+        SELECT o.*, u.name as employer_name, u.avatar as employer_avatar, u.rating as employer_rating_score
         FROM orders o
         LEFT JOIN users u ON o.employer_id = u.id
         WHERE o.specialist_id = ?
@@ -125,7 +125,7 @@ router.patch("/:id/status", authMiddleware, (req, res) => {
 
 router.patch("/:id/rate", authMiddleware, (req, res) => {
   try {
-    const { rating, review } = req.body;
+    const { rating, review, role } = req.body;
     if (!rating || rating < 1 || rating > 5) {
       return res.status(400).json({ error: "Baholash 1-5 orasida bo'lishi kerak" });
     }
@@ -133,28 +133,57 @@ router.patch("/:id/rate", authMiddleware, (req, res) => {
     const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(req.params.id);
     if (!order) return res.status(404).json({ error: "Zakaz topilmadi" });
     if (order.status !== "Tugatildi") return res.status(400).json({ error: "Faqat tugatilgan zakazlarni baholash mumkin" });
-    if (order.employer_id !== req.userId) return res.status(403).json({ error: "Faqat employer baholashi mumkin" });
 
-    db.prepare("UPDATE orders SET rating = ?, review = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(
-      rating, review || "", req.params.id
-    );
+    if (role === "specialist") {
+      if (order.specialist_id !== req.userId) return res.status(403).json({ error: "Faqat mutaxassis baholashi mumkin" });
+      if (order.specialist_rating > 0) return res.status(409).json({ error: "Siz allaqachon baholagansiz" });
 
-    const specialist = db.prepare("SELECT rating, reviews_count FROM users WHERE id = ?").get(order.specialist_id);
-    if (specialist) {
-      const oldTotal = specialist.rating * specialist.reviews_count;
-      const newCount = specialist.reviews_count + 1;
-      const newRating = Math.round(((oldTotal + rating) / newCount) * 10) / 10;
-      db.prepare("UPDATE users SET rating = ?, reviews_count = ? WHERE id = ?").run(newRating, newCount, order.specialist_id);
-    }
+      db.prepare("UPDATE orders SET specialist_rating = ?, specialist_review = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(
+        rating, review || "", req.params.id
+      );
 
-    db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'review', 'Baholash', ?, '/orders')`).run(
-      order.specialist_id, `"${order.title}" zakazi ${rating} yulduz bilan baholandi`
-    );
+      const employer = db.prepare("SELECT rating, reviews_count FROM users WHERE id = ?").get(order.employer_id);
+      if (employer) {
+        const oldTotal = employer.rating * employer.reviews_count;
+        const newCount = employer.reviews_count + 1;
+        const newRating = Math.round(((oldTotal + rating) / newCount) * 10) / 10;
+        db.prepare("UPDATE users SET rating = ?, reviews_count = ? WHERE id = ?").run(newRating, newCount, order.employer_id);
+      }
 
-    if (req.app.get("io")) {
-      req.app.get("io").to(`user_${order.specialist_id}`).emit("notification", {
-        type: "review", title: "Baholash", description: `"${order.title}" zakazi ${rating} yulduz bilan baholandi`
-      });
+      db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'review', 'Baholash', ?, '/orders')`).run(
+        order.employer_id, `"${order.title}" zakazi ${rating} yulduz bilan baholandi`
+      );
+
+      if (req.app.get("io")) {
+        req.app.get("io").to(`user_${order.employer_id}`).emit("notification", {
+          type: "review", title: "Baholash", description: `"${order.title}" zakazi ${rating} yulduz bilan baholandi`
+        });
+      }
+    } else {
+      if (order.employer_id !== req.userId) return res.status(403).json({ error: "Faqat employer baholashi mumkin" });
+      if (order.rating > 0) return res.status(409).json({ error: "Siz allaqachon baholagansiz" });
+
+      db.prepare("UPDATE orders SET rating = ?, review = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(
+        rating, review || "", req.params.id
+      );
+
+      const specialist = db.prepare("SELECT rating, reviews_count FROM users WHERE id = ?").get(order.specialist_id);
+      if (specialist) {
+        const oldTotal = specialist.rating * specialist.reviews_count;
+        const newCount = specialist.reviews_count + 1;
+        const newRating = Math.round(((oldTotal + rating) / newCount) * 10) / 10;
+        db.prepare("UPDATE users SET rating = ?, reviews_count = ? WHERE id = ?").run(newRating, newCount, order.specialist_id);
+      }
+
+      db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'review', 'Baholash', ?, '/orders')`).run(
+        order.specialist_id, `"${order.title}" zakazi ${rating} yulduz bilan baholandi`
+      );
+
+      if (req.app.get("io")) {
+        req.app.get("io").to(`user_${order.specialist_id}`).emit("notification", {
+          type: "review", title: "Baholash", description: `"${order.title}" zakazi ${rating} yulduz bilan baholandi`
+        });
+      }
     }
 
     res.json({ success: true });

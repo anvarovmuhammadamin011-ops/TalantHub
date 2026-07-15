@@ -68,7 +68,7 @@ export default function Orders() {
     try {
       await api(`/orders/${ratingModal.id}/rate`, {
         method: "PATCH",
-        body: { rating: ratingValue, review: ratingText },
+        body: { rating: ratingValue, review: ratingText, role: isEmployer ? "employer" : "specialist" },
       });
       setRatingModal(null);
       setRatingValue(0);
@@ -169,6 +169,11 @@ export default function Orders() {
                           <Star className="w-3.5 h-3.5 fill-amber-500" /> {order.rating}
                         </span>
                       )}
+                      {order.specialist_rating > 0 && (
+                        <span className="flex items-center gap-1 text-amber-500">
+                          <Star className="w-3.5 h-3.5 fill-amber-500" /> {order.specialist_rating} (sizning bahoyingiz)
+                        </span>
+                      )}
                     </div>
                     {order.review && (
                       <p className="text-xs text-ink-3 mt-2 italic">"{order.review}"</p>
@@ -205,6 +210,12 @@ export default function Orders() {
                         <Star className="w-4 h-4" /> Baholash
                       </button>
                     )}
+                    {order.status === "Tugatildi" && !isEmployer && !order.specialist_rating && (
+                      <button onClick={() => { setRatingModal(order); setRatingValue(0); setRatingText(""); }}
+                        className="px-4 py-2 bg-amber-50 text-amber-600 text-sm font-medium rounded-lg hover:bg-amber-100 transition-colors flex items-center gap-1">
+                        <Star className="w-4 h-4" /> Ish beruvchini baholang
+                      </button>
+                    )}
                     <Link to="/chat" className="w-9 h-9 flex items-center justify-center rounded-lg bg-surface text-ink-2 hover:bg-border-soft transition-colors">
                       <MessageSquare className="w-4 h-4" />
                     </Link>
@@ -220,7 +231,9 @@ export default function Orders() {
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setRatingModal(null)}>
           <div className="bg-white rounded-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-semibold text-ink text-lg mb-1">Baholash</h3>
-            <p className="text-sm text-ink-3 mb-4">"{ratingModal.title}" zakazini baholang</p>
+            <p className="text-sm text-ink-3 mb-4">
+              {isEmployer ? `"${ratingModal.title}" zakazini baholang` : `"${ratingModal.employer_name}" ish beruvchini baholang`}
+            </p>
             <div className="flex items-center justify-center gap-2 mb-4">
               {[1, 2, 3, 4, 5].map((star) => (
                 <button key={star} onMouseEnter={() => setRatingHover(star)} onMouseLeave={() => setRatingHover(0)}

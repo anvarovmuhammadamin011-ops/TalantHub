@@ -3,25 +3,28 @@ import { Link, useNavigate, Navigate } from "react-router-dom";
 import { ArrowRight, ArrowLeft, Briefcase, User, Code, BookOpen, CheckCircle, Smartphone, Shield } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 const steps = ["Rol", "Yo'nalish", "Ma'lumotlar", "SMS", "Tasdiqlash"];
 
+const countryFlags = { UZ: "🇺🇿", RU: "🇷🇺", US: "🇺🇸", KZ: "🇰🇿", TR: "🇹🇷", KG: "🇰🇬", TJ: "🇹🇯", TM: "🇹🇲" };
+
 function formatPhone(value) {
   const digits = value.replace(/\D/g, "");
-  if (digits.length === 0) return "";
-  if (digits.startsWith("998")) {
-    const local = digits.slice(3);
-    let formatted = "+998";
-    if (local.length > 0) formatted += " " + local.slice(0, 2);
-    if (local.length > 2) formatted += " " + local.slice(2, 5);
-    if (local.length > 5) formatted += " " + local.slice(5, 7);
-    if (local.length > 7) formatted += " " + local.slice(7, 9);
-    return formatted;
-  }
-  if (digits.startsWith("1") || digits.startsWith("7")) {
-    return "+" + digits.slice(0, 1) + " (" + digits.slice(1, 4) + ") " + digits.slice(4, 7) + "-" + digits.slice(7, 9);
+  if (!digits) return "";
+  const phone = parsePhoneNumberFromString("+" + digits);
+  if (phone && phone.isValid()) {
+    return phone.formatInternational();
   }
   return "+" + digits;
+}
+
+function detectCountry(value) {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return null;
+  const phone = parsePhoneNumberFromString("+" + digits);
+  if (phone && phone.country) return phone.country;
+  return null;
 }
 
 export default function Register() {
@@ -38,6 +41,7 @@ export default function Register() {
   const [submitError, setSubmitError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [phoneError, setPhoneError] = useState("");
+  const [detectedCountry, setDetectedCountry] = useState(null);
   const { register, isLoggedIn, loading } = useAuth();
   const navigate = useNavigate();
   const [categoriesByField, setCategoriesByField] = useState({});
@@ -56,7 +60,7 @@ export default function Register() {
   }, []);
 
   if (!loading && isLoggedIn) {
-    return <Navigate to="/vacancies" replace />;
+    return <Navigate to="/" replace />;
   }
 
   const next = () => {
@@ -138,7 +142,7 @@ export default function Register() {
     });
     setSubmitting(false);
     if (result.success) {
-      navigate("/vacancies");
+      navigate("/");
     } else {
       setSubmitError(result.error);
     }
@@ -199,6 +203,29 @@ export default function Register() {
                   </div>
                 </button>
               </div>
+
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-white px-3 text-ink-3">yoki</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => { window.location.href = "/api/auth/google?role=specialist"; }}
+                className="w-full flex items-center justify-center gap-3 py-3 rounded-lg border border-border hover:bg-surface transition-colors text-sm font-medium text-ink"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                </svg>
+                Google orqali ro'yxatdan o'tish
+              </button>
             </div>
           )}
 
@@ -279,7 +306,56 @@ export default function Register() {
                 {[
                   { label: "To'liq ism", key: "name", placeholder: "Masalan: Aziz Karimov" },
                   { label: "Email", key: "email", placeholder: "example@mail.com", type: "email" },
-                  { label: "Telefon raqam", key: "phone", placeholder: "+998 90 123 45 67", type: "tel" },
+                ].map((f) => (
+                  <div key={f.key}>
+                    <label className="block text-sm font-medium text-ink-2 mb-1.5">{f.label}</label>
+                    <input
+                      type={f.type || "text"}
+                      placeholder={f.placeholder}
+                      value={form[f.key]}
+                      onChange={(e) => {
+                        setForm({ ...form, [f.key]: e.target.value });
+                        if (f.key === "password") setPasswordError("");
+                      }}
+                      className={`w-full px-4 py-3 rounded-lg border ${
+                        (passwordError && f.key === "password") || (phoneError && f.key === "phone")
+                          ? "border-red-300"
+                          : "border-border"
+                      } focus:border-ink/30 outline-none transition-colors text-sm`}
+                    />
+                    {passwordError && f.key === "password" && <p className="text-xs text-red-500 mt-1">{passwordError}</p>}
+                    {phoneError && f.key === "phone" && <p className="text-xs text-red-500 mt-1">{phoneError}</p>}
+                  </div>
+                ))}
+
+                <div>
+                  <label className="block text-sm font-medium text-ink-2 mb-1.5">Telefon raqam</label>
+                  <div className="relative">
+                    {detectedCountry && (
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-sm">
+                        <span>{countryFlags[detectedCountry] || ""}</span>
+                        <span className="text-xs text-ink-3 font-medium">{detectedCountry}</span>
+                      </div>
+                    )}
+                    <input
+                      type="tel"
+                      placeholder="+998 90 123 45 67"
+                      value={form.phone}
+                      onChange={(e) => {
+                        const formatted = formatPhone(e.target.value);
+                        setForm({ ...form, phone: formatted });
+                        setDetectedCountry(detectCountry(formatted));
+                        setPhoneError("");
+                      }}
+                      className={`w-full py-3 rounded-lg border ${
+                        phoneError ? "border-red-300" : "border-border"
+                      } focus:border-ink/30 outline-none transition-colors text-sm ${detectedCountry ? "pl-20 pr-4" : "px-4"}`}
+                    />
+                  </div>
+                  {phoneError && <p className="text-xs text-red-500 mt-1">{phoneError}</p>}
+                </div>
+
+                {[
                   { label: "Shahar", key: "city", placeholder: "Masalan: Toshkent" },
                   { label: "Parol", key: "password", placeholder: "Kamida 8 ta belgi", type: "password" },
                 ].map((f) => (
@@ -290,13 +366,8 @@ export default function Register() {
                       placeholder={f.placeholder}
                       value={form[f.key]}
                       onChange={(e) => {
-                        if (f.key === "phone") {
-                          setForm({ ...form, phone: formatPhone(e.target.value) });
-                          setPhoneError("");
-                        } else {
-                          setForm({ ...form, [f.key]: e.target.value });
-                          if (f.key === "password") setPasswordError("");
-                        }
+                        setForm({ ...form, [f.key]: e.target.value });
+                        if (f.key === "password") setPasswordError("");
                       }}
                       className={`w-full px-4 py-3 rounded-lg border ${
                         (passwordError && f.key === "password") || (phoneError && f.key === "phone")

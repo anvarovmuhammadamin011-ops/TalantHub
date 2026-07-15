@@ -1,12 +1,63 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const passport = require("passport");
+const { Strategy: GoogleStrategy } = require("passport-google-oauth20");
 const db = require("../db.cjs");
 const { authMiddleware, JWT_SECRET } = require("../middleware/auth.cjs");
 const { rateLimit } = require("../middleware/rateLimit.cjs");
 
 const router = express.Router();
 const authRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
+const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || "http://localhost:4000/api/auth/callback/google";
+
+if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
+  passport.use(new GoogleStrategy({
+    clientID: GOOGLE_CLIENT_ID,
+    clientSecret: GOOGLE_CLIENT_SECRET,
+    callbackURL: GOOGLE_CALLBACK_URL,
+    scope: ["profile", "email"],
+  }, (accessToken, refreshToken, profile, done) => {
+    try {
+      const googleId = profile.id;
+      const email = profile.emails?.[0]?.value || "";
+      const name = profile.displayName || "";
+      const avatar = profile.photos?.[0]?.value || "";
+
+      let user = db.prepare("SELECT * FROM users WHERE google_id = ?").get(googleId);
+
+      if (!user && email) {
+        user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+      }
+
+      if (user) {
+        if (!user.google_id) {
+          db.prepare("UPDATE users SET google_id = ?, oauth_provider = 'google', avatar = CASE WHEN avatar = '' THEN ? ELSE avatar END WHERE id = ?").run(googleId, avatar, user.id);
+        }
+        return done(null, user);
+      }
+
+      const result = db.prepare(`
+        INSERT INTO users (name, email, password, avatar, google_id, oauth_provider, role)
+        VALUES (?, ?, '', ?, ?, 'google', 'specialist')
+      `).run(name, email, avatar, googleId);
+
+      const newUser = db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid);
+      return done(null, newUser);
+    } catch (err) {
+      return done(err, null);
+    }
+  }));
+
+  passport.serializeUser((user, done) => done(null, user.id));
+  passport.deserializeUser((id, done) => {
+    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(id);
+    done(null, user);
+  });
+}
 
 router.post("/register", authRateLimit, (req, res) => {
   try {
@@ -175,6 +226,33 @@ router.patch("/me", authMiddleware, (req, res) => {
     console.error("Update profile error:", err);
     res.status(500).json({ error: "Server xatoligi" });
   }
+});
+
+// --- Google OAuth ---
+router.get("/google", (req, res, next) => {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    return res.status(503).json({ error: "Google OAuth konfiguratsiya qilinmagan. GOOGLE_CLIENT_ID va GOOGLE_CLIENT_SECRET .env faylga qo'shing." });
+  }
+  const role = req.query.role || "specialist";
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+    state: role,
+  })(req, res, next);
+});
+
+router.get("/callback/google", (req, res, next) => {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    return res.redirect("/login?error=oauth_not_configured");
+  }
+  passport.authenticate("google", { session: false, failureRedirect: "/login?error=google_failed" }, (err, user) => {
+    if (err || !user) return res.redirect("/login?error=google_failed");
+    const role = req.query.state || "specialist";
+    if (user.role === "specialist" && req.query.state) {
+      db.prepare("UPDATE users SET role = ? WHERE id = ? AND role = 'specialist'").run(role, user.id);
+    }
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
+    res.redirect(`/auth/callback?token=${token}`);
+  })(req, res, next);
 });
 
 module.exports = router;

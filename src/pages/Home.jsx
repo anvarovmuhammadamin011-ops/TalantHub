@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { Package, Clock, CheckCircle, Star, MessageSquare, Briefcase, ArrowRight, TrendingUp, AlertCircle, Sparkles, User, FileText, Loader2 } from "lucide-react";
+import { Package, Clock, CheckCircle, Star, MessageSquare, Briefcase, ArrowRight, TrendingUp, AlertCircle, Sparkles, User, FileText, Loader2, Bot } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
-import { computeMatch } from "../lib/format";
 import StatusBadge from "../components/ui/StatusBadge";
 import VerifiedBadge from "../components/ui/VerifiedBadge";
 import MatchIndicator from "../components/ui/MatchIndicator";
@@ -27,6 +26,9 @@ export default function Home() {
   const [orders, setOrders] = useState([]);
   const [orderStats, setOrderStats] = useState({});
   const [vacancies, setVacancies] = useState([]);
+  const [matchedVacancies, setMatchedVacancies] = useState([]);
+  const [aiMatching, setAiMatching] = useState(false);
+  const [aiUsed, setAiUsed] = useState(false);
   const [chats, setChats] = useState([]);
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +53,20 @@ export default function Home() {
       } finally {
         setLoading(false);
       }
+
+      try {
+        setAiMatching(true);
+        const aiData = await api("/ai/match-jobs", { method: "POST" });
+        setMatchedVacancies(aiData.matches || []);
+        setAiUsed(aiData.ai || false);
+      } catch {
+        const vacRes = await api("/vacancies");
+        const allVac = (vacRes.vacancies || []).slice(0, 6);
+        setMatchedVacancies(allVac.map((v) => ({ ...v, matchPercent: 50, reasons: [] })));
+        setAiUsed(false);
+      } finally {
+        setAiMatching(false);
+      }
     }
     load();
   }, []);
@@ -73,11 +89,6 @@ export default function Home() {
     const done = filled.length + skills + certs;
     return Math.round((done / total) * 100);
   })();
-
-  const matchedVacancies = vacancies
-    .map((v) => ({ ...v, matchPercent: computeMatch(user?.skills, v.tags || []) }))
-    .sort((a, b) => b.matchPercent - a.matchPercent)
-    .slice(0, 4);
 
   const weekData = groupByWeekday(orders);
   const activeOrders = orders.filter((o) => o.status === "Yangi" || o.status === "Qabul qilindi" || o.status === "Jarayonda");
@@ -184,33 +195,57 @@ export default function Home() {
             )}
           </div>
 
-          {/* 3. Matched Vacancies */}
-          {matchedVacancies.length > 0 && (
+          {/* 3. AI Matched Vacancies */}
+          {(matchedVacancies.length > 0 || aiMatching) && (
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-semibold text-ink">Sizga mos takliflar</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-semibold text-ink">Sizga mos ishlar</h2>
+                  {aiUsed && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-accent/10 text-accent">
+                      <Bot className="w-3 h-3" /> AI
+                    </span>
+                  )}
+                </div>
                 <Link to="/vacancies" className="text-xs font-medium text-ink-2 hover:text-ink transition-colors">Hammasini ko'rish <ArrowRight className="w-3 h-3 inline" /></Link>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {matchedVacancies.map((v) => (
-                  <Link key={v.id} to={`/vacancies/${v.id}`}
-                    className="bg-white rounded-xl border border-border p-4 hover:shadow-md hover:-translate-y-0.5 transition-all">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-ink text-sm truncate">{v.title}</h3>
-                        <p className="text-xs text-ink-3 mt-0.5">{v.company} · {v.location}</p>
+              {aiMatching ? (
+                <div className="bg-white rounded-xl border border-border p-6 text-center">
+                  <Loader2 className="w-6 h-6 text-accent animate-spin mx-auto mb-2" />
+                  <p className="text-xs text-ink-3">AI sizga mos ishlarni topmoqda...</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {matchedVacancies.slice(0, 4).map((v) => (
+                    <Link key={v.id} to={`/vacancies/${v.id}`}
+                      className="bg-white rounded-xl border border-border p-4 hover:shadow-md hover:-translate-y-0.5 transition-all">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-ink text-sm truncate">{v.title}</h3>
+                          <p className="text-xs text-ink-3 mt-0.5">{v.company} · {v.location}</p>
+                        </div>
+                        <MatchIndicator percent={v.matchPercent} size="sm" />
                       </div>
-                      <MatchIndicator percent={v.matchPercent} size="sm" />
-                    </div>
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {(v.tags || []).slice(0, 3).map((tag) => (
-                        <span key={tag} className="px-1.5 py-0.5 bg-surface text-ink-3 rounded text-[10px] font-medium">{tag}</span>
-                      ))}
-                    </div>
-                    <div className="text-xs font-semibold text-ink">{v.salary}</div>
-                  </Link>
-                ))}
-              </div>
+                      {v.reasons && v.reasons.length > 0 && (
+                        <div className="mb-2 space-y-0.5">
+                          {v.reasons.slice(0, 2).map((r, i) => (
+                            <p key={i} className="text-[10px] text-accent flex items-center gap-1">
+                              <span className="w-1 h-1 rounded-full bg-accent flex-shrink-0" />
+                              {r}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {(v.tags || []).slice(0, 3).map((tag) => (
+                          <span key={tag} className="px-1.5 py-0.5 bg-surface text-ink-3 rounded text-[10px] font-medium">{tag}</span>
+                        ))}
+                      </div>
+                      <div className="text-xs font-semibold text-ink">{v.salary}</div>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -296,8 +331,8 @@ export default function Home() {
             <div className="absolute right-0 top-0 w-24 h-24 bg-white/5 rounded-full -mr-8 -mt-8" />
             <div className="relative">
               <Sparkles className="w-6 h-6 text-white/40 mb-2" />
-              <h3 className="font-semibold text-sm mb-1">AI Kadrlar yordamchisi</h3>
-              <p className="text-xs text-white/60 mb-2">Qanday mutaxassis kerakligini yozing — topib beramiz</p>
+              <h3 className="font-semibold text-sm mb-1">AI Ish topish yordamchisi</h3>
+              <p className="text-xs text-white/60 mb-2">Qanday ish kerakligini yozing — sizga eng mos takliflarni topib beramiz</p>
               <span className="inline-flex items-center gap-1 text-xs font-medium bg-white/15 px-3 py-1.5 rounded-lg">
                 Sinab ko'ring <ArrowRight className="w-3 h-3" />
               </span>
