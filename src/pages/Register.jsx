@@ -1,21 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, Navigate } from "react-router-dom";
 import { ArrowRight, ArrowLeft, Briefcase, User, Code, BookOpen, CheckCircle, Smartphone, Shield } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { api } from "../lib/api";
 
 const steps = ["Rol", "Yo'nalish", "Ma'lumotlar", "SMS", "Tasdiqlash"];
-const allCategories = {
-  IT: [
-    "Frontend Developer", "Backend Developer", "Mobile Developer",
-    "UI/UX Designer", "DevOps Engineer", "Data Scientist",
-    "QA Engineer", "Project Manager", "AI/ML Engineer", "Cyber Security",
-  ],
-  "Ta'lim": [
-    "Ingliz tili o'qituvchisi", "Matematika o'qituvchisi", "Fizika o'qituvchisi",
-    "Informatika o'qituvchisi", "Biologiya o'qituvchisi", "Tarix o'qituvchisi",
-    "Kimyo o'qituvchisi", "Geografiya o'qituvchisi", "Adabiyot o'qituvchisi",
-  ],
-};
 
 function formatPhone(value) {
   const digits = value.replace(/\D/g, "");
@@ -51,9 +40,23 @@ export default function Register() {
   const [phoneError, setPhoneError] = useState("");
   const { register, isLoggedIn, loading } = useAuth();
   const navigate = useNavigate();
+  const [categoriesByField, setCategoriesByField] = useState({});
+
+  useEffect(() => {
+    api("/categories?type=category")
+      .then((d) => {
+        const grouped = {};
+        for (const c of d.categories) {
+          if (!grouped[c.group_name]) grouped[c.group_name] = [];
+          grouped[c.group_name].push(c.name);
+        }
+        setCategoriesByField(grouped);
+      })
+      .catch(() => {});
+  }, []);
 
   if (!loading && isLoggedIn) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/vacancies" replace />;
   }
 
   const next = () => {
@@ -146,7 +149,7 @@ export default function Register() {
   return (
     <div className="min-h-screen bg-surface py-12 px-4">
       <div className="max-w-lg mx-auto">
-        <Link to="/" className="flex items-center justify-center gap-2 mb-10">
+        <Link to="/vacancies" className="flex items-center justify-center gap-2 mb-10">
           <div className="w-8 h-8 bg-ink rounded-md flex items-center justify-center">
             <span className="text-white font-semibold text-xs">TH</span>
           </div>
@@ -232,7 +235,7 @@ export default function Register() {
                     <div key={field}>
                       <label className="text-xs font-medium text-ink-3 uppercase tracking-wide mb-2 block">{field} kasblari</label>
                       <div className="grid grid-cols-2 gap-2">
-                        {allCategories[field].map((cat) => (
+                        {(categoriesByField[field] || []).map((cat) => (
                           <button key={cat} onClick={() => toggleCategory(cat)}
                             className={`p-3 rounded-lg border text-left text-sm font-medium transition-colors ${
                               selectedCats.includes(cat)

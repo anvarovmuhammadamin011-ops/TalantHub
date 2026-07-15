@@ -14,12 +14,10 @@ export default function Navbar() {
 
   const navLinks = isAdmin
     ? [
-        { to: "/", label: "Bosh sahifa" },
         { to: "/admin", label: "Admin panel", icon: Shield },
         { to: "/chat", label: "Xabarlar", icon: MessageSquare },
       ]
     : [
-        { to: "/", label: "Bosh sahifa" },
         { to: "/vacancies", label: "Vakansiyalar", icon: Briefcase },
         { to: "/specialists", label: "Mutaxassislar", icon: Users },
         ...(isEmployer
@@ -40,7 +38,7 @@ export default function Navbar() {
     <nav className="bg-white/90 backdrop-blur-sm border-b border-border sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center gap-2">
+          <Link to="/vacancies" className="flex items-center gap-2">
             <div className="w-7 h-7 bg-ink rounded-md flex items-center justify-center">
               <span className="text-white font-semibold text-xs">TH</span>
             </div>

@@ -323,6 +323,9 @@ try {
   db.exec(`ALTER TABLE users ADD COLUMN admin_role TEXT DEFAULT 'super_admin'`);
 } catch (e) {}
 try {
+  db.exec(`ALTER TABLE users ADD COLUMN featured INTEGER DEFAULT 0`);
+} catch (e) {}
+try {
   db.exec(`ALTER TABLE categories ADD COLUMN type TEXT DEFAULT 'category'`);
 } catch (e) {}
 
@@ -351,5 +354,12 @@ db.exec(`
 
 const insertSetting = db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)");
 insertSetting.run("vacancy_moderation_mode", "pre");
+
+const defaultSkills = [
+  "Ingliz tili", "Matematika", "Fizika", "Kimyo", "Biologiya",
+  "Tarix", "Ona tili", "Informatika", "Geografiya", "Musiqa", "Jismoniy tarbiya",
+];
+const insertSkill = db.prepare("INSERT OR IGNORE INTO categories (group_name, name, type, sort_order) VALUES ('', ?, 'skill', ?)");
+defaultSkills.forEach((name, i) => insertSkill.run(name, i));
 
 module.exports = db;

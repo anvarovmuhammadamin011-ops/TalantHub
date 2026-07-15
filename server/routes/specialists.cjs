@@ -27,7 +27,7 @@ router.get("/", (req, res) => {
       params.push(`%${category}%`);
     }
 
-    sql += ` ORDER BY rating DESC, name ASC`;
+    sql += ` ORDER BY featured DESC, rating DESC, name ASC`;
 
     const specialists = db.prepare(sql).all(...params).map((s) => {
       const { password, ...safe } = s;

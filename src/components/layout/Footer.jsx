@@ -7,7 +7,7 @@ export default function Footer() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
           <div>
-            <Link to="/" className="flex items-center gap-2 mb-4">
+            <Link to="/vacancies" className="flex items-center gap-2 mb-4">
               <div className="w-7 h-7 bg-white rounded-md flex items-center justify-center">
                 <span className="text-ink font-semibold text-xs">TH</span>
               </div>

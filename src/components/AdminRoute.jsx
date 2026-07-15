@@ -3,6 +3,6 @@ import { useAuth } from "../context/AuthContext";
 
 export default function AdminRoute() {
   const { user } = useAuth();
-  if (user?.role !== "admin") return <Navigate to="/" replace />;
+  if (user?.role !== "admin") return <Navigate to="/vacancies" replace />;
   return <Outlet />;
 }

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, Briefcase, MessageSquare, User, Package, LayoutDashboard, BarChart3, Shield } from "lucide-react";
+import { Briefcase, MessageSquare, User, Package, LayoutDashboard, BarChart3, Shield } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
 export default function MobileNav() {
@@ -10,12 +10,10 @@ export default function MobileNav() {
 
   const tabs = isAdmin
     ? [
-        { to: "/", label: "Bosh", icon: Home },
         { to: "/admin", label: "Admin", icon: Shield },
         { to: "/chat", label: "Xabarlar", icon: MessageSquare },
       ]
     : [
-        { to: "/", label: "Bosh", icon: Home },
         { to: "/vacancies", label: "Vakansiyalar", icon: Briefcase },
         isEmployer
           ? { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard }

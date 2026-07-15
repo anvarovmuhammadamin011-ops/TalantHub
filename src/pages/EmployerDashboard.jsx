@@ -6,6 +6,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import StatusBadge from "../components/ui/StatusBadge";
 import MatchIndicator from "../components/ui/MatchIndicator";
+import VerificationPanel from "../components/ui/VerificationPanel";
 
 const weekdays = ["Yak", "Dush", "Sesh", "Chor", "Pay", "Jum", "Shan"];
 
@@ -98,6 +99,10 @@ export default function EmployerDashboard() {
         <Link to="/vacancies/new" className="flex items-center gap-2 bg-ink text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors">
           <Plus className="w-4 h-4" /> Yangi vakansiya
         </Link>
+      </div>
+
+      <div className="max-w-md mb-6">
+        <VerificationPanel />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">

@@ -4,6 +4,7 @@ import { LogIn, Mail, Lock, Info, Zap, Shield } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 const ADMIN_EMAIL = "admin@talenthub.uz";
+const ADMIN_PASSWORD = "Admin123!";
 
 const demoAccounts = [
   { name: "Aziz Karimov", email: "aziz@demo.com", role: "IT mutaxassis", color: "bg-blue-50 text-blue-600" },
@@ -23,7 +24,7 @@ export default function Login() {
   const passwordRef = useRef(null);
 
   if (!loading && isLoggedIn) {
-    return <Navigate to={location.state?.from || "/"} replace />;
+    return <Navigate to={location.state?.from || "/vacancies"} replace />;
   }
 
   const handleSubmit = async (e) => {
@@ -37,7 +38,7 @@ export default function Login() {
     const result = await login(email, password);
     setSubmitting(false);
     if (result.success) {
-      navigate(location.state?.from || "/", { replace: true });
+      navigate(location.state?.from || "/vacancies", { replace: true });
     } else {
       setError(result.error);
     }
@@ -46,6 +47,7 @@ export default function Login() {
   const fillAdmin = () => {
     setError("");
     setEmail(ADMIN_EMAIL);
+    setPassword(ADMIN_PASSWORD);
     passwordRef.current?.focus();
   };
 
@@ -55,7 +57,7 @@ export default function Login() {
     const result = await login(demoEmail, "12345678");
     setLoggingDemo(null);
     if (result.success) {
-      navigate(location.state?.from || "/", { replace: true });
+      navigate(location.state?.from || "/vacancies", { replace: true });
     } else {
       setError(result.error);
     }
@@ -64,7 +66,7 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-surface flex items-center justify-center py-12 px-4">
       <div className="max-w-md w-full">
-        <Link to="/" className="flex items-center justify-center gap-2 mb-10">
+        <Link to="/vacancies" className="flex items-center justify-center gap-2 mb-10">
           <div className="w-8 h-8 bg-ink rounded-md flex items-center justify-center">
             <span className="text-white font-semibold text-xs">TH</span>
           </div>

@@ -28,8 +28,34 @@ router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), (req
     const applications_total = db.prepare("SELECT COUNT(*) as c FROM applications").get().c;
     const messages_total = db.prepare("SELECT COUNT(*) as c FROM messages").get().c;
     const new_users_7d = db.prepare("SELECT COUNT(*) as c FROM users WHERE created_at >= datetime('now','-7 days')").get().c;
+    const verified_users = db.prepare("SELECT COUNT(*) as c FROM users WHERE verified = 1").get().c;
+    const blocked_users = db.prepare("SELECT COUNT(*) as c FROM users WHERE blocked = 1").get().c;
+    const featured_users = db.prepare("SELECT COUNT(*) as c FROM users WHERE featured = 1").get().c;
 
-    res.json({ users_total, specialists, employers, admins, vacancies_total, vacancies_active, orders_total, orders_active, orders_completed, applications_total, messages_total, new_users_7d });
+    const signups_by_day = db.prepare(`
+      SELECT date(created_at) as date, COUNT(*) as count
+      FROM users
+      WHERE created_at >= datetime('now','-13 days')
+      GROUP BY date(created_at)
+      ORDER BY date(created_at) ASC
+    `).all();
+    const signupsByDayMap = Object.fromEntries(signups_by_day.map((r) => [r.date, r.count]));
+    const signups_series = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+      signups_series.push({ date: d, count: signupsByDayMap[d] || 0 });
+    }
+
+    const users_by_city = db.prepare(`
+      SELECT city, COUNT(*) as count FROM users
+      WHERE city IS NOT NULL AND city != ''
+      GROUP BY city ORDER BY count DESC LIMIT 5
+    `).all();
+
+    res.json({
+      users_total, specialists, employers, admins, vacancies_total, vacancies_active, orders_total, orders_active, orders_completed,
+      applications_total, messages_total, new_users_7d, verified_users, blocked_users, featured_users, signups_series, users_by_city,
+    });
   } catch (err) {
     console.error("Admin stats error:", err);
     res.status(500).json({ error: "Server xatoligi" });
@@ -39,7 +65,7 @@ router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), (req
 router.get("/users", authMiddleware, requireAdmin, requireSection("users"), (req, res) => {
   try {
     const { search, role, status, page = 1, limit = 20 } = req.query;
-    let sql = `SELECT id,name,email,phone,city,role,verified,blocked,blocked_reason,rating,reviews_count,orders_count,created_at FROM users WHERE 1=1`;
+    let sql = `SELECT id,name,email,phone,city,role,admin_role,verified,blocked,blocked_reason,featured,rating,reviews_count,orders_count,created_at FROM users WHERE 1=1`;
     const params = [];
 
     if (search) {
@@ -54,12 +80,14 @@ router.get("/users", authMiddleware, requireAdmin, requireSection("users"), (req
       sql += ` AND blocked = 1`;
     } else if (status === "active") {
       sql += ` AND blocked = 0`;
+    } else if (status === "featured") {
+      sql += ` AND featured = 1`;
     }
 
-    const countSql = sql.replace("SELECT id,name,email,phone,city,role,verified,blocked,blocked_reason,rating,reviews_count,orders_count,created_at", "SELECT COUNT(*) as total");
+    const countSql = sql.replace("SELECT id,name,email,phone,city,role,admin_role,verified,blocked,blocked_reason,featured,rating,reviews_count,orders_count,created_at", "SELECT COUNT(*) as total");
     const total = db.prepare(countSql).get(...params).total;
 
-    sql += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+    sql += ` ORDER BY featured DESC, created_at DESC LIMIT ? OFFSET ?`;
     params.push(Number(limit), (Number(page) - 1) * Number(limit));
 
     const users = db.prepare(sql).all(...params);
@@ -71,22 +99,30 @@ router.get("/users", authMiddleware, requireAdmin, requireSection("users"), (req
 });
 
 const VALID_ROLES = ["specialist", "employer", "admin"];
+const VALID_ADMIN_ROLES = ["super_admin", "moderator", "support"];
 
 router.patch("/users/:id", authMiddleware, requireAdmin, requireSection("users"), (req, res) => {
   try {
     const targetId = Number(req.params.id);
     const isSelf = targetId === req.userId;
 
-    const target = db.prepare("SELECT id, role, name FROM users WHERE id = ?").get(targetId);
+    const target = db.prepare("SELECT id, role, admin_role, name FROM users WHERE id = ?").get(targetId);
     if (!target) return res.status(404).json({ error: "Foydalanuvchi topilmadi" });
 
-    const { verified, blocked, blocked_reason, rating, reviews_count, role, name, phone, city } = req.body;
+    const { verified, blocked, blocked_reason, featured, rating, reviews_count, role, admin_role, name, phone, city } = req.body;
+    const actor = db.prepare("SELECT admin_role FROM users WHERE id = ?").get(req.userId);
+    const actorIsSuperAdmin = (actor?.admin_role || "super_admin") === "super_admin";
 
     if (isSelf && (blocked !== undefined || role !== undefined)) {
       return res.status(400).json({ error: "O'zingizni bloklay yoki rolingizni o'zgartira olmaysiz" });
     }
     if (role !== undefined && !VALID_ROLES.includes(role)) {
       return res.status(400).json({ error: "Noto'g'ri rol" });
+    }
+    if (admin_role !== undefined) {
+      if (!actorIsSuperAdmin) return res.status(403).json({ error: "Faqat Super Admin admin rolini o'zgartira oladi" });
+      if (!VALID_ADMIN_ROLES.includes(admin_role)) return res.status(400).json({ error: "Noto'g'ri admin roli" });
+      if ((role || target.role) !== "admin") return res.status(400).json({ error: "Admin roli faqat 'admin' foydalanuvchilarga tegishli" });
     }
     if (rating !== undefined && (Number(rating) < 0 || Number(rating) > 5)) {
       return res.status(400).json({ error: "Reyting 0-5 orasida bo'lishi kerak" });
@@ -100,11 +136,13 @@ router.patch("/users/:id", authMiddleware, requireAdmin, requireSection("users")
     const logDetails = [];
 
     if (verified !== undefined) { sets.push("verified = ?"); params.push(verified ? 1 : 0); logDetails.push(`verified=${verified ? 1 : 0}`); }
+    if (featured !== undefined) { sets.push("featured = ?"); params.push(featured ? 1 : 0); logDetails.push(`featured=${featured ? 1 : 0}`); }
     if (blocked !== undefined) { sets.push("blocked = ?"); params.push(blocked ? 1 : 0); logDetails.push(`blocked=${blocked ? 1 : 0}`); }
     if (blocked_reason !== undefined) { sets.push("blocked_reason = ?"); params.push(blocked_reason); }
     if (rating !== undefined) { sets.push("rating = ?"); params.push(Number(rating)); logDetails.push(`rating=${rating}`); }
     if (reviews_count !== undefined) { sets.push("reviews_count = ?"); params.push(Number(reviews_count)); logDetails.push(`reviews_count=${reviews_count}`); }
     if (role !== undefined) { sets.push("role = ?"); params.push(role); logDetails.push(`role=${role}`); }
+    if (admin_role !== undefined) { sets.push("admin_role = ?"); params.push(admin_role); logDetails.push(`admin_role=${admin_role}`); }
     if (name !== undefined && name.trim()) { sets.push("name = ?"); params.push(name.trim()); }
     if (phone !== undefined) { sets.push("phone = ?"); params.push(phone); }
     if (city !== undefined) { sets.push("city = ?"); params.push(city); }
@@ -116,7 +154,7 @@ router.patch("/users/:id", authMiddleware, requireAdmin, requireSection("users")
 
     logAdmin(req.userId, "user_update", "user", targetId, `${target.name}: ${logDetails.join(", ")}`);
 
-    const user = db.prepare("SELECT id,name,email,role,verified,blocked,blocked_reason,rating,reviews_count,phone,city FROM users WHERE id = ?").get(targetId);
+    const user = db.prepare("SELECT id,name,email,role,admin_role,verified,blocked,blocked_reason,featured,rating,reviews_count,phone,city FROM users WHERE id = ?").get(targetId);
     res.json({ user });
   } catch (err) {
     console.error("Admin user update error:", err);
@@ -198,6 +236,46 @@ router.get("/orders", authMiddleware, requireAdmin, requireSection("orders"), (r
     res.json({ orders });
   } catch (err) {
     console.error("Admin orders list error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.patch("/orders/:id/status", authMiddleware, requireAdmin, requireSection("orders"), (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!status || !status.trim()) return res.status(400).json({ error: "Holat kiritilishi shart" });
+
+    const order = db.prepare("SELECT id, employer_id, specialist_id, title FROM orders WHERE id = ?").get(req.params.id);
+    if (!order) return res.status(404).json({ error: "Buyurtma topilmadi" });
+
+    db.prepare("UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(status, req.params.id);
+    logAdmin(req.userId, "order_status", "order", req.params.id, `status=${status}`);
+
+    for (const userId of [order.employer_id, order.specialist_id]) {
+      db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'order', 'Buyurtma holati yangilandi', ?, '/orders')`).run(
+        userId, `"${order.title}" holati "${status}" ga o'zgartirildi`
+      );
+      if (req.app.get("io")) {
+        req.app.get("io").to(`user_${userId}`).emit("notification", { type: "order", title: "Buyurtma holati yangilandi", description: `Holat: "${status}"` });
+      }
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Admin order status error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.delete("/orders/:id", authMiddleware, requireAdmin, requireSection("orders"), (req, res) => {
+  try {
+    const order = db.prepare("SELECT id, title FROM orders WHERE id = ?").get(req.params.id);
+    if (!order) return res.status(404).json({ error: "Buyurtma topilmadi" });
+    db.prepare("DELETE FROM orders WHERE id = ?").run(req.params.id);
+    logAdmin(req.userId, "order_delete", "order", req.params.id, order.title);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Admin order delete error:", err);
     res.status(500).json({ error: "Server xatoligi" });
   }
 });
@@ -495,69 +573,6 @@ router.post("/broadcast", authMiddleware, requireAdmin, requireSection("broadcas
   }
 });
 
-// ---------- Marketing: promo kodlar ----------
-router.get("/promo", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
-  try {
-    const promos = db.prepare(`
-      SELECT p.*, t.name as tariff_name FROM promo_codes p LEFT JOIN tariffs t ON p.tariff_id = t.id ORDER BY p.created_at DESC
-    `).all();
-    res.json({ promos });
-  } catch (err) {
-    console.error("Admin promo list error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.post("/promo", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
-  try {
-    const { code, discount_percent, max_uses, tariff_id, expires_at } = req.body;
-    if (!code || !code.trim()) return res.status(400).json({ error: "Kod kiritilishi shart" });
-
-    const result = db.prepare(`
-      INSERT INTO promo_codes (code, discount_percent, max_uses, tariff_id, expires_at)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(code.trim().toUpperCase(), Number(discount_percent) || 10, Number(max_uses) || 100, tariff_id || null, expires_at || null);
-
-    logAdmin(req.userId, "promo_create", "promo_code", result.lastInsertRowid, code.trim().toUpperCase());
-    res.json({ id: result.lastInsertRowid });
-  } catch (err) {
-    console.error("Admin promo create error:", err);
-    if (String(err.message || "").includes("UNIQUE")) return res.status(409).json({ error: "Bu kod allaqachon mavjud" });
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.patch("/promo/:id", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
-  try {
-    const { active, discount_percent, max_uses, expires_at } = req.body;
-    const sets = [];
-    const params = [];
-    if (active !== undefined) { sets.push("active = ?"); params.push(active ? 1 : 0); }
-    if (discount_percent !== undefined) { sets.push("discount_percent = ?"); params.push(Number(discount_percent)); }
-    if (max_uses !== undefined) { sets.push("max_uses = ?"); params.push(Number(max_uses)); }
-    if (expires_at !== undefined) { sets.push("expires_at = ?"); params.push(expires_at); }
-    if (sets.length === 0) return res.status(400).json({ error: "Yangilanadigan maydon topilmadi" });
-    params.push(req.params.id);
-    db.prepare(`UPDATE promo_codes SET ${sets.join(", ")} WHERE id = ?`).run(...params);
-    logAdmin(req.userId, "promo_update", "promo_code", req.params.id, "");
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Admin promo update error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.delete("/promo/:id", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
-  try {
-    db.prepare("DELETE FROM promo_codes WHERE id = ?").run(req.params.id);
-    logAdmin(req.userId, "promo_delete", "promo_code", req.params.id, "");
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Admin promo delete error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
 // ---------- Sozlamalar: kategoriyalar / ko'nikmalar (mini-CMS) ----------
 // type: 'category' (yo'nalishlar, group_name = "IT"/"Ta'lim" kabi soha) yoki 'skill' (ko'nikmalar ro'yxati)
 router.get("/categories", authMiddleware, requireAdmin, requireSection("categories"), (req, res) => {
@@ -717,7 +732,7 @@ router.patch("/users/bulk", authMiddleware, requireAdmin, requireSection("users"
 router.get("/users/:id/detail", authMiddleware, requireAdmin, requireSection("users"), (req, res) => {
   try {
     const id = Number(req.params.id);
-    const user = db.prepare("SELECT id,name,email,phone,city,role,admin_role,verified,blocked,blocked_reason,rating,reviews_count,orders_count,created_at,bio,avatar FROM users WHERE id = ?").get(id);
+    const user = db.prepare("SELECT id,name,email,phone,city,role,admin_role,verified,blocked,blocked_reason,featured,rating,reviews_count,orders_count,created_at,bio,avatar FROM users WHERE id = ?").get(id);
     if (!user) return res.status(404).json({ error: "Foydalanuvchi topilmadi" });
 
     const applications = db.prepare(`
@@ -775,289 +790,22 @@ router.patch("/settings/:key", authMiddleware, requireAdmin, requireSection("sys
 
 router.get("/logs", authMiddleware, requireAdmin, requireSection("logs"), (req, res) => {
   try {
-    const logs = db.prepare(`
+    const { search, action } = req.query;
+    let sql = `
       SELECT l.*, a.name as admin_name
       FROM admin_logs l
       LEFT JOIN users a ON l.admin_id = a.id
-      ORDER BY l.created_at DESC
-      LIMIT 200
-    `).all();
-    res.json({ logs });
+      WHERE 1=1
+    `;
+    const params = [];
+    if (search) { sql += ` AND (a.name LIKE ? OR l.details LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
+    if (action) { sql += ` AND l.action = ?`; params.push(action); }
+    sql += ` ORDER BY l.created_at DESC LIMIT 200`;
+    const logs = db.prepare(sql).all(...params);
+    const actions = db.prepare("SELECT DISTINCT action FROM admin_logs ORDER BY action").all().map((r) => r.action);
+    res.json({ logs, actions });
   } catch (err) {
     console.error("Admin logs error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.get("/finance/transactions", authMiddleware, requireAdmin, requireSection("finance"), (req, res) => {
-  try {
-    const { method, status, period, page = 1, limit = 50 } = req.query;
-    let sql = `SELECT t.*, u.name as user_name, u.email as user_email FROM transactions t LEFT JOIN users u ON t.user_id = u.id WHERE 1=1`;
-    const params = [];
-    if (method) { sql += ` AND t.method = ?`; params.push(method); }
-    if (status) { sql += ` AND t.status = ?`; params.push(status); }
-    if (period === "today") { sql += ` AND t.created_at >= date('now')`; }
-    else if (period === "week") { sql += ` AND t.created_at >= datetime('now','-7 days')`; }
-    else if (period === "month") { sql += ` AND t.created_at >= datetime('now','-30 days')`; }
-    const countSql = sql.replace("SELECT t.*, u.name as user_name, u.email as user_email", "SELECT COUNT(*) as total");
-    const total = db.prepare(countSql).get(...params).total;
-    sql += ` ORDER BY t.created_at DESC LIMIT ? OFFSET ?`;
-    params.push(Number(limit), (Number(page) - 1) * Number(limit));
-    const transactions = db.prepare(sql).all(...params);
-    res.json({ transactions, total });
-  } catch (err) {
-    console.error("Admin finance transactions error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.get("/finance/stats", authMiddleware, requireAdmin, requireSection("finance"), (req, res) => {
-  try {
-    const total_income = db.prepare("SELECT COALESCE(SUM(amount),0) as v FROM transactions WHERE status='Tasdiqlangan' AND type='tolov'").get().v;
-    const total_commission = db.prepare("SELECT COALESCE(SUM(commission),0) as v FROM transactions WHERE status='Tasdiqlangan'").get().v;
-    const total_refunds = db.prepare("SELECT COALESCE(SUM(refund),0) as v FROM transactions WHERE refund > 0").get().v;
-    const today_income = db.prepare("SELECT COALESCE(SUM(amount),0) as v FROM transactions WHERE status='Tasdiqlangan' AND created_at >= date('now')").get().v;
-    const month_income = db.prepare("SELECT COALESCE(SUM(amount),0) as v FROM transactions WHERE status='Tasdiqlangan' AND created_at >= datetime('now','-30 days')").get().v;
-    const transactions_count = db.prepare("SELECT COUNT(*) as c FROM transactions").get().c;
-    const payme_count = db.prepare("SELECT COUNT(*) as c FROM transactions WHERE method='Payme'").get().c;
-    const click_count = db.prepare("SELECT COUNT(*) as c FROM transactions WHERE method='Click'").get().c;
-
-    const daily = db.prepare(`
-      SELECT date(created_at) as day, SUM(amount) as income, SUM(commission) as commission
-      FROM transactions WHERE status='Tasdiqlangan' AND created_at >= datetime('now','-30 days')
-      GROUP BY date(created_at) ORDER BY day
-    `).all();
-
-    res.json({ total_income, total_commission, total_refunds, today_income, month_income, transactions_count, payme_count, click_count, daily });
-  } catch (err) {
-    console.error("Admin finance stats error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.patch("/finance/transactions/:id/refund", authMiddleware, requireAdmin, requireSection("finance"), (req, res) => {
-  try {
-    const tx = db.prepare("SELECT id, amount FROM transactions WHERE id = ?").get(req.params.id);
-    if (!tx) return res.status(404).json({ error: "Tranzaksiya topilmadi" });
-    db.prepare("UPDATE transactions SET refund = amount, status = 'Qaytarildi' WHERE id = ?").run(req.params.id);
-    logAdmin(req.userId, "refund", "transaction", req.params.id, `amount=${tx.amount}`);
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Admin refund error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.get("/tariffs", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
-  try {
-    const tariffs = db.prepare("SELECT * FROM tariffs ORDER BY price ASC").all().map((t) => ({ ...t, features: JSON.parse(t.features) }));
-    res.json({ tariffs });
-  } catch (err) {
-    console.error("Admin tariffs error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.post("/tariffs", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
-  try {
-    const { name, price, duration_days, max_vacancies, max_contacts, features } = req.body;
-    if (!name || price === undefined) return res.status(400).json({ error: "Nomi va narxi majburiy" });
-    const result = db.prepare("INSERT INTO tariffs (name, price, duration_days, max_vacancies, max_contacts, features) VALUES (?, ?, ?, ?, ?, ?)").run(
-      name, Number(price), Number(duration_days) || 30, Number(max_vacancies) || 3, Number(max_contacts) || 10, JSON.stringify(features || [])
-    );
-    logAdmin(req.userId, "tariff_create", "tariff", result.lastInsertRowid, name);
-    res.json({ id: result.lastInsertRowid });
-  } catch (err) {
-    console.error("Admin tariff create error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.patch("/tariffs/:id", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
-  try {
-    const { name, price, duration_days, max_vacancies, max_contacts, features, active } = req.body;
-    const sets = [], params = [];
-    if (name !== undefined) { sets.push("name = ?"); params.push(name); }
-    if (price !== undefined) { sets.push("price = ?"); params.push(Number(price)); }
-    if (duration_days !== undefined) { sets.push("duration_days = ?"); params.push(Number(duration_days)); }
-    if (max_vacancies !== undefined) { sets.push("max_vacancies = ?"); params.push(Number(max_vacancies)); }
-    if (max_contacts !== undefined) { sets.push("max_contacts = ?"); params.push(Number(max_contacts)); }
-    if (features !== undefined) { sets.push("features = ?"); params.push(JSON.stringify(features)); }
-    if (active !== undefined) { sets.push("active = ?"); params.push(active ? 1 : 0); }
-    if (sets.length === 0) return res.status(400).json({ error: "Maydon topilmadi" });
-    params.push(req.params.id);
-    db.prepare(`UPDATE tariffs SET ${sets.join(", ")} WHERE id = ?`).run(...params);
-    logAdmin(req.userId, "tariff_update", "tariff", req.params.id, sets.join(", "));
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Admin tariff update error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.delete("/tariffs/:id", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
-  try {
-    db.prepare("DELETE FROM tariffs WHERE id = ?").run(req.params.id);
-    logAdmin(req.userId, "tariff_delete", "tariff", req.params.id, "");
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Admin tariff delete error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.get("/promos", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
-  try {
-    const promos = db.prepare(`
-      SELECT p.*, t.name as tariff_name
-      FROM promo_codes p LEFT JOIN tariffs t ON p.tariff_id = t.id
-      ORDER BY p.created_at DESC
-    `).all();
-    res.json({ promos });
-  } catch (err) {
-    console.error("Admin promos error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.post("/promos", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
-  try {
-    const { code, discount_percent, max_uses, tariff_id, expires_at } = req.body;
-    if (!code) return res.status(400).json({ error: "Kod majburiy" });
-    const result = db.prepare("INSERT INTO promo_codes (code, discount_percent, max_uses, tariff_id, expires_at) VALUES (?, ?, ?, ?, ?)").run(
-      code.toUpperCase(), Number(discount_percent) || 10, Number(max_uses) || 100, tariff_id || null, expires_at || null
-    );
-    logAdmin(req.userId, "promo_create", "promo", result.lastInsertRowid, code.toUpperCase());
-    res.json({ id: result.lastInsertRowid });
-  } catch (err) {
-    console.error("Admin promo create error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.patch("/promos/:id", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
-  try {
-    const { active } = req.body;
-    db.prepare("UPDATE promo_codes SET active = ? WHERE id = ?").run(active ? 1 : 0, req.params.id);
-    logAdmin(req.userId, "promo_update", "promo", req.params.id, `active=${active}`);
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Admin promo update error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.delete("/promos/:id", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
-  try {
-    db.prepare("DELETE FROM promo_codes WHERE id = ?").run(req.params.id);
-    logAdmin(req.userId, "promo_delete", "promo", req.params.id, "");
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Admin promo delete error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.get("/sms", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
-  try {
-    const { status, provider } = req.query;
-    let sql = "SELECT * FROM sms_logs WHERE 1=1";
-    const params = [];
-    if (status) { sql += ` AND status = ?`; params.push(status); }
-    if (provider) { sql += ` AND provider = ?`; params.push(provider); }
-    sql += " ORDER BY created_at DESC LIMIT 200";
-    const logs = db.prepare(sql).all(...params);
-    const stats = {
-      total: db.prepare("SELECT COUNT(*) as c FROM sms_logs").get().c,
-      delivered: db.prepare("SELECT COUNT(*) as c FROM sms_logs WHERE delivered = 1").get().c,
-      failed: db.prepare("SELECT COUNT(*) as c FROM sms_logs WHERE status = 'Xatolik'").get().c,
-      total_cost: db.prepare("SELECT COALESCE(SUM(cost),0) as v FROM sms_logs").get().v,
-    };
-    res.json({ logs, stats });
-  } catch (err) {
-    console.error("Admin SMS error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.get("/push", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
-  try {
-    const logs = db.prepare("SELECT * FROM push_logs ORDER BY created_at DESC LIMIT 200").all();
-    const stats = {
-      total: db.prepare("SELECT COUNT(*) as c FROM push_logs").get().c,
-      clicked: db.prepare("SELECT COUNT(*) as c FROM push_logs WHERE clicked = 1").get().c,
-      delivered: db.prepare("SELECT COUNT(*) as c FROM push_logs WHERE status = 'Yuborildi'").get().c,
-    };
-    res.json({ logs, stats });
-  } catch (err) {
-    console.error("Admin push error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.get("/health", authMiddleware, requireAdmin, requireSection("system"), (req, res) => {
-  try {
-    const uptime = process.uptime();
-    const memUsage = process.memoryUsage();
-    const io = req.app.get("io");
-    const socketCount = io ? io.engine.clientsCount || 0 : 0;
-    const onlineUsers = db.prepare("SELECT COUNT(*) as c FROM users WHERE online = 1").get().c;
-    const errorCount = db.prepare("SELECT COUNT(*) as c FROM admin_logs WHERE action LIKE '%error%'").get().c;
-    const totalRequests = db.prepare("SELECT COUNT(*) as c FROM admin_logs").get().c;
-    res.json({
-      status: "Faol",
-      uptime: Math.floor(uptime),
-      memory_used_mb: Math.round(memUsage.heapUsed / 1024 / 1024),
-      memory_total_mb: Math.round(memUsage.heapTotal / 1024 / 1024),
-      socket_connections: socketCount,
-      online_users: onlineUsers,
-      error_rate: totalRequests > 0 ? ((errorCount / totalRequests) * 100).toFixed(1) : "0.0",
-      db_size: Math.round(require("fs").statSync(require("path").join(__dirname, "..", "talenthub.db")).size / 1024),
-      node_version: process.version,
-      platform: process.platform,
-    });
-  } catch (err) {
-    console.error("Admin health error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.get("/translations", authMiddleware, requireAdmin, requireSection("system"), (req, res) => {
-  try {
-    const { lang, search } = req.query;
-    let sql = "SELECT * FROM translations WHERE 1=1";
-    const params = [];
-    if (lang) { sql += " AND lang = ?"; params.push(lang); }
-    if (search) { sql += " AND (key LIKE ? OR value LIKE ?)"; params.push(`%${search}%`, `%${search}%`); }
-    sql += " ORDER BY key ASC";
-    const translations = db.prepare(sql).all(...params);
-    res.json({ translations });
-  } catch (err) {
-    console.error("Admin translations error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.post("/translations", authMiddleware, requireAdmin, requireSection("system"), (req, res) => {
-  try {
-    const { key, lang, value } = req.body;
-    if (!key || !lang) return res.status(400).json({ error: "Kalit va til majburiy" });
-    db.prepare("INSERT OR REPLACE INTO translations (key, lang, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)").run(key, lang, value || "");
-    logAdmin(req.userId, "translation_upsert", "translation", null, `${lang}:${key}`);
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Admin translation upsert error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.delete("/translations/:id", authMiddleware, requireAdmin, requireSection("system"), (req, res) => {
-  try {
-    db.prepare("DELETE FROM translations WHERE id = ?").run(req.params.id);
-    logAdmin(req.userId, "translation_delete", "translation", req.params.id, "");
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Admin translation delete error:", err);
     res.status(500).json({ error: "Server xatoligi" });
   }
 });

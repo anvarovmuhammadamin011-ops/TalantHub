@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, X, Save, Briefcase } from "lucide-react";
 import { api } from "../lib/api";
@@ -6,14 +6,11 @@ import { api } from "../lib/api";
 const categories = ["IT", "Ta'lim"];
 const formats = ["Ofis", "Masofaviy", "Gibrid"];
 const experienceLevels = ["Junior", "Middle", "Senior", "Expert"];
-const teacherSubjects = [
-  "Ingliz tili", "Matematika", "Fizika", "Kimyo", "Biologiya",
-  "Tarix", "Ona tili", "Informatika", "Geografiya", "Musiqa", "Jismoniy tarbiya",
-];
 
 export default function VacancyCreate() {
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
+  const [teacherSubjects, setTeacherSubjects] = useState([]);
   const [form, setForm] = useState({
     title: "",
     company: "",
@@ -32,6 +29,10 @@ export default function VacancyCreate() {
   const [newReq, setNewReq] = useState("");
   const [conditions, setConditions] = useState([]);
   const [newCond, setNewCond] = useState("");
+
+  useEffect(() => {
+    api("/categories?type=skill").then((d) => setTeacherSubjects(d.categories.map((c) => c.name))).catch(() => {});
+  }, []);
 
   const update = (field, value) => setForm({ ...form, [field]: value });
 
