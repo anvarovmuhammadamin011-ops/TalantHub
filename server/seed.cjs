@@ -144,8 +144,8 @@ function seed() {
     insertApp.run(5, 2, "Ko'rib chiqilmoqda", 82);
 
     insertOrder.run(7, 1, "TexnoLabs veb-sayti qayta ishlash", "React asosida yangi veb-sayt yaratish. 10 sahifa, responsive dizayn.", "3 500 000 so'm", "2026-08-01", "Jarayonda", "Yuqori");
-    insertOrder.run(7, 3, "CRM tizimi backend qismi", "Node.js + PostgreSQL asosida CRM tizimi API yaratish.", "5 000 000 so'm", "2026-08-15", "Qabul qilindi", "O'rta");
-    insertOrder.run(7, 2, "Ingliz tili kursi — IELTS tayyorlov", "10 talabaga 3 oylik IELTS tayyorlov kursi o'tkazish.", "4 000 000 so'm", "2026-09-01", "Yangi", "O'rta");
+    insertOrder.run(7, 3, "CRM tizimi backend qismi", "Node.js + PostgreSQL asosida CRM tizimi API yaratish.", "5 000 000 so'm", "2026-08-15", "Qabul qilindi", "Orta");
+    insertOrder.run(7, 2, "Ingliz tili kursi — IELTS tayyorlov", "10 talabaga 3 oylik IELTS tayyorlov kursi o'tkazish.", "4 000 000 so'm", "2026-09-01", "Yangi", "Orta");
     insertOrder.run(7, 5, "Mobil ilova UI/UX loyihasi", "Figma da mobil ilova uchun 20+ ekran loyihasi.", "2 800 000 so'm", "2026-07-25", "Tugatildi", "Past");
     insertOrder.run(7, 4, "Python skriptlar yozish", "Ma'lumotlar tahlili uchun Python skriptlar yaratish.", "1 500 000 so'm", "2026-07-20", "Jarayonda", "Yuqori");
 
@@ -177,27 +177,87 @@ function seed() {
   });
 
   transaction();
+
+  const insertTx = db.prepare("INSERT INTO transactions (user_id, amount, method, status, type, description, commission, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+  const insertTariff = db.prepare("INSERT INTO tariffs (name, price, duration_days, max_vacancies, max_contacts, features) VALUES (?, ?, ?, ?, ?, ?)");
+  const insertPromo = db.prepare("INSERT INTO promo_codes (code, discount_percent, max_uses, used_count, tariff_id, expires_at) VALUES (?, ?, ?, ?, ?, ?)");
+  const insertSms = db.prepare("INSERT INTO sms_logs (phone, message, status, provider, cost, delivered, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
+  const insertPush = db.prepare("INSERT INTO push_logs (user_id, title, body, status, clicked, created_at) VALUES (?, ?, ?, ?, ?, ?)");
+  const insertTrans = db.prepare("INSERT OR IGNORE INTO translations (key, lang, value) VALUES (?, ?, ?)");
+  const insertFlag = db.prepare("INSERT INTO content_flags (target_type, target_id, reason, severity, status, auto_detected) VALUES (?, ?, ?, ?, ?, ?)");
+
+  const tx2 = db.transaction(() => {
+    insertTariff.run("Boshlang'ich", 99000, 30, 3, 10, JSON.stringify(["3 ta vakansiya", "10 ta kontakt", "Asosiy qo'llab-quvvatlash"]));
+    insertTariff.run("Professional", 299000, 30, 10, 50, JSON.stringify(["10 ta vakansiya", "50 ta kontakt", "Priority qo'llab-quvvatlash", "Analitika"]));
+    insertTariff.run("Korporativ", 599000, 30, 50, 999, JSON.stringify(["50 ta vakansiya", "Cheksiz kontakt", "VIP qo'llab-quvvatlash", "API access", "Dedicated manager"]));
+
+    insertPromo.run("SUMMER2026", 20, 100, 12, 2, "2026-09-01");
+    insertPromo.run("NEWUSER", 50, 200, 45, null, "2026-12-31");
+    insertPromo.run("VIP30", 30, 50, 8, 3, "2026-08-15");
+
+    const txMethods = ["Payme", "Click", "Payme", "Click", "Payme"];
+    const txStatuses = ["Tasdiqlangan", "Tasdiqlangan", "Kutilmoqda", "Tasdiqlangan", "Qaytarildi"];
+    const txAmounts = [299000, 99000, 599000, 299000, 99000];
+    for (let i = 0; i < 5; i++) {
+      insertTx.run(
+        Math.min(i + 1, 7), txAmounts[i], txMethods[i], txStatuses[i], "tolov",
+        `Tariff to'lovi — ${txMethods[i]}`, Math.round(txAmounts[i] * 0.02),
+        `2026-07-${String(10 + i).padStart(2, "0")} 12:00:00`
+      );
+    }
+
+    insertSms.run("+998901234567", "Tasdiqlash kodi: 4821", "Yetkazildi", "ESMS", 50, 1, "2026-07-10 09:00:00");
+    insertSms.run("+998912345678", "Tasdiqlash kodi: 7392", "Yetkazildi", "ESMS", 50, 1, "2026-07-11 10:30:00");
+    insertSms.run("+998933456789", "Tasdiqlash kodi: 1058", "Xatolik", "ESMS", 50, 0, "2026-07-12 14:15:00");
+    insertSms.run("+998944567890", "Tasdiqlash kodi: 6274", "Yetkazildi", "Payme SMS", 75, 1, "2026-07-13 11:00:00");
+    insertSms.run("+998955678901", "Sizning zakazingiz tayyor!", "Yetkazildi", "ESMS", 50, 1, "2026-07-14 16:45:00");
+
+    insertPush.run(1, "Yangi zakaz!", "TexnoLabs sizga yangi zakaz yubordi", "Yuborildi", 1, "2026-07-10 08:00:00");
+    insertPush.run(2, "Ariza yangilandi", "Sizning arizangiz qabul qilindi", "Yuborildi", 0, "2026-07-11 09:15:00");
+    insertPush.run(3, "Xabar keldi", "Sizga yangi xabar yuborildi", "Yuborildi", 1, "2026-07-12 12:30:00");
+
+    insertTrans.run("home.hero_title", "uz", "Eng yaxshi mutaxassislar bir platformada");
+    insertTrans.run("home.hero_title", "ru", "Лучшие специалисты на одной платформе");
+    insertTrans.run("home.hero_title", "en", "Best specialists on one platform");
+    insertTrans.run("home.hero_subtitle", "uz", "IT sohasi va ta'lim yo'nalishidagi eng tajribali mutaxassislar bilan bog'laning.");
+    insertTrans.run("home.hero_subtitle", "ru", "Свяжитесь с самыми опытными специалистами в IT и образовании.");
+    insertTrans.run("home.hero_subtitle", "en", "Connect with the most experienced specialists in IT and education.");
+    insertTrans.run("nav.home", "uz", "Bosh sahifa");
+    insertTrans.run("nav.home", "ru", "Главная");
+    insertTrans.run("nav.home", "en", "Home");
+    insertTrans.run("nav.specialists", "uz", "Mutaxassislar");
+    insertTrans.run("nav.specialists", "ru", "Специалисты");
+    insertTrans.run("nav.specialists", "en", "Specialists");
+    insertTrans.run("common.loading", "uz", "Yuklanmoqda...");
+    insertTrans.run("common.loading", "ru", "Загрузка...");
+    insertTrans.run("common.loading", "en", "Loading...");
+
+    insertFlag.run("profile", 1, "Shubhali bio matni — spam kalit so'zlar", "Orta", "Ko'rib chiqilmoqda", 1);
+    insertFlag.run("chat", 3, "Potentsial firibgarlik — shaxsiy ma'lumot so'rash", "Yuqori", "Ko'rib chiqilmoqda", 1);
+    insertFlag.run("vacancy", 2, "Noto'g'ri narx — bozor ortiqcha", "Past", "Tasdiqlangan", 0);
+  });
+
+  tx2();
   console.log("Database seeded successfully!");
 }
 
 function ensureAdmin() {
-  const existing = db.prepare("SELECT id FROM users WHERE email = ?").get("admin@talenthub.uz");
-  if (existing) return;
+  const existing = db.prepare("SELECT id, password FROM users WHERE email = ?").get("admin@talenthub.uz");
+  const adminPw = process.env.ADMIN_PASSWORD || "Admin123!";
 
-  const generated = !process.env.ADMIN_PASSWORD;
-  const adminPw = process.env.ADMIN_PASSWORD || crypto.randomBytes(9).toString("base64url");
+  if (existing) {
+    if (bcrypt.compareSync(adminPw, existing.password)) return;
+    db.prepare("UPDATE users SET password = ?, role = 'admin' WHERE id = ?").run(bcrypt.hashSync(adminPw, 10), existing.id);
+    console.log("Admin password reset: admin@talenthub.uz / " + adminPw);
+    return;
+  }
+
   const hash = bcrypt.hashSync(adminPw, 10);
-
   db.prepare(`
     INSERT INTO users (name, email, password, role, verified, city, phone)
     VALUES (?, ?, ?, 'admin', 1, 'Toshkent', '+998 90 000 00 00')
   `).run("Administrator", "admin@talenthub.uz", hash);
-
-  if (generated) {
-    console.log(`Admin account created: admin@talenthub.uz / ${adminPw}  (ADMIN_PASSWORD env o'rnatilmagani uchun tasodifiy parol generatsiya qilindi — buni saqlab qo'ying)`);
-  } else {
-    console.log("Admin account created: admin@talenthub.uz (parol ADMIN_PASSWORD env orqali o'rnatildi)");
-  }
+  console.log("Admin account created: admin@talenthub.uz / " + adminPw);
 }
 
 module.exports = seed;

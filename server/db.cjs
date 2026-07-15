@@ -83,7 +83,7 @@ db.exec(`
     price TEXT DEFAULT '',
     deadline TEXT DEFAULT '',
     status TEXT DEFAULT 'Yangi',
-    priority TEXT DEFAULT "O'rta",
+    priority TEXT DEFAULT 'Orta',
     rating INTEGER DEFAULT 0,
     review TEXT DEFAULT '',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -155,6 +155,162 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (admin_id) REFERENCES users(id)
   );
+
+  CREATE TABLE IF NOT EXISTS transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    amount INTEGER NOT NULL DEFAULT 0,
+    currency TEXT DEFAULT 'UZS',
+    method TEXT DEFAULT 'Payme',
+    status TEXT DEFAULT 'Tasdiqlangan',
+    type TEXT DEFAULT 'tolov',
+    description TEXT DEFAULT '',
+    order_id INTEGER,
+    commission INTEGER DEFAULT 0,
+    refund INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS tariffs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    price INTEGER NOT NULL DEFAULT 0,
+    duration_days INTEGER DEFAULT 30,
+    max_vacancies INTEGER DEFAULT 3,
+    max_contacts INTEGER DEFAULT 10,
+    features TEXT DEFAULT '[]',
+    active INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS promo_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT UNIQUE NOT NULL,
+    discount_percent INTEGER DEFAULT 10,
+    max_uses INTEGER DEFAULT 100,
+    used_count INTEGER DEFAULT 0,
+    tariff_id INTEGER,
+    expires_at DATETIME,
+    active INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tariff_id) REFERENCES tariffs(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS sms_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone TEXT NOT NULL,
+    message TEXT DEFAULT '',
+    status TEXT DEFAULT 'Yuborildi',
+    provider TEXT DEFAULT 'ESMS',
+    cost INTEGER DEFAULT 0,
+    delivered INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS push_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    title TEXT DEFAULT '',
+    body TEXT DEFAULT '',
+    status TEXT DEFAULT 'Yuborildi',
+    clicked INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS translations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT NOT NULL,
+    lang TEXT NOT NULL DEFAULT 'uz',
+    value TEXT DEFAULT '',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(key, lang)
+  );
+
+  CREATE TABLE IF NOT EXISTS content_flags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    target_type TEXT NOT NULL,
+    target_id INTEGER NOT NULL,
+    reason TEXT DEFAULT '',
+    severity TEXT DEFAULT 'Orta',
+    status TEXT DEFAULT 'Korib chiqilmoqda',
+    auto_detected INTEGER DEFAULT 0,
+    reviewed_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (reviewed_by) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS tariffs_users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    tariff_id INTEGER NOT NULL,
+    starts_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NOT NULL,
+    vacancies_used INTEGER DEFAULT 0,
+    contacts_used INTEGER DEFAULT 0,
+    active INTEGER DEFAULT 1,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (tariff_id) REFERENCES tariffs(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS login_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    ip TEXT DEFAULT '',
+    user_agent TEXT DEFAULT '',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS disputes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL,
+    opened_by INTEGER NOT NULL,
+    reason TEXT DEFAULT '',
+    status TEXT DEFAULT 'Ochiq',
+    resolution TEXT DEFAULT '',
+    resolved_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(id),
+    FOREIGN KEY (opened_by) REFERENCES users(id),
+    FOREIGN KEY (resolved_by) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS support_tickets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    subject TEXT NOT NULL,
+    message TEXT DEFAULT '',
+    status TEXT DEFAULT 'Ochiq',
+    response TEXT DEFAULT '',
+    handled_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (handled_by) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_name TEXT NOT NULL,
+    name TEXT NOT NULL,
+    active INTEGER DEFAULT 1,
+    sort_order INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(group_name, name)
+  );
 `);
+
+const defaultCategories = [
+  ["IT", "Frontend Developer"], ["IT", "Backend Developer"], ["IT", "Mobile Developer"],
+  ["IT", "UI/UX Designer"], ["IT", "DevOps Engineer"], ["IT", "Data Scientist"],
+  ["IT", "QA Engineer"], ["IT", "Project Manager"], ["IT", "AI/ML Engineer"], ["IT", "Cyber Security"],
+  ["Ta'lim", "Ingliz tili o'qituvchisi"], ["Ta'lim", "Matematika o'qituvchisi"], ["Ta'lim", "Fizika o'qituvchisi"],
+  ["Ta'lim", "Informatika o'qituvchisi"], ["Ta'lim", "Biologiya o'qituvchisi"], ["Ta'lim", "Tarix o'qituvchisi"],
+  ["Ta'lim", "Kimyo o'qituvchisi"], ["Ta'lim", "Geografiya o'qituvchisi"], ["Ta'lim", "Adabiyot o'qituvchisi"],
+];
+const insertCategory = db.prepare("INSERT OR IGNORE INTO categories (group_name, name, sort_order) VALUES (?, ?, ?)");
+defaultCategories.forEach(([group, name], i) => insertCategory.run(group, name, i));
 
 module.exports = db;

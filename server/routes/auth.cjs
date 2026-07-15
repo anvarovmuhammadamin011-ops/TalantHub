@@ -79,6 +79,15 @@ router.post("/login", authRateLimit, (req, res) => {
 
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
 
+    try {
+      const ip = (req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "").toString().split(",")[0].trim();
+      db.prepare("INSERT INTO login_events (user_id, ip, user_agent) VALUES (?, ?, ?)").run(
+        user.id, ip, req.headers["user-agent"] || ""
+      );
+    } catch (e) {
+      console.error("Login event log error:", e);
+    }
+
     res.json({ token, user: safe });
   } catch (err) {
     console.error("Login error:", err);

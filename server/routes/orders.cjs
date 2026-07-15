@@ -164,4 +164,39 @@ router.patch("/:id/rate", authMiddleware, (req, res) => {
   }
 });
 
+router.post("/:id/dispute", authMiddleware, (req, res) => {
+  try {
+    const { reason } = req.body;
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ error: "Nizo sababi kiritilishi shart" });
+    }
+
+    const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(req.params.id);
+    if (!order) return res.status(404).json({ error: "Zakaz topilmadi" });
+    if (order.employer_id !== req.userId && order.specialist_id !== req.userId) {
+      return res.status(403).json({ error: "Ruxsat yo'q" });
+    }
+
+    const result = db.prepare(`
+      INSERT INTO disputes (order_id, opened_by, reason, status)
+      VALUES (?, ?, ?, 'Ochiq')
+    `).run(order.id, req.userId, reason.trim());
+
+    const otherUserId = order.employer_id === req.userId ? order.specialist_id : order.employer_id;
+    db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'order', 'Nizo ochildi', ?, '/orders')`).run(
+      otherUserId, `"${order.title}" zakazi bo'yicha nizo ochildi`
+    );
+    if (req.app.get("io")) {
+      req.app.get("io").to(`user_${otherUserId}`).emit("notification", {
+        type: "order", title: "Nizo ochildi", description: `"${order.title}" zakazi bo'yicha nizo ochildi`
+      });
+    }
+
+    res.json({ success: true, id: result.lastInsertRowid });
+  } catch (err) {
+    console.error("Dispute create error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
 module.exports = router;
