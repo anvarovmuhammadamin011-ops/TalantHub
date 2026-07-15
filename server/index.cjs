@@ -3,6 +3,7 @@ require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const express = require("express");
 const cors = require("cors");
+const passport = require("passport");
 const http = require("http");
 const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
@@ -34,6 +35,7 @@ app.set("io", io);
 
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
+app.use(passport.initialize());
 
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");

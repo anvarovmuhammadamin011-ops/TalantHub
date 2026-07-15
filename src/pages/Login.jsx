@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { Link, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { LogIn, Mail, Lock, Info, Zap, Shield } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { api } from "../lib/api";
+import { BASE_URL } from "../lib/api";
 
 const ADMIN_EMAIL = "admin@talenthub.uz";
 const ADMIN_PASSWORD = "Admin123!";
@@ -137,7 +137,7 @@ export default function Login() {
 
           <button
             type="button"
-            onClick={() => { window.location.href = api("/auth/google").replace("/api", "/api"); }}
+            onClick={() => { window.location.href = `${BASE_URL}/auth/google`; }}
             className="w-full flex items-center justify-center gap-3 py-3 rounded-lg border border-border hover:bg-surface transition-colors text-sm font-medium text-ink"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">

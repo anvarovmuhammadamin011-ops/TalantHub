@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate, Navigate } from "react-router-dom";
 import { ArrowRight, ArrowLeft, Briefcase, User, Code, BookOpen, CheckCircle, Smartphone, Shield } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { api } from "../lib/api";
+import { api, BASE_URL } from "../lib/api";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 const steps = ["Rol", "Yo'nalish", "Ma'lumotlar", "SMS", "Tasdiqlash"];
@@ -215,7 +215,7 @@ export default function Register() {
 
               <button
                 type="button"
-                onClick={() => { window.location.href = "/api/auth/google?role=specialist"; }}
+                onClick={() => { window.location.href = `${BASE_URL}/auth/google?role=specialist`; }}
                 className="w-full flex items-center justify-center gap-3 py-3 rounded-lg border border-border hover:bg-surface transition-colors text-sm font-medium text-ink"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">

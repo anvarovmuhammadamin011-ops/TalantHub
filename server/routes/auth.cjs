@@ -13,6 +13,7 @@ const authRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
 const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || "http://localhost:4000/api/auth/callback/google";
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
 if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
   passport.use(new GoogleStrategy({
@@ -242,16 +243,16 @@ router.get("/google", (req, res, next) => {
 
 router.get("/callback/google", (req, res, next) => {
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-    return res.redirect("/login?error=oauth_not_configured");
+    return res.redirect(`${FRONTEND_URL}/login?error=oauth_not_configured`);
   }
-  passport.authenticate("google", { session: false, failureRedirect: "/login?error=google_failed" }, (err, user) => {
-    if (err || !user) return res.redirect("/login?error=google_failed");
+  passport.authenticate("google", { session: false, failureRedirect: `${FRONTEND_URL}/login?error=google_failed` }, (err, user) => {
+    if (err || !user) return res.redirect(`${FRONTEND_URL}/login?error=google_failed`);
     const role = req.query.state || "specialist";
     if (user.role === "specialist" && req.query.state) {
       db.prepare("UPDATE users SET role = ? WHERE id = ? AND role = 'specialist'").run(role, user.id);
     }
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
-    res.redirect(`/auth/callback?token=${token}`);
+    res.redirect(`${FRONTEND_URL}/auth/callback?token=${token}`);
   })(req, res, next);
 });
 
