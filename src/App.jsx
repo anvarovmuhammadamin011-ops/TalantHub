@@ -1,9 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useAuth } from "./context/AuthContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Layout from "./components/layout/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
+import Home from "./pages/Home";
 import Vacancies from "./pages/Vacancies";
 import VacancyDetail from "./pages/VacancyDetail";
 import SpecialistProfile from "./pages/SpecialistProfile";
@@ -21,6 +23,16 @@ import AdminUserDetail from "./pages/AdminUserDetail";
 import AdminRoute from "./components/AdminRoute";
 import ScrollToTop from "./components/ScrollToTop";
 
+function RootRoute() {
+  const { user } = useAuth();
+  return user?.role === "specialist" ? <Home /> : <Vacancies />;
+}
+
+function FallbackRoute() {
+  const { user } = useAuth();
+  return <Navigate to={user?.role === "specialist" ? "/" : "/vacancies"} replace />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -31,7 +43,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
-              <Route path="/" element={<Vacancies />} />
+              <Route path="/" element={<RootRoute />} />
               <Route path="/vacancies" element={<Vacancies />} />
               <Route path="/vacancies/new" element={<VacancyCreate />} />
               <Route path="/vacancies/:id" element={<VacancyDetail />} />
@@ -50,7 +62,7 @@ export default function App() {
               </Route>
             </Route>
           </Route>
-          <Route path="*" element={<Navigate to="/vacancies" replace />} />
+          <Route path="*" element={<FallbackRoute />} />
         </Routes>
       </ErrorBoundary>
     </BrowserRouter>
