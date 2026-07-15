@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Search, MapPin, Star, Heart, ArrowRight, Sparkles, Flame, Users, Briefcase, Award, Zap, Globe } from "lucide-react";
+import { Search, MapPin, Star, Heart, ArrowRight, Sparkles, Flame, Users, Briefcase, Award, Zap, Globe, Shield } from "lucide-react";
 import { api } from "../lib/api";
 import { computeMatch } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
 import StatusBadge from "../components/ui/StatusBadge";
 import VerifiedBadge from "../components/ui/VerifiedBadge";
 
@@ -21,13 +22,15 @@ const categoryTiles = [
 const allFilters = ["Hammasi", "Frontend", "Backend", "Mobile", "UI/UX", "O'qituvchiler", "Senior", "Online"];
 
 export default function Landing() {
-  const { user } = useAuth();
+  const { user, login } = useAuth();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("Hammasi");
   const [savedIds, setSavedIds] = useState([]);
   const [specialists, setSpecialists] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
+  const [adminLogging, setAdminLogging] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -50,6 +53,15 @@ export default function Landing() {
   const toggleSave = (e, id) => {
     e.preventDefault();
     setSavedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  };
+
+  const quickAdminLogin = async () => {
+    setAdminLogging(true);
+    try {
+      const result = await login("admin@talenthub.uz", "Admin123!");
+      if (result.success) navigate("/admin");
+    } catch {}
+    setAdminLogging(false);
   };
 
   const withMatch = specialists.map((s) => ({ ...s, matchPercent: computeMatch(user?.skills, s.skills) }));
@@ -146,6 +158,13 @@ export default function Landing() {
                 <Users className="w-4 h-4" /> Mutaxassislar
               </Link>
             </div>
+            {!user && (
+              <button onClick={quickAdminLogin} disabled={adminLogging}
+                className="mt-4 inline-flex items-center gap-2 text-xs text-white/40 hover:text-white/70 transition-colors">
+                <Shield className="w-3 h-3" />
+                {adminLogging ? "Kirilmoqda..." : "Admin panel"}
+              </button>
+            )}
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-12 max-w-2xl mx-auto">
             {[
