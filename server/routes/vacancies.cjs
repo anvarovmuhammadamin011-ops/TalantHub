@@ -109,9 +109,12 @@ router.post("/", authMiddleware, (req, res) => {
       return res.status(400).json({ error: "Sarlavha va kompaniya majburiy" });
     }
 
+    const modeRow = db.prepare("SELECT value FROM settings WHERE key = 'vacancy_moderation_mode'").get();
+    const initialStatus = modeRow?.value === "pre" ? "Kutilmoqda" : "Faol";
+
     const stmt = db.prepare(`
-      INSERT INTO vacancies (title, company, company_logo, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions, employer_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO vacancies (title, company, company_logo, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions, employer_id, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -124,7 +127,8 @@ router.post("/", authMiddleware, (req, res) => {
       description || "",
       JSON.stringify(requirements || []),
       JSON.stringify(conditions || []),
-      req.userId
+      req.userId,
+      initialStatus
     );
 
     const vacancy = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(result.lastInsertRowid);

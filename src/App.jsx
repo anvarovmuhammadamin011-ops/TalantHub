@@ -18,6 +18,7 @@ import AiChat from "./pages/AiChat";
 import Statistics from "./pages/Statistics";
 import VacancyCreate from "./pages/VacancyCreate";
 import Admin from "./pages/Admin";
+import AdminUserDetail from "./pages/AdminUserDetail";
 import AdminRoute from "./components/AdminRoute";
 import ScrollToTop from "./components/ScrollToTop";
 
@@ -46,6 +47,7 @@ export default function App() {
               <Route path="/statistics" element={<Statistics />} />
               <Route element={<AdminRoute />}>
                 <Route path="/admin" element={<Admin />} />
+                <Route path="/admin/users/:id" element={<AdminUserDetail />} />
               </Route>
             </Route>
           </Route>

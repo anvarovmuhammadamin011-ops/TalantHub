@@ -1,8 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, Calendar, Search, MoreVertical, Phone, Video, ArrowLeft, CheckCheck } from "lucide-react";
+import { Send, Calendar, Search, MoreVertical, Phone, Video, ArrowLeft, CheckCheck, Flag } from "lucide-react";
 import { api } from "../lib/api";
 import { useSocket } from "../context/SocketContext";
 import { useAuth } from "../context/AuthContext";
+
+async function reportMessage(messageId) {
+  const reason = prompt("Shikoyat sababini kiriting:");
+  if (!reason || !reason.trim()) return;
+  try {
+    await api("/reports", { method: "POST", body: { target_type: "chat", target_id: messageId, reason: reason.trim() } });
+    alert("Shikoyatingiz qabul qilindi. Administrator tez orada ko'rib chiqadi.");
+  } catch (err) {
+    alert(err.message || "Xatolik yuz berdi");
+  }
+}
 
 export default function Chat() {
   const { user } = useAuth();
@@ -209,7 +220,13 @@ export default function Chat() {
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                   {messages.map((msg) => (
-                    <div key={msg.id} className={`flex ${msg.sender_id === user?.id ? "justify-end" : "justify-start"}`}>
+                    <div key={msg.id} className={`group flex items-end gap-1 ${msg.sender_id === user?.id ? "justify-end" : "justify-start"}`}>
+                      {msg.sender_id !== user?.id && (
+                        <button onClick={() => reportMessage(msg.id)} title="Shikoyat qilish"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 flex items-center justify-center rounded-md text-ink-3 hover:text-red-500 hover:bg-red-50 flex-shrink-0">
+                          <Flag className="w-3 h-3" />
+                        </button>
+                      )}
                       <div className={`max-w-xs lg:max-w-md px-4 py-2.5 rounded-2xl ${
                         msg.sender_id === user?.id
                           ? "bg-ink text-white rounded-br-md"

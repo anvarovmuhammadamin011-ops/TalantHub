@@ -313,4 +313,43 @@ const defaultCategories = [
 const insertCategory = db.prepare("INSERT OR IGNORE INTO categories (group_name, name, sort_order) VALUES (?, ?, ?)");
 defaultCategories.forEach(([group, name], i) => insertCategory.run(group, name, i));
 
+try {
+  db.exec(`ALTER TABLE content_flags ADD COLUMN reporter_id INTEGER`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE content_flags ADD COLUMN resolution_note TEXT DEFAULT ''`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN admin_role TEXT DEFAULT 'super_admin'`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE categories ADD COLUMN type TEXT DEFAULT 'category'`);
+} catch (e) {}
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS verification_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    document_url TEXT DEFAULT '',
+    document_name TEXT DEFAULT '',
+    stir TEXT DEFAULT '',
+    status TEXT DEFAULT 'Kutilmoqda',
+    reject_reason TEXT DEFAULT '',
+    reviewed_by INTEGER,
+    reviewed_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (reviewed_by) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT DEFAULT ''
+  );
+`);
+
+const insertSetting = db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)");
+insertSetting.run("vacancy_moderation_mode", "pre");
+
 module.exports = db;

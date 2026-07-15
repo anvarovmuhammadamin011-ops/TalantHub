@@ -6,6 +6,7 @@ import { timeAgo, computeMatch } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
 import MatchIndicator from "../components/ui/MatchIndicator";
 import StatusBadge from "../components/ui/StatusBadge";
+import ReportButton from "../components/ui/ReportButton";
 
 export default function VacancyDetail() {
   const { id } = useParams();
@@ -213,6 +214,9 @@ export default function VacancyDetail() {
                   {vacancy.company_rating} · {vacancy.company_reviews} sharh
                 </div>
               </div>
+            </div>
+            <div className="mt-4 pt-4 border-t border-border-soft flex justify-end">
+              <ReportButton targetType="vacancy" targetId={Number(id)} />
             </div>
           </div>
         </div>

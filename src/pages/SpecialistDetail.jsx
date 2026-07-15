@@ -4,6 +4,7 @@ import { ArrowLeft, MapPin, Star, Briefcase, Award, Clock, Send, Package, X } fr
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import VerifiedBadge from "../components/ui/VerifiedBadge";
+import ReportButton from "../components/ui/ReportButton";
 
 export default function SpecialistDetail() {
   const { id } = useParams();
@@ -120,6 +121,11 @@ export default function SpecialistDetail() {
               )}
             </div>
           </div>
+          {user?.id !== specialist.id && (
+            <div className="pt-3 flex justify-end">
+              <ReportButton targetType="specialist" targetId={Number(id)} />
+            </div>
+          )}
         </div>
       </div>
 

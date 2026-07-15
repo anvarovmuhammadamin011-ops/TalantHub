@@ -20,7 +20,9 @@ export async function api(path, { method = "GET", body } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  const data = await res.json();
+  const text = await res.text();
+  let data;
+  try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
 
   if (!res.ok) {
     throw { status: res.status, message: data.error || "Xatolik yuz berdi" };

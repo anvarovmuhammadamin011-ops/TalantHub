@@ -22,6 +22,8 @@ const statsRoutes = require("./routes/stats.cjs");
 const adminRoutes = require("./routes/admin.cjs");
 const reportRoutes = require("./routes/reports.cjs");
 const supportRoutes = require("./routes/support.cjs");
+const verificationRoutes = require("./routes/verification.cjs");
+const categoryRoutes = require("./routes/categories.cjs");
 
 const app = express();
 const server = http.createServer(app);
@@ -50,6 +52,8 @@ app.use("/api/stats", statsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/support", supportRoutes);
+app.use("/api/verification", verificationRoutes);
+app.use("/api/categories", categoryRoutes);
 
 io.on("connection", (socket) => {
   const token = socket.handshake.auth?.token;

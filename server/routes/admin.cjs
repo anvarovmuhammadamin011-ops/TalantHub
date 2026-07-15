@@ -1,7 +1,7 @@
 const express = require("express");
 const db = require("../db.cjs");
 const { authMiddleware } = require("../middleware/auth.cjs");
-const { requireAdmin } = require("../middleware/requireAdmin.cjs");
+const { requireAdmin, requireSection } = require("../middleware/requireAdmin.cjs");
 
 const router = express.Router();
 
@@ -14,7 +14,7 @@ function logAdmin(adminId, action, targetType, targetId, details) {
   }
 }
 
-router.get("/stats", authMiddleware, requireAdmin, (req, res) => {
+router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), (req, res) => {
   try {
     const users_total = db.prepare("SELECT COUNT(*) as c FROM users").get().c;
     const specialists = db.prepare("SELECT COUNT(*) as c FROM users WHERE role='specialist'").get().c;
@@ -36,7 +36,7 @@ router.get("/stats", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.get("/users", authMiddleware, requireAdmin, (req, res) => {
+router.get("/users", authMiddleware, requireAdmin, requireSection("users"), (req, res) => {
   try {
     const { search, role, status, page = 1, limit = 20 } = req.query;
     let sql = `SELECT id,name,email,phone,city,role,verified,blocked,blocked_reason,rating,reviews_count,orders_count,created_at FROM users WHERE 1=1`;
@@ -72,7 +72,7 @@ router.get("/users", authMiddleware, requireAdmin, (req, res) => {
 
 const VALID_ROLES = ["specialist", "employer", "admin"];
 
-router.patch("/users/:id", authMiddleware, requireAdmin, (req, res) => {
+router.patch("/users/:id", authMiddleware, requireAdmin, requireSection("users"), (req, res) => {
   try {
     const targetId = Number(req.params.id);
     const isSelf = targetId === req.userId;
@@ -124,7 +124,7 @@ router.patch("/users/:id", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.get("/vacancies", authMiddleware, requireAdmin, (req, res) => {
+router.get("/vacancies", authMiddleware, requireAdmin, requireSection("vacancies"), (req, res) => {
   try {
     const { search, status } = req.query;
     let sql = `
@@ -155,7 +155,7 @@ router.get("/vacancies", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.patch("/vacancies/:id/status", authMiddleware, requireAdmin, (req, res) => {
+router.patch("/vacancies/:id/status", authMiddleware, requireAdmin, requireSection("vacancies"), (req, res) => {
   try {
     const { status } = req.body;
     db.prepare("UPDATE vacancies SET status = ? WHERE id = ?").run(status, req.params.id);
@@ -167,7 +167,7 @@ router.patch("/vacancies/:id/status", authMiddleware, requireAdmin, (req, res) =
   }
 });
 
-router.delete("/vacancies/:id", authMiddleware, requireAdmin, (req, res) => {
+router.delete("/vacancies/:id", authMiddleware, requireAdmin, requireSection("vacancies"), (req, res) => {
   try {
     const vacancy = db.prepare("SELECT id, title FROM vacancies WHERE id = ?").get(req.params.id);
     if (!vacancy) return res.status(404).json({ error: "Vakansiya topilmadi" });
@@ -181,7 +181,7 @@ router.delete("/vacancies/:id", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.get("/orders", authMiddleware, requireAdmin, (req, res) => {
+router.get("/orders", authMiddleware, requireAdmin, requireSection("orders"), (req, res) => {
   try {
     const { status } = req.query;
     let sql = `
@@ -202,7 +202,7 @@ router.get("/orders", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.get("/applications", authMiddleware, requireAdmin, (req, res) => {
+router.get("/applications", authMiddleware, requireAdmin, requireSection("applications"), (req, res) => {
   try {
     const { search, status } = req.query;
     let sql = `
@@ -230,7 +230,7 @@ router.get("/applications", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.patch("/applications/:id/status", authMiddleware, requireAdmin, (req, res) => {
+router.patch("/applications/:id/status", authMiddleware, requireAdmin, requireSection("applications"), (req, res) => {
   try {
     const { status } = req.body;
     const application = db.prepare("SELECT id, user_id FROM applications WHERE id = ?").get(req.params.id);
@@ -255,7 +255,7 @@ router.patch("/applications/:id/status", authMiddleware, requireAdmin, (req, res
   }
 });
 
-router.delete("/applications/:id", authMiddleware, requireAdmin, (req, res) => {
+router.delete("/applications/:id", authMiddleware, requireAdmin, requireSection("applications"), (req, res) => {
   try {
     const application = db.prepare("SELECT id FROM applications WHERE id = ?").get(req.params.id);
     if (!application) return res.status(404).json({ error: "Ariza topilmadi" });
@@ -268,32 +268,8 @@ router.delete("/applications/:id", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-// ---------- Dashboard: health ----------
-router.get("/health", authMiddleware, requireAdmin, (req, res) => {
-  try {
-    const start = Date.now();
-    db.prepare("SELECT 1").get();
-    const dbLatencyMs = Date.now() - start;
-    const errors24h = db.prepare(
-      "SELECT COUNT(*) as c FROM sms_logs WHERE status != 'Yetkazildi' AND created_at >= datetime('now','-1 day')"
-    ).get().c;
-
-    res.json({
-      status: "ok",
-      db_latency_ms: dbLatencyMs,
-      uptime_seconds: Math.round(process.uptime()),
-      node_version: process.version,
-      sms_errors_24h: errors24h,
-      checked_at: new Date().toISOString(),
-    });
-  } catch (err) {
-    console.error("Admin health error:", err);
-    res.status(500).json({ status: "error", error: "Server xatoligi" });
-  }
-});
-
 // ---------- Foydalanuvchilar: sessions ----------
-router.get("/sessions", authMiddleware, requireAdmin, (req, res) => {
+router.get("/sessions", authMiddleware, requireAdmin, requireSection("users"), (req, res) => {
   try {
     const { search, limit = 50 } = req.query;
     let sql = `
@@ -315,14 +291,21 @@ router.get("/sessions", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-// ---------- Moderatsiya: shikoyatlar / flaglar ----------
-router.get("/flags", authMiddleware, requireAdmin, (req, res) => {
+// ---------- Moderatsiya: shikoyatlar (Shikoyatlar navbati) ----------
+router.get("/flags", authMiddleware, requireAdmin, requireSection("reports"), (req, res) => {
   try {
-    const { status, severity } = req.query;
-    let sql = `SELECT f.*, r.name as reviewed_by_name FROM content_flags f LEFT JOIN users r ON f.reviewed_by = r.id WHERE 1=1`;
+    const { status, severity, target_type } = req.query;
+    let sql = `
+      SELECT f.*, r.name as reviewed_by_name, rep.name as reporter_name, rep.email as reporter_email
+      FROM content_flags f
+      LEFT JOIN users r ON f.reviewed_by = r.id
+      LEFT JOIN users rep ON f.reporter_id = rep.id
+      WHERE 1=1
+    `;
     const params = [];
     if (status) { sql += ` AND f.status = ?`; params.push(status); }
     if (severity) { sql += ` AND f.severity = ?`; params.push(severity); }
+    if (target_type) { sql += ` AND f.target_type = ?`; params.push(target_type); }
     sql += ` ORDER BY f.created_at DESC`;
     const flags = db.prepare(sql).all(...params);
     res.json({ flags });
@@ -332,28 +315,41 @@ router.get("/flags", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.patch("/flags/:id", authMiddleware, requireAdmin, (req, res) => {
+// status: "Ko'rib chiqilmoqda" | "Tasdiqlangan" (asosli) | "Rad etilgan" (asossiz)
+// block=true va target_type="user" bo'lsa, shikoyat qilingan foydalanuvchi bloklanadi.
+router.patch("/flags/:id", authMiddleware, requireAdmin, requireSection("reports"), (req, res) => {
   try {
-    const { status, severity } = req.body;
-    const flag = db.prepare("SELECT id FROM content_flags WHERE id = ?").get(req.params.id);
+    const { status, severity, resolution_note, block } = req.body;
+    const flag = db.prepare("SELECT * FROM content_flags WHERE id = ?").get(req.params.id);
     if (!flag) return res.status(404).json({ error: "Shikoyat topilmadi" });
 
     const sets = ["reviewed_by = ?"];
     const params = [req.userId];
     if (status !== undefined) { sets.push("status = ?"); params.push(status); }
     if (severity !== undefined) { sets.push("severity = ?"); params.push(severity); }
+    if (resolution_note !== undefined) { sets.push("resolution_note = ?"); params.push(resolution_note); }
     params.push(req.params.id);
 
     db.prepare(`UPDATE content_flags SET ${sets.join(", ")} WHERE id = ?`).run(...params);
-    logAdmin(req.userId, "flag_update", "content_flag", req.params.id, `status=${status || ""}`);
-    res.json({ success: true });
+
+    let blocked = false;
+    if (block && flag.target_type === "user" && status === "Tasdiqlangan") {
+      db.prepare("UPDATE users SET blocked = 1, blocked_reason = ? WHERE id = ?").run(
+        resolution_note || flag.reason || "Shikoyat asosida bloklandi", flag.target_id
+      );
+      blocked = true;
+      logAdmin(req.userId, "user_block_via_report", "user", flag.target_id, `flag#${flag.id}: ${flag.reason}`);
+    }
+
+    logAdmin(req.userId, "flag_update", "content_flag", req.params.id, `status=${status || ""}${blocked ? ", user blocked" : ""}`);
+    res.json({ success: true, blocked });
   } catch (err) {
     console.error("Admin flag update error:", err);
     res.status(500).json({ error: "Server xatoligi" });
   }
 });
 
-router.delete("/flags/:id", authMiddleware, requireAdmin, (req, res) => {
+router.delete("/flags/:id", authMiddleware, requireAdmin, requireSection("reports"), (req, res) => {
   try {
     db.prepare("DELETE FROM content_flags WHERE id = ?").run(req.params.id);
     logAdmin(req.userId, "flag_delete", "content_flag", req.params.id, "");
@@ -365,7 +361,7 @@ router.delete("/flags/:id", authMiddleware, requireAdmin, (req, res) => {
 });
 
 // ---------- Operatsiyalar: nizolar ----------
-router.get("/disputes", authMiddleware, requireAdmin, (req, res) => {
+router.get("/disputes", authMiddleware, requireAdmin, requireSection("disputes"), (req, res) => {
   try {
     const { status } = req.query;
     let sql = `
@@ -387,7 +383,7 @@ router.get("/disputes", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.patch("/disputes/:id", authMiddleware, requireAdmin, (req, res) => {
+router.patch("/disputes/:id", authMiddleware, requireAdmin, requireSection("disputes"), (req, res) => {
   try {
     const { status, resolution } = req.body;
     const dispute = db.prepare("SELECT * FROM disputes WHERE id = ?").get(req.params.id);
@@ -410,7 +406,7 @@ router.patch("/disputes/:id", authMiddleware, requireAdmin, (req, res) => {
 });
 
 // ---------- Operatsiyalar: support ----------
-router.get("/support", authMiddleware, requireAdmin, (req, res) => {
+router.get("/support", authMiddleware, requireAdmin, requireSection("support_tickets"), (req, res) => {
   try {
     const { status } = req.query;
     let sql = `
@@ -428,7 +424,7 @@ router.get("/support", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.patch("/support/:id", authMiddleware, requireAdmin, (req, res) => {
+router.patch("/support/:id", authMiddleware, requireAdmin, requireSection("support_tickets"), (req, res) => {
   try {
     const { status, response } = req.body;
     const ticket = db.prepare("SELECT * FROM support_tickets WHERE id = ?").get(req.params.id);
@@ -462,7 +458,7 @@ router.patch("/support/:id", authMiddleware, requireAdmin, (req, res) => {
 });
 
 // ---------- Marketing: broadcast ----------
-router.post("/broadcast", authMiddleware, requireAdmin, (req, res) => {
+router.post("/broadcast", authMiddleware, requireAdmin, requireSection("broadcast"), (req, res) => {
   try {
     const { title, description, link, audience } = req.body;
     if (!title || !title.trim()) return res.status(400).json({ error: "Sarlavha kiritilishi shart" });
@@ -500,7 +496,7 @@ router.post("/broadcast", authMiddleware, requireAdmin, (req, res) => {
 });
 
 // ---------- Marketing: promo kodlar ----------
-router.get("/promo", authMiddleware, requireAdmin, (req, res) => {
+router.get("/promo", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
   try {
     const promos = db.prepare(`
       SELECT p.*, t.name as tariff_name FROM promo_codes p LEFT JOIN tariffs t ON p.tariff_id = t.id ORDER BY p.created_at DESC
@@ -512,7 +508,7 @@ router.get("/promo", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.post("/promo", authMiddleware, requireAdmin, (req, res) => {
+router.post("/promo", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
   try {
     const { code, discount_percent, max_uses, tariff_id, expires_at } = req.body;
     if (!code || !code.trim()) return res.status(400).json({ error: "Kod kiritilishi shart" });
@@ -531,7 +527,7 @@ router.post("/promo", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.patch("/promo/:id", authMiddleware, requireAdmin, (req, res) => {
+router.patch("/promo/:id", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
   try {
     const { active, discount_percent, max_uses, expires_at } = req.body;
     const sets = [];
@@ -551,7 +547,7 @@ router.patch("/promo/:id", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.delete("/promo/:id", authMiddleware, requireAdmin, (req, res) => {
+router.delete("/promo/:id", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
   try {
     db.prepare("DELETE FROM promo_codes WHERE id = ?").run(req.params.id);
     logAdmin(req.userId, "promo_delete", "promo_code", req.params.id, "");
@@ -562,10 +558,16 @@ router.delete("/promo/:id", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-// ---------- Sozlamalar: kategoriyalar ----------
-router.get("/categories", authMiddleware, requireAdmin, (req, res) => {
+// ---------- Sozlamalar: kategoriyalar / ko'nikmalar (mini-CMS) ----------
+// type: 'category' (yo'nalishlar, group_name = "IT"/"Ta'lim" kabi soha) yoki 'skill' (ko'nikmalar ro'yxati)
+router.get("/categories", authMiddleware, requireAdmin, requireSection("categories"), (req, res) => {
   try {
-    const categories = db.prepare("SELECT * FROM categories ORDER BY group_name, sort_order, name").all();
+    const { type } = req.query;
+    let sql = "SELECT * FROM categories WHERE 1=1";
+    const params = [];
+    if (type) { sql += " AND type = ?"; params.push(type); }
+    sql += " ORDER BY type, group_name, sort_order, name";
+    const categories = db.prepare(sql).all(...params);
     res.json({ categories });
   } catch (err) {
     console.error("Admin categories list error:", err);
@@ -573,26 +575,29 @@ router.get("/categories", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.post("/categories", authMiddleware, requireAdmin, (req, res) => {
+router.post("/categories", authMiddleware, requireAdmin, requireSection("categories"), (req, res) => {
   try {
-    const { group_name, name } = req.body;
-    if (!group_name || !name || !name.trim()) return res.status(400).json({ error: "Guruh va nom kiritilishi shart" });
-    const result = db.prepare("INSERT INTO categories (group_name, name) VALUES (?, ?)").run(group_name, name.trim());
-    logAdmin(req.userId, "category_create", "category", result.lastInsertRowid, `${group_name}: ${name.trim()}`);
+    const { group_name, name, type } = req.body;
+    const kind = type === "skill" ? "skill" : "category";
+    if (!name || !name.trim()) return res.status(400).json({ error: "Nom kiritilishi shart" });
+    if (kind === "category" && !group_name) return res.status(400).json({ error: "Yo'nalish (guruh) kiritilishi shart" });
+    const result = db.prepare("INSERT INTO categories (group_name, name, type) VALUES (?, ?, ?)").run(group_name || "", name.trim(), kind);
+    logAdmin(req.userId, "category_create", "category", result.lastInsertRowid, `${kind} ${group_name || ""}: ${name.trim()}`);
     res.json({ id: result.lastInsertRowid });
   } catch (err) {
     console.error("Admin category create error:", err);
-    if (String(err.message || "").includes("UNIQUE")) return res.status(409).json({ error: "Bu kategoriya allaqachon mavjud" });
+    if (String(err.message || "").includes("UNIQUE")) return res.status(409).json({ error: "Bu nom allaqachon mavjud" });
     res.status(500).json({ error: "Server xatoligi" });
   }
 });
 
-router.patch("/categories/:id", authMiddleware, requireAdmin, (req, res) => {
+router.patch("/categories/:id", authMiddleware, requireAdmin, requireSection("categories"), (req, res) => {
   try {
-    const { active, name } = req.body;
+    const { active, name, hidden } = req.body;
     const sets = [];
     const params = [];
     if (active !== undefined) { sets.push("active = ?"); params.push(active ? 1 : 0); }
+    if (hidden !== undefined) { sets.push("active = ?"); params.push(hidden ? 0 : 1); }
     if (name !== undefined && name.trim()) { sets.push("name = ?"); params.push(name.trim()); }
     if (sets.length === 0) return res.status(400).json({ error: "Yangilanadigan maydon topilmadi" });
     params.push(req.params.id);
@@ -605,7 +610,7 @@ router.patch("/categories/:id", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.delete("/categories/:id", authMiddleware, requireAdmin, (req, res) => {
+router.delete("/categories/:id", authMiddleware, requireAdmin, requireSection("categories"), (req, res) => {
   try {
     db.prepare("DELETE FROM categories WHERE id = ?").run(req.params.id);
     logAdmin(req.userId, "category_delete", "category", req.params.id, "");
@@ -616,7 +621,159 @@ router.delete("/categories/:id", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.get("/logs", authMiddleware, requireAdmin, (req, res) => {
+// ---------- Verifikatsiya navbati ----------
+router.get("/verification", authMiddleware, requireAdmin, requireSection("verification"), (req, res) => {
+  try {
+    const { status, type } = req.query;
+    let sql = `
+      SELECT v.*, u.name as user_name, u.email as user_email, u.role as user_role, r.name as reviewed_by_name
+      FROM verification_requests v
+      JOIN users u ON v.user_id = u.id
+      LEFT JOIN users r ON v.reviewed_by = r.id
+      WHERE 1=1
+    `;
+    const params = [];
+    if (status) { sql += ` AND v.status = ?`; params.push(status); }
+    if (type) { sql += ` AND v.type = ?`; params.push(type); }
+    sql += ` ORDER BY v.created_at DESC`;
+    const requests = db.prepare(sql).all(...params);
+    res.json({ requests });
+  } catch (err) {
+    console.error("Admin verification list error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.patch("/verification/:id", authMiddleware, requireAdmin, requireSection("verification"), (req, res) => {
+  try {
+    const { status, reject_reason } = req.body;
+    if (!["Tasdiqlangan", "Rad etildi"].includes(status)) {
+      return res.status(400).json({ error: "Holat 'Tasdiqlangan' yoki 'Rad etildi' bo'lishi kerak" });
+    }
+    if (status === "Rad etildi" && (!reject_reason || !reject_reason.trim())) {
+      return res.status(400).json({ error: "Rad etish sababi kiritilishi shart" });
+    }
+
+    const request = db.prepare("SELECT * FROM verification_requests WHERE id = ?").get(req.params.id);
+    if (!request) return res.status(404).json({ error: "So'rov topilmadi" });
+
+    db.prepare(`
+      UPDATE verification_requests SET status = ?, reject_reason = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP WHERE id = ?
+    `).run(status, status === "Rad etildi" ? reject_reason.trim() : "", req.userId, req.params.id);
+
+    if (status === "Tasdiqlangan") {
+      db.prepare("UPDATE users SET verified = 1 WHERE id = ?").run(request.user_id);
+    }
+
+    const notifTitle = status === "Tasdiqlangan" ? "Verifikatsiya tasdiqlandi" : "Verifikatsiya rad etildi";
+    const notifDesc = status === "Tasdiqlangan"
+      ? "Hujjatlaringiz tekshirildi va profilingiz tasdiqlangan deb belgilandi."
+      : `Hujjatlaringiz rad etildi. Sabab: ${reject_reason.trim()}`;
+    db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'verification', ?, ?, '/profile')`).run(
+      request.user_id, notifTitle, notifDesc
+    );
+    if (req.app.get("io")) {
+      req.app.get("io").to(`user_${request.user_id}`).emit("notification", { type: "verification", title: notifTitle, description: notifDesc });
+    }
+
+    logAdmin(req.userId, "verification_review", "verification_request", req.params.id, `status=${status}`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Admin verification update error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+// ---------- Foydalanuvchilar: bulk amallar ----------
+router.patch("/users/bulk", authMiddleware, requireAdmin, requireSection("users"), (req, res) => {
+  try {
+    const { ids, action, reason } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "Foydalanuvchilar tanlanmagan" });
+    if (!["block", "unblock", "verify", "unverify"].includes(action)) return res.status(400).json({ error: "Noto'g'ri amal" });
+
+    const targetIds = ids.map(Number).filter((id) => id !== req.userId);
+    if (targetIds.length === 0) return res.status(400).json({ error: "O'zingizni bloklay olmaysiz" });
+
+    const placeholders = targetIds.map(() => "?").join(",");
+    if (action === "block") {
+      db.prepare(`UPDATE users SET blocked = 1, blocked_reason = ? WHERE id IN (${placeholders})`).run(reason || "Ommaviy bloklash", ...targetIds);
+    } else if (action === "unblock") {
+      db.prepare(`UPDATE users SET blocked = 0, blocked_reason = '' WHERE id IN (${placeholders})`).run(...targetIds);
+    } else if (action === "verify") {
+      db.prepare(`UPDATE users SET verified = 1 WHERE id IN (${placeholders})`).run(...targetIds);
+    } else if (action === "unverify") {
+      db.prepare(`UPDATE users SET verified = 0 WHERE id IN (${placeholders})`).run(...targetIds);
+    }
+
+    logAdmin(req.userId, `bulk_${action}`, "user", null, `ids=${targetIds.join(",")}`);
+    res.json({ success: true, updated: targetIds.length });
+  } catch (err) {
+    console.error("Admin bulk users error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+// ---------- Foydalanuvchi: batafsil sahifa ----------
+router.get("/users/:id/detail", authMiddleware, requireAdmin, requireSection("users"), (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const user = db.prepare("SELECT id,name,email,phone,city,role,admin_role,verified,blocked,blocked_reason,rating,reviews_count,orders_count,created_at,bio,avatar FROM users WHERE id = ?").get(id);
+    if (!user) return res.status(404).json({ error: "Foydalanuvchi topilmadi" });
+
+    const applications = db.prepare(`
+      SELECT a.*, v.title as vacancy_title FROM applications a JOIN vacancies v ON a.vacancy_id = v.id WHERE a.user_id = ? ORDER BY a.created_at DESC
+    `).all(id);
+
+    const orders = db.prepare(`
+      SELECT o.*, e.name as employer_name, s.name as specialist_name
+      FROM orders o LEFT JOIN users e ON o.employer_id = e.id LEFT JOIN users s ON o.specialist_id = s.id
+      WHERE o.employer_id = ? OR o.specialist_id = ? ORDER BY o.created_at DESC
+    `).all(id, id);
+
+    const vacancies = db.prepare("SELECT id, title, status, created_at FROM vacancies WHERE employer_id = ? ORDER BY created_at DESC").all(id);
+
+    const reportsFiled = db.prepare("SELECT * FROM content_flags WHERE reporter_id = ? ORDER BY created_at DESC").all(id);
+    const reportsReceived = db.prepare("SELECT * FROM content_flags WHERE target_type = 'user' AND target_id = ? ORDER BY created_at DESC").all(id);
+
+    const verification = db.prepare("SELECT * FROM verification_requests WHERE user_id = ? ORDER BY created_at DESC").all(id);
+
+    const lastLogin = db.prepare("SELECT ip, user_agent, created_at FROM login_events WHERE user_id = ? ORDER BY created_at DESC LIMIT 1").get(id);
+    const loginHistory = db.prepare("SELECT ip, user_agent, created_at FROM login_events WHERE user_id = ? ORDER BY created_at DESC LIMIT 20").all(id);
+
+    res.json({ user, applications, orders, vacancies, reportsFiled, reportsReceived, verification, lastLogin: lastLogin || null, loginHistory });
+  } catch (err) {
+    console.error("Admin user detail error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+// ---------- Sozlamalar: umumiy (masalan vakansiya moderatsiyasi rejimi) ----------
+router.get("/settings", authMiddleware, requireAdmin, requireSection("system"), (req, res) => {
+  try {
+    const rows = db.prepare("SELECT key, value FROM settings").all();
+    const settings = {};
+    for (const r of rows) settings[r.key] = r.value;
+    res.json({ settings });
+  } catch (err) {
+    console.error("Admin settings list error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.patch("/settings/:key", authMiddleware, requireAdmin, requireSection("system"), (req, res) => {
+  try {
+    const { value } = req.body;
+    if (value === undefined) return res.status(400).json({ error: "Qiymat kiritilishi shart" });
+    db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(req.params.key, String(value));
+    logAdmin(req.userId, "setting_update", "setting", null, `${req.params.key}=${value}`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Admin setting update error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.get("/logs", authMiddleware, requireAdmin, requireSection("logs"), (req, res) => {
   try {
     const logs = db.prepare(`
       SELECT l.*, a.name as admin_name
@@ -632,7 +789,7 @@ router.get("/logs", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.get("/finance/transactions", authMiddleware, requireAdmin, (req, res) => {
+router.get("/finance/transactions", authMiddleware, requireAdmin, requireSection("finance"), (req, res) => {
   try {
     const { method, status, period, page = 1, limit = 50 } = req.query;
     let sql = `SELECT t.*, u.name as user_name, u.email as user_email FROM transactions t LEFT JOIN users u ON t.user_id = u.id WHERE 1=1`;
@@ -654,7 +811,7 @@ router.get("/finance/transactions", authMiddleware, requireAdmin, (req, res) => 
   }
 });
 
-router.get("/finance/stats", authMiddleware, requireAdmin, (req, res) => {
+router.get("/finance/stats", authMiddleware, requireAdmin, requireSection("finance"), (req, res) => {
   try {
     const total_income = db.prepare("SELECT COALESCE(SUM(amount),0) as v FROM transactions WHERE status='Tasdiqlangan' AND type='tolov'").get().v;
     const total_commission = db.prepare("SELECT COALESCE(SUM(commission),0) as v FROM transactions WHERE status='Tasdiqlangan'").get().v;
@@ -678,7 +835,7 @@ router.get("/finance/stats", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.patch("/finance/transactions/:id/refund", authMiddleware, requireAdmin, (req, res) => {
+router.patch("/finance/transactions/:id/refund", authMiddleware, requireAdmin, requireSection("finance"), (req, res) => {
   try {
     const tx = db.prepare("SELECT id, amount FROM transactions WHERE id = ?").get(req.params.id);
     if (!tx) return res.status(404).json({ error: "Tranzaksiya topilmadi" });
@@ -691,7 +848,7 @@ router.patch("/finance/transactions/:id/refund", authMiddleware, requireAdmin, (
   }
 });
 
-router.get("/tariffs", authMiddleware, requireAdmin, (req, res) => {
+router.get("/tariffs", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
   try {
     const tariffs = db.prepare("SELECT * FROM tariffs ORDER BY price ASC").all().map((t) => ({ ...t, features: JSON.parse(t.features) }));
     res.json({ tariffs });
@@ -701,7 +858,7 @@ router.get("/tariffs", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.post("/tariffs", authMiddleware, requireAdmin, (req, res) => {
+router.post("/tariffs", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
   try {
     const { name, price, duration_days, max_vacancies, max_contacts, features } = req.body;
     if (!name || price === undefined) return res.status(400).json({ error: "Nomi va narxi majburiy" });
@@ -716,7 +873,7 @@ router.post("/tariffs", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.patch("/tariffs/:id", authMiddleware, requireAdmin, (req, res) => {
+router.patch("/tariffs/:id", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
   try {
     const { name, price, duration_days, max_vacancies, max_contacts, features, active } = req.body;
     const sets = [], params = [];
@@ -738,7 +895,7 @@ router.patch("/tariffs/:id", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.delete("/tariffs/:id", authMiddleware, requireAdmin, (req, res) => {
+router.delete("/tariffs/:id", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
   try {
     db.prepare("DELETE FROM tariffs WHERE id = ?").run(req.params.id);
     logAdmin(req.userId, "tariff_delete", "tariff", req.params.id, "");
@@ -749,7 +906,7 @@ router.delete("/tariffs/:id", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.get("/promos", authMiddleware, requireAdmin, (req, res) => {
+router.get("/promos", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
   try {
     const promos = db.prepare(`
       SELECT p.*, t.name as tariff_name
@@ -763,7 +920,7 @@ router.get("/promos", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.post("/promos", authMiddleware, requireAdmin, (req, res) => {
+router.post("/promos", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
   try {
     const { code, discount_percent, max_uses, tariff_id, expires_at } = req.body;
     if (!code) return res.status(400).json({ error: "Kod majburiy" });
@@ -778,7 +935,7 @@ router.post("/promos", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.patch("/promos/:id", authMiddleware, requireAdmin, (req, res) => {
+router.patch("/promos/:id", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
   try {
     const { active } = req.body;
     db.prepare("UPDATE promo_codes SET active = ? WHERE id = ?").run(active ? 1 : 0, req.params.id);
@@ -790,7 +947,7 @@ router.patch("/promos/:id", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.delete("/promos/:id", authMiddleware, requireAdmin, (req, res) => {
+router.delete("/promos/:id", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
   try {
     db.prepare("DELETE FROM promo_codes WHERE id = ?").run(req.params.id);
     logAdmin(req.userId, "promo_delete", "promo", req.params.id, "");
@@ -801,7 +958,7 @@ router.delete("/promos/:id", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.get("/sms", authMiddleware, requireAdmin, (req, res) => {
+router.get("/sms", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
   try {
     const { status, provider } = req.query;
     let sql = "SELECT * FROM sms_logs WHERE 1=1";
@@ -823,7 +980,7 @@ router.get("/sms", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.get("/push", authMiddleware, requireAdmin, (req, res) => {
+router.get("/push", authMiddleware, requireAdmin, requireSection("marketing"), (req, res) => {
   try {
     const logs = db.prepare("SELECT * FROM push_logs ORDER BY created_at DESC LIMIT 200").all();
     const stats = {
@@ -838,7 +995,7 @@ router.get("/push", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.get("/health", authMiddleware, requireAdmin, (req, res) => {
+router.get("/health", authMiddleware, requireAdmin, requireSection("system"), (req, res) => {
   try {
     const uptime = process.uptime();
     const memUsage = process.memoryUsage();
@@ -865,7 +1022,7 @@ router.get("/health", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.get("/translations", authMiddleware, requireAdmin, (req, res) => {
+router.get("/translations", authMiddleware, requireAdmin, requireSection("system"), (req, res) => {
   try {
     const { lang, search } = req.query;
     let sql = "SELECT * FROM translations WHERE 1=1";
@@ -881,7 +1038,7 @@ router.get("/translations", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.post("/translations", authMiddleware, requireAdmin, (req, res) => {
+router.post("/translations", authMiddleware, requireAdmin, requireSection("system"), (req, res) => {
   try {
     const { key, lang, value } = req.body;
     if (!key || !lang) return res.status(400).json({ error: "Kalit va til majburiy" });
@@ -894,7 +1051,7 @@ router.post("/translations", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.delete("/translations/:id", authMiddleware, requireAdmin, (req, res) => {
+router.delete("/translations/:id", authMiddleware, requireAdmin, requireSection("system"), (req, res) => {
   try {
     db.prepare("DELETE FROM translations WHERE id = ?").run(req.params.id);
     logAdmin(req.userId, "translation_delete", "translation", req.params.id, "");
@@ -905,39 +1062,12 @@ router.delete("/translations/:id", authMiddleware, requireAdmin, (req, res) => {
   }
 });
 
-router.get("/flags", authMiddleware, requireAdmin, (req, res) => {
-  try {
-    const { status } = req.query;
-    let sql = `SELECT f.*, u.name as reviewer_name FROM content_flags f LEFT JOIN users u ON f.reviewed_by = u.id WHERE 1=1`;
-    const params = [];
-    if (status) { sql += ` AND f.status = ?`; params.push(status); }
-    sql += " ORDER BY f.created_at DESC LIMIT 200";
-    const flags = db.prepare(sql).all(...params);
-    res.json({ flags });
-  } catch (err) {
-    console.error("Admin flags error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.patch("/flags/:id", authMiddleware, requireAdmin, (req, res) => {
-  try {
-    const { status } = req.body;
-    db.prepare("UPDATE content_flags SET status = ?, reviewed_by = ? WHERE id = ?").run(status || "Tasdiqlangan", req.userId, req.params.id);
-    logAdmin(req.userId, "flag_review", "flag", req.params.id, `status=${status}`);
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Admin flag update error:", err);
-    res.status(500).json({ error: "Server xatoligi" });
-  }
-});
-
-router.post("/flags", authMiddleware, requireAdmin, (req, res) => {
+router.post("/flags", authMiddleware, requireAdmin, requireSection("reports"), (req, res) => {
   try {
     const { target_type, target_id, reason, severity } = req.body;
     if (!target_type || !target_id) return res.status(400).json({ error: "Target majburiy" });
-    const result = db.prepare("INSERT INTO content_flags (target_type, target_id, reason, severity, auto_detected) VALUES (?, ?, ?, ?, 0)").run(
-      target_type, Number(target_id), reason || "", severity || "Orta"
+    const result = db.prepare("INSERT INTO content_flags (target_type, target_id, reason, severity, status, auto_detected) VALUES (?, ?, ?, ?, ?, 0)").run(
+      target_type, Number(target_id), reason || "", severity || "O'rta", "Ko'rib chiqilmoqda"
     );
     logAdmin(req.userId, "flag_create", "flag", result.lastInsertRowid, `${target_type}:${target_id}`);
     res.json({ id: result.lastInsertRowid });

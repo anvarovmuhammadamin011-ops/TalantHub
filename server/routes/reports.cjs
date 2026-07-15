@@ -17,13 +17,23 @@ router.post("/", authMiddleware, (req, res) => {
     }
 
     const result = db.prepare(`
-      INSERT INTO content_flags (target_type, target_id, reason, severity, status, auto_detected)
-      VALUES (?, ?, ?, 'O''rta', 'Ko''rib chiqilmoqda', 0)
-    `).run(target_type, Number(target_id), reason.trim());
+      INSERT INTO content_flags (target_type, target_id, reason, severity, status, auto_detected, reporter_id)
+      VALUES (?, ?, ?, ?, ?, 0, ?)
+    `).run(target_type, Number(target_id), reason.trim(), "O'rta", "Ko'rib chiqilmoqda", req.userId);
 
     res.json({ success: true, id: result.lastInsertRowid });
   } catch (err) {
     console.error("Report create error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.get("/mine", authMiddleware, (req, res) => {
+  try {
+    const reports = db.prepare("SELECT * FROM content_flags WHERE reporter_id = ? ORDER BY created_at DESC").all(req.userId);
+    res.json({ reports });
+  } catch (err) {
+    console.error("Reports list error:", err);
     res.status(500).json({ error: "Server xatoligi" });
   }
 });
