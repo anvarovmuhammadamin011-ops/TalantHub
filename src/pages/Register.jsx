@@ -4,6 +4,7 @@ import { ArrowRight, ArrowLeft, Briefcase, User, Code, BookOpen, CheckCircle, Sm
 import { useAuth } from "../context/AuthContext";
 import { api, BASE_URL } from "../lib/api";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
+import LanguageSwitcher from "../components/ui/LanguageSwitcher";
 
 const steps = ["Rol", "Yo'nalish", "Ma'lumotlar", "SMS", "Tasdiqlash"];
 
@@ -153,6 +154,9 @@ export default function Register() {
   return (
     <div className="min-h-screen bg-surface py-12 px-4">
       <div className="max-w-lg mx-auto">
+        <div className="flex justify-center mb-4">
+          <LanguageSwitcher />
+        </div>
         <Link to="/vacancies" className="flex items-center justify-center gap-2 mb-10">
           <div className="w-8 h-8 bg-ink rounded-md flex items-center justify-center">
             <span className="text-white font-semibold text-xs">TH</span>

@@ -265,9 +265,19 @@ export default function Admin() {
     try { await api(`/admin/categories/${c.id}`, { method: "PATCH", body: { name: name.trim() } }); loadCategories(); } catch (err) { alert(err.message || "Xatolik yuz berdi"); }
   };
 
-  const toggleVacStatus = async (id, currentStatus) => {
-    const newStatus = currentStatus === "Faol" ? "Nofaol" : "Faol";
-    try { await api(`/admin/vacancies/${id}/status`, { method: "PATCH", body: { status: newStatus } }); setVacancies((prev) => prev.map((v) => v.id === id ? { ...v, status: newStatus } : v)); } catch (err) { console.error(err); }
+  const setVacStatus = async (id, status, reject_reason) => {
+    try {
+      await api(`/admin/vacancies/${id}/status`, { method: "PATCH", body: { status, reject_reason } });
+      setVacancies((prev) => prev.map((v) => v.id === id ? { ...v, status, reject_reason: reject_reason || "" } : v));
+    } catch (err) { console.error(err); }
+  };
+
+  const toggleVacStatus = (id, currentStatus) => setVacStatus(id, currentStatus === "Faol" ? "Nofaol" : "Faol");
+
+  const rejectVacancy = (id) => {
+    const reason = prompt("Rad etish sababi:");
+    if (reason === null) return;
+    setVacStatus(id, "Tuzatish kerak", reason);
   };
 
   const deleteVacancy = async (id) => {
@@ -532,9 +542,12 @@ export default function Admin() {
             </div>
             <select value={vacStatusFilter} onChange={(e) => setVacStatusFilter(e.target.value)} className="px-3 py-2.5 rounded-lg border border-border text-sm bg-white focus:border-ink/30 outline-none">
               <option value="">Barcha holatlar</option>
+              <option value="Qoralama">Qoralama</option>
               <option value="Kutilmoqda">Kutilmoqda</option>
+              <option value="Tuzatish kerak">Tuzatish kerak</option>
               <option value="Faol">Faol</option>
               <option value="Nofaol">Nofaol</option>
+              <option value="Arxivlangan">Arxivlangan</option>
             </select>
           </div>
           {vacancies.length === 0 ? <div className="text-center py-16 text-ink-3 text-sm">Vakansiya topilmadi</div> : (
@@ -545,17 +558,23 @@ export default function Admin() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-medium text-ink text-sm">{v.title}</h3>
-                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${v.status === "Faol" ? "bg-emerald-50 text-emerald-600" : v.status === "Kutilmoqda" ? "bg-amber-50 text-amber-600" : "bg-gray-100 text-gray-500"}`}>{v.status || "Faol"}</span>
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${v.status === "Faol" ? "bg-emerald-50 text-emerald-600" : v.status === "Kutilmoqda" ? "bg-amber-50 text-amber-600" : v.status === "Tuzatish kerak" ? "bg-red-50 text-red-600" : "bg-gray-100 text-gray-500"}`}>{v.status || "Faol"}</span>
                       </div>
                       <div className="flex items-center gap-3 mt-1 text-xs text-ink-3">
-                        <span>{v.company}</span><span>·</span><span>{v.author_name}</span><span>·</span><span>{v.applications_count} ta ariza</span>
+                        <span>{v.company}</span><span>·</span><span>{v.author_name}</span><span>·</span><span>{v.applications_count} ta ariza</span><span>·</span><span>{v.views || 0} ko'rish</span>
                       </div>
+                      {v.status === "Tuzatish kerak" && v.reject_reason && (
+                        <div className="text-xs text-red-500 mt-1">Sabab: {v.reject_reason}</div>
+                      )}
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
                       {v.status === "Kutilmoqda" && (
-                        <button onClick={() => toggleVacStatus(v.id, "Faol")} className="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors">Tasdiqlash</button>
+                        <>
+                          <button onClick={() => setVacStatus(v.id, "Faol")} className="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors">Tasdiqlash</button>
+                          <button onClick={() => rejectVacancy(v.id)} className="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors">Rad etish</button>
+                        </>
                       )}
-                      {v.status !== "Kutilmoqda" && (
+                      {(v.status === "Faol" || v.status === "Nofaol") && (
                         <button onClick={() => toggleVacStatus(v.id, v.status || "Faol")} className="px-3 py-1.5 text-xs font-medium rounded-lg bg-surface text-ink-2 hover:bg-border-soft transition-colors">{v.status === "Faol" ? "Yashirish" : "Ko'rsatish"}</button>
                       )}
                       <button onClick={() => deleteVacancy(v.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 className="w-4 h-4" /></button>

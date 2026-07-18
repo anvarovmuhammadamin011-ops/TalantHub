@@ -1,0 +1,36 @@
+{
+  "nav": {
+    "home": "Home",
+    "vacancies": "Vacancies",
+    "dashboard": "Dashboard",
+    "applications": "Applications",
+    "orders": "Orders",
+    "chat": "Messages",
+    "profile": "Profile",
+    "admin": "Admin",
+    "logout": "Log out",
+    "wallet": "Wallet"
+  },
+  "role": {
+    "specialist": "Specialist",
+    "employer": "Employer",
+    "unlock": "Also work as {role}",
+    "switchTo": "Switch to {role}"
+  },
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search...",
+    "back": "Back"
+  },
+  "auth": {
+    "login": "Log in",
+    "register": "Sign up",
+    "email": "Email",
+    "password": "Password",
+    "loginWithGoogle": "Continue with Google"
+  }
+}

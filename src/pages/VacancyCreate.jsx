@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, X, Save, Briefcase } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, Plus, X, Save, Briefcase, Eye } from "lucide-react";
 import { api } from "../lib/api";
+import VacancyPreviewModal from "../components/ui/VacancyPreviewModal";
 
 const categories = ["IT", "Ta'lim"];
 const formats = ["Ofis", "Masofaviy", "Gibrid"];
@@ -10,28 +11,42 @@ const employmentTypes = ["To'liq stavka", "Yarim stavka", "Amaliyot", "Loyihaviy
 const genderOptions = ["Farqi yo'q", "Erkaklar", "Ayollar"];
 const scheduleOptions = ["5/2", "6/1", "2/2", "Erkin grafik"];
 const weekdays = ["Yakshanba", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"];
+const englishLevels = ["Talab qilinmaydi", "Boshlang'ich", "O'rta", "Yuqori", "Erkin"];
+const contactMethods = ["Platforma orqali", "Telefon", "Telegram", "Email"];
+const salaryTypes = ["Kelishiladi", "Aniq", "Diapazon"];
+
+const emptyForm = {
+  title: "",
+  company: "",
+  location: "",
+  salary: "",
+  salary_min: "",
+  salary_max: "",
+  salary_type: "Kelishiladi",
+  format: "Ofis",
+  experience: "Junior",
+  category: "IT",
+  description: "",
+  employment_type: "To'liq stavka",
+  schedule: "5/2",
+  gender: "Farqi yo'q",
+  salary_details: "",
+  day_off: "Yakshanba",
+  english_level: "",
+  openings_count: "1",
+  contact_method: "Platforma orqali",
+};
 
 export default function VacancyCreate() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEdit = Boolean(id);
+
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(isEdit);
+  const [showPreview, setShowPreview] = useState(false);
   const [teacherSubjects, setTeacherSubjects] = useState([]);
-  const [form, setForm] = useState({
-    title: "",
-    company: "",
-    location: "",
-    salary: "",
-    salary_min: "",
-    salary_max: "",
-    format: "Ofis",
-    experience: "Junior",
-    category: "IT",
-    description: "",
-    employment_type: "To'liq stavka",
-    schedule: "5/2",
-    gender: "Farqi yo'q",
-    salary_details: "",
-    day_off: "Yakshanba",
-  });
+  const [form, setForm] = useState(emptyForm);
   const [tags, setTags] = useState([]);
   const [newTag, setNewTag] = useState("");
   const [requirements, setRequirements] = useState([]);
@@ -40,10 +55,33 @@ export default function VacancyCreate() {
   const [newResp, setNewResp] = useState("");
   const [conditions, setConditions] = useState([]);
   const [newCond, setNewCond] = useState("");
+  const [screeningQuestions, setScreeningQuestions] = useState([]);
+  const [newQuestion, setNewQuestion] = useState("");
 
   useEffect(() => {
     api("/categories?type=skill").then((d) => setTeacherSubjects(d.categories.map((c) => c.name))).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!isEdit) return;
+    api(`/vacancies/${id}`).then(({ vacancy: v }) => {
+      setForm({
+        title: v.title, company: v.company, location: v.location,
+        salary: v.salary, salary_min: v.salary_min || "", salary_max: v.salary_max || "",
+        salary_type: v.salary_type || "Kelishiladi",
+        format: v.format, experience: v.experience, category: v.category,
+        description: v.description, employment_type: v.employment_type,
+        schedule: v.schedule, gender: v.gender, salary_details: v.salary_details,
+        day_off: v.day_off, english_level: v.english_level || "",
+        openings_count: String(v.openings_count || 1), contact_method: v.contact_method || "Platforma orqali",
+      });
+      setTags(v.tags || []);
+      setRequirements(v.requirements || []);
+      setResponsibilities(v.responsibilities || []);
+      setConditions(v.conditions || []);
+      setScreeningQuestions(v.screening_questions || []);
+    }).catch((err) => console.error(err)).finally(() => setLoading(false));
+  }, [id, isEdit]);
 
   const update = (field, value) => setForm({ ...form, [field]: value });
 
@@ -71,22 +109,33 @@ export default function VacancyCreate() {
   };
   const removeCond = (c) => setConditions(conditions.filter((x) => x !== c));
 
-  const handleSubmit = async () => {
+  const addQuestion = () => {
+    const q = newQuestion.trim();
+    if (q && !screeningQuestions.includes(q)) { setScreeningQuestions([...screeningQuestions, q]); setNewQuestion(""); }
+  };
+  const removeQuestion = (q) => setScreeningQuestions(screeningQuestions.filter((x) => x !== q));
+
+  const buildBody = () => ({
+    ...form,
+    salary_min: Number(form.salary_min) || 0,
+    salary_max: Number(form.salary_max) || 0,
+    openings_count: Number(form.openings_count) || 1,
+    tags,
+    requirements,
+    responsibilities,
+    conditions,
+    screening_questions: screeningQuestions,
+  });
+
+  const save = async (saveAs) => {
     if (!form.title.trim() || !form.company.trim()) return;
     setSaving(true);
     try {
-      await api("/vacancies", {
-        method: "POST",
-        body: {
-          ...form,
-          salary_min: Number(form.salary_min) || 0,
-          salary_max: Number(form.salary_max) || 0,
-          tags,
-          requirements,
-          responsibilities,
-          conditions,
-        },
-      });
+      if (isEdit) {
+        await api(`/vacancies/${id}`, { method: "PATCH", body: { ...buildBody(), save_as: saveAs } });
+      } else {
+        await api("/vacancies", { method: "POST", body: { ...buildBody(), save_as: saveAs } });
+      }
       navigate("/dashboard");
     } catch (err) {
       console.error(err);
@@ -96,6 +145,10 @@ export default function VacancyCreate() {
   };
 
   const isTeacherCategory = form.category === "Ta'lim";
+
+  if (loading) {
+    return <div className="max-w-3xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">Yuklanmoqda...</div>;
+  }
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10">
@@ -109,7 +162,7 @@ export default function VacancyCreate() {
             <Briefcase className="w-5 h-5 text-ink" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-ink">Yangi vakansiya</h1>
+            <h1 className="text-lg font-semibold text-ink">{isEdit ? "Vakansiyani tahrirlash" : "Yangi vakansiya"}</h1>
             <p className="text-xs text-ink-3">Vakansiya ma'lumotlarini to'ldiring</p>
           </div>
         </div>
@@ -182,10 +235,12 @@ export default function VacancyCreate() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Maosh</label>
-              <input value={form.salary} onChange={(e) => update("salary", e.target.value)}
-                placeholder="masalan: Kelishiladi yoki $500-800"
-                className="w-full px-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none" />
+              <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Ingliz tili</label>
+              <select value={form.english_level} onChange={(e) => update("english_level", e.target.value)}
+                className="w-full px-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none bg-white">
+                <option value="">Ko'rsatilmagan</option>
+                {englishLevels.map((e) => <option key={e} value={e}>{e}</option>)}
+              </select>
             </div>
           </div>
 
@@ -213,19 +268,46 @@ export default function VacancyCreate() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Min maosh (so'm)</label>
-              <input type="number" value={form.salary_min} onChange={(e) => update("salary_min", e.target.value)}
-                placeholder="0"
+              <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Bo'sh o'rinlar soni</label>
+              <input type="number" min="1" value={form.openings_count} onChange={(e) => update("openings_count", e.target.value)}
                 className="w-full px-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Max maosh (so'm)</label>
-              <input type="number" value={form.salary_max} onChange={(e) => update("salary_max", e.target.value)}
-                placeholder="0"
-                className="w-full px-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none" />
+              <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Nomzodlar bilan aloqa</label>
+              <select value={form.contact_method} onChange={(e) => update("contact_method", e.target.value)}
+                className="w-full px-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none bg-white">
+                {contactMethods.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Maosh turi</label>
+            <div className="flex gap-2 mb-3">
+              {salaryTypes.map((t) => (
+                <button key={t} onClick={() => update("salary_type", t)}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-colors ${
+                    form.salary_type === t ? "bg-ink text-white border-ink" : "bg-white text-ink-2 border-border hover:border-ink/30"
+                  }`}>{t}</button>
+              ))}
+            </div>
+            {form.salary_type === "Aniq" && (
+              <input value={form.salary} onChange={(e) => update("salary", e.target.value)}
+                placeholder="masalan: $700"
+                className="w-full px-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none" />
+            )}
+            {form.salary_type === "Diapazon" && (
+              <div className="grid grid-cols-2 gap-4">
+                <input type="number" value={form.salary_min} onChange={(e) => update("salary_min", e.target.value)}
+                  placeholder="Min (so'm)"
+                  className="w-full px-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none" />
+                <input type="number" value={form.salary_max} onChange={(e) => update("salary_max", e.target.value)}
+                  placeholder="Max (so'm)"
+                  className="w-full px-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none" />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -335,19 +417,56 @@ export default function VacancyCreate() {
               </button>
             </div>
           </div>
+
+          <div>
+            <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Saralash savollari</label>
+            <p className="text-xs text-ink-3 mb-2">Nomzodlar ariza yuborishda shu savollarga javob berishadi.</p>
+            <div className="space-y-2 mb-2">
+              {screeningQuestions.map((q, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="flex-1 px-3 py-2 bg-surface rounded-lg text-sm text-ink">{q}</span>
+                  <button onClick={() => removeQuestion(q)} className="text-ink-3 hover:text-red-500"><X className="w-3 h-3" /></button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input value={newQuestion} onChange={(e) => setNewQuestion(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addQuestion()}
+                placeholder="Savol qo'shing..."
+                className="flex-1 px-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none" />
+              <button onClick={addQuestion} className="px-4 py-2.5 bg-surface rounded-lg text-sm font-medium text-ink-2 hover:bg-border-soft transition-colors border border-border">
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div className="flex gap-3 mt-8 pt-6 border-t border-border">
+        <div className="flex flex-wrap gap-3 mt-8 pt-6 border-t border-border">
           <button onClick={() => navigate(-1)}
-            className="flex-1 py-3 rounded-lg border border-border text-ink-2 text-sm font-medium hover:bg-surface transition-colors">
+            className="flex-1 min-w-[100px] py-3 rounded-lg border border-border text-ink-2 text-sm font-medium hover:bg-surface transition-colors">
             Bekor qilish
           </button>
-          <button onClick={handleSubmit} disabled={saving || !form.title.trim() || !form.company.trim()}
-            className="flex-1 py-3 bg-ink text-white rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-            <Save className="w-4 h-4" /> {saving ? "Saqlanmoqda..." : "E'lon qilish"}
+          <button onClick={() => setShowPreview(true)} disabled={!form.title.trim()}
+            className="flex-1 min-w-[100px] py-3 rounded-lg border border-border text-ink-2 text-sm font-medium hover:bg-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+            <Eye className="w-4 h-4" /> Ko'rib chiqish
+          </button>
+          <button onClick={() => save("draft")} disabled={saving || !form.title.trim() || !form.company.trim()}
+            className="flex-1 min-w-[100px] py-3 rounded-lg border border-border text-ink-2 text-sm font-medium hover:bg-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+            <Save className="w-4 h-4" /> Qoralama
+          </button>
+          <button onClick={() => save("submit")} disabled={saving || !form.title.trim() || !form.company.trim()}
+            className="flex-1 min-w-[140px] py-3 bg-ink text-white rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+            <Save className="w-4 h-4" /> {saving ? "Saqlanmoqda..." : "Ko'rib chiqishga yuborish"}
           </button>
         </div>
       </div>
+
+      {showPreview && (
+        <VacancyPreviewModal
+          vacancy={{ ...buildBody(), author_name: form.company }}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </div>
   );
 }

@@ -10,6 +10,17 @@ const { rateLimit } = require("../middleware/rateLimit.cjs");
 const router = express.Router();
 const authRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
 
+function toSafeUser(row) {
+  const { password, ...safe } = row;
+  safe.fields = JSON.parse(safe.fields || "[]");
+  safe.categories = JSON.parse(safe.categories || "[]");
+  safe.skills = JSON.parse(safe.skills || "[]");
+  safe.certificates = JSON.parse(safe.certificates || "[]");
+  safe.timeline = JSON.parse(safe.timeline || "[]");
+  try { safe.roles = JSON.parse(safe.roles || "[]"); } catch { safe.roles = [safe.role]; }
+  return safe;
+}
+
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
 const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || "http://localhost:4000/api/auth/callback/google";
@@ -78,21 +89,20 @@ router.post("/register", authRateLimit, (req, res) => {
     const hashed = bcrypt.hashSync(password, 10);
 
     const stmt = db.prepare(`
-      INSERT INTO users (name, email, password, phone, city, role, fields, categories, category)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (name, email, password, phone, city, role, roles, fields, categories, category)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
       name, email, hashed,
-      phone || "", city || "", safeRole,
+      phone || "", city || "", safeRole, JSON.stringify([safeRole]),
       JSON.stringify(fields || []),
       JSON.stringify(categories || []),
       category || ""
     );
 
-    const user = db.prepare("SELECT id,name,email,phone,city,role,fields,categories,category FROM users WHERE id = ?").get(result.lastInsertRowid);
-    user.fields = JSON.parse(user.fields);
-    user.categories = JSON.parse(user.categories);
+    const row = db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid);
+    const user = toSafeUser(row);
 
     const token = jwt.sign({ id: user.id, email: user.email, tokenVersion: 0 }, JWT_SECRET, { expiresIn: "7d" });
 
@@ -124,12 +134,7 @@ router.post("/login", authRateLimit, (req, res) => {
       return res.status(403).json({ error: "Hisobingiz bloklangan. Administrator bilan bog'laning." });
     }
 
-    const { password: _, ...safe } = user;
-    safe.fields = JSON.parse(safe.fields);
-    safe.categories = JSON.parse(safe.categories);
-    safe.skills = JSON.parse(safe.skills);
-    safe.certificates = JSON.parse(safe.certificates);
-    safe.timeline = JSON.parse(safe.timeline);
+    const safe = toSafeUser(user);
 
     const token = jwt.sign({ id: user.id, email: user.email, tokenVersion: user.token_version || 0 }, JWT_SECRET, { expiresIn: "7d" });
 
@@ -154,14 +159,7 @@ router.get("/me", authMiddleware, (req, res) => {
     const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
     if (!user) return res.status(404).json({ error: "Foydalanuvchi topilmadi" });
 
-    const { password, ...safe } = user;
-    safe.fields = JSON.parse(safe.fields);
-    safe.categories = JSON.parse(safe.categories);
-    safe.skills = JSON.parse(safe.skills);
-    safe.certificates = JSON.parse(safe.certificates);
-    safe.timeline = JSON.parse(safe.timeline);
-
-    res.json({ user: safe });
+    res.json({ user: toSafeUser(user) });
   } catch (err) {
     console.error("Me error:", err);
     res.status(500).json({ error: "Server xatoligi" });
@@ -228,16 +226,68 @@ router.patch("/me", authMiddleware, (req, res) => {
     db.prepare(`UPDATE users SET ${sets.join(", ")} WHERE id = ?`).run(...params);
 
     const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
-    const { password, ...safe } = user;
-    safe.fields = JSON.parse(safe.fields);
-    safe.categories = JSON.parse(safe.categories);
-    safe.skills = JSON.parse(safe.skills);
-    safe.certificates = JSON.parse(safe.certificates);
-    safe.timeline = JSON.parse(safe.timeline);
 
-    res.json({ user: safe });
+    res.json({ user: toSafeUser(user) });
   } catch (err) {
     console.error("Update profile error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+const SWITCHABLE_ROLES = ["specialist", "employer"];
+
+function currentRoles(userId) {
+  const row = db.prepare("SELECT roles, role FROM users WHERE id = ?").get(userId);
+  try {
+    const parsed = JSON.parse(row.roles || "[]");
+    return Array.isArray(parsed) && parsed.length ? parsed : [row.role];
+  } catch {
+    return [row.role];
+  }
+}
+
+// Adds a role to the account's unlocked-roles list without switching to it.
+router.post("/roles/unlock", authMiddleware, (req, res) => {
+  try {
+    const { role } = req.body;
+    if (!SWITCHABLE_ROLES.includes(role)) {
+      return res.status(400).json({ error: "Noto'g'ri rol" });
+    }
+    const current = db.prepare("SELECT role FROM users WHERE id = ?").get(req.userId);
+    if (current?.role === "admin") return res.status(403).json({ error: "Ruxsat yo'q" });
+
+    const roles = currentRoles(req.userId);
+    if (!roles.includes(role)) roles.push(role);
+    db.prepare("UPDATE users SET roles = ? WHERE id = ?").run(JSON.stringify(roles), req.userId);
+
+    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
+    res.json({ user: toSafeUser(user) });
+  } catch (err) {
+    console.error("Unlock role error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+// Switches the account's active role to one already present in its unlocked-roles list.
+router.post("/switch-role", authMiddleware, (req, res) => {
+  try {
+    const { role } = req.body;
+    if (!SWITCHABLE_ROLES.includes(role)) {
+      return res.status(400).json({ error: "Noto'g'ri rol" });
+    }
+    const current = db.prepare("SELECT role FROM users WHERE id = ?").get(req.userId);
+    if (current?.role === "admin") return res.status(403).json({ error: "Ruxsat yo'q" });
+
+    const roles = currentRoles(req.userId);
+    if (!roles.includes(role)) {
+      return res.status(400).json({ error: "Bu rol ochilmagan. Avval uni oching." });
+    }
+    db.prepare("UPDATE users SET role = ? WHERE id = ?").run(role, req.userId);
+
+    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
+    res.json({ user: toSafeUser(user) });
+  } catch (err) {
+    console.error("Switch role error:", err);
     res.status(500).json({ error: "Server xatoligi" });
   }
 });
@@ -247,11 +297,14 @@ router.get("/google", (req, res, next) => {
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
     return res.status(503).json({ error: "Google OAuth konfiguratsiya qilinmagan. GOOGLE_CLIENT_ID va GOOGLE_CLIENT_SECRET .env faylga qo'shing." });
   }
-  const role = req.query.role || "specialist";
-  passport.authenticate("google", {
-    scope: ["profile", "email"],
-    state: role,
-  })(req, res, next);
+  // Only carry an explicit role intent (e.g. from the Register page's employer button) as
+  // OAuth `state`. A plain Login-page click passes no role and must never touch an existing
+  // account's role.
+  const options = { scope: ["profile", "email"] };
+  if (req.query.role === "employer" || req.query.role === "specialist") {
+    options.state = req.query.role;
+  }
+  passport.authenticate("google", options)(req, res, next);
 });
 
 router.get("/callback/google", (req, res, next) => {
@@ -261,8 +314,10 @@ router.get("/callback/google", (req, res, next) => {
   passport.authenticate("google", { session: false, failureRedirect: `${FRONTEND_URL}/login?error=google_failed` }, (err, user) => {
     if (err || !user) return res.redirect(`${FRONTEND_URL}/login?error=google_failed`);
     const role = req.query.state === "employer" ? "employer" : "specialist";
-    if (user.role === "specialist" && req.query.state) {
-      db.prepare("UPDATE users SET role = ? WHERE id = ? AND role = 'specialist'").run(role, user.id);
+    if (user.role !== "admin" && req.query.state) {
+      const roles = currentRoles(user.id);
+      if (!roles.includes(role)) roles.push(role);
+      db.prepare("UPDATE users SET role = ?, roles = ? WHERE id = ?").run(role, JSON.stringify(roles), user.id);
     }
     const token = jwt.sign({ id: user.id, email: user.email, tokenVersion: user.token_version || 0 }, JWT_SECRET, { expiresIn: "7d" });
     res.redirect(`${FRONTEND_URL}/auth/callback?token=${token}`);

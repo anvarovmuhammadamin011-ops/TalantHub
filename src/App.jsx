@@ -20,6 +20,7 @@ import Chat from "./pages/Chat";
 import AiChat from "./pages/AiChat";
 import Statistics from "./pages/Statistics";
 import VacancyCreate from "./pages/VacancyCreate";
+import Wallet from "./pages/Wallet";
 import Admin from "./pages/Admin";
 import AdminUserDetail from "./pages/AdminUserDetail";
 import AdminRoute from "./components/AdminRoute";
@@ -58,6 +59,7 @@ export default function App() {
               <Route path="/" element={<RootRoute />} />
               <Route path="/vacancies" element={<Vacancies />} />
               <Route path="/vacancies/new" element={<VacancyCreate />} />
+              <Route path="/vacancies/:id/edit" element={<VacancyCreate />} />
               <Route path="/vacancies/:id" element={<VacancyDetail />} />
               <Route path="/specialists" element={<Specialists />} />
               <Route path="/specialists/:id" element={<SpecialistDetail />} />
@@ -65,6 +67,7 @@ export default function App() {
               <Route path="/applications" element={<Applications />} />
               <Route path="/orders" element={<Orders />} />
               <Route path="/dashboard" element={<EmployerDashboard />} />
+              <Route path="/wallet" element={<Wallet />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/ai-chat" element={<AiChat />} />
               <Route path="/statistics" element={<Statistics />} />

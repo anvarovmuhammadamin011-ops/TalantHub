@@ -132,7 +132,7 @@ export default function Chat() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="bg-white rounded-xl border border-border overflow-hidden" style={{ height: "calc(100vh - 200px)", minHeight: "500px" }}>
+      <div className="bg-white rounded-xl border border-border overflow-hidden h-[calc(100dvh-244px)] md:h-[calc(100dvh-144px)] min-h-[500px]">
         <div className="flex h-full">
           {/* Chat list */}
           <div className={`w-full md:w-80 border-r border-border flex flex-col ${showMobileChat ? "hidden md:flex" : "flex"}`}>

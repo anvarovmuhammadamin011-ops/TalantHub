@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { LogIn, Mail, Lock, Info, Zap } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { BASE_URL } from "../lib/api";
+import LanguageSwitcher from "../components/ui/LanguageSwitcher";
 
 const demoAccounts = [
   { name: "Aziz Karimov", email: "aziz@demo.com", role: "IT mutaxassis", color: "bg-blue-50 text-blue-600" },
@@ -57,6 +58,9 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-surface flex items-center justify-center py-12 px-4">
       <div className="max-w-md w-full">
+        <div className="flex justify-center mb-4">
+          <LanguageSwitcher />
+        </div>
         <Link to="/vacancies" className="flex items-center justify-center gap-2 mb-10">
           <div className="w-8 h-8 bg-ink rounded-md flex items-center justify-center">
             <span className="text-white font-semibold text-xs">TH</span>

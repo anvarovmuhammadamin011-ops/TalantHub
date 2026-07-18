@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Briefcase, Users, Package, TrendingUp, Plus, Clock, MessageSquare, Trash2, Edit3, Eye, EyeOff } from "lucide-react";
+import { Briefcase, Users, Package, TrendingUp, Plus, Clock, MessageSquare, Trash2, Edit3, Eye, EyeOff, Copy, Archive } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import StatusBadge from "../components/ui/StatusBadge";
@@ -28,6 +28,7 @@ export default function EmployerDashboard() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
+  const [vacTab, setVacTab] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -67,6 +68,25 @@ export default function EmployerDashboard() {
     try {
       await api(`/vacancies/${id}`, { method: "PATCH", body: { status: newStatus } });
       setVacancies((prev) => prev.map((v) => v.id === id ? { ...v, status: newStatus } : v));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const archiveVacancy = async (id) => {
+    if (!confirm("Vakansiyani arxivlashni xohlaysizmi? Bu qaytarib bo'lmaydi.")) return;
+    try {
+      await api(`/vacancies/${id}`, { method: "PATCH", body: { status: "Arxivlangan" } });
+      setVacancies((prev) => prev.map((v) => v.id === id ? { ...v, status: "Arxivlangan" } : v));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const duplicateVacancy = async (id) => {
+    try {
+      const { vacancy } = await api(`/vacancies/${id}/duplicate`, { method: "POST" });
+      setVacancies((prev) => [vacancy, ...prev]);
     } catch (err) {
       console.error(err);
     }
@@ -192,24 +212,60 @@ export default function EmployerDashboard() {
               <Link to="/vacancies/new" className="text-sm text-ink font-medium hover:underline">Vakansiya yaratish</Link>
             </div>
           ) : (
-            <div className="space-y-2">
-              {vacancies.map((v) => (
+            <>
+              <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
+                {["", ...new Set(vacancies.map((v) => v.status || "Faol"))].map((s) => (
+                  <button key={s || "all"} onClick={() => setVacTab(s)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                      vacTab === s ? "bg-ink text-white" : "bg-surface text-ink-2 hover:bg-border-soft"
+                    }`}>{s || "Barchasi"}</button>
+                ))}
+              </div>
+              <div className="space-y-2">
+              {vacancies.filter((v) => !vacTab || (v.status || "Faol") === vacTab).map((v) => (
                 <div key={v.id} className="p-3 rounded-lg hover:bg-surface transition-colors group">
                   <div className="flex items-start justify-between gap-2">
                     <Link to={`/vacancies/${v.id}`} className="flex-1 min-w-0">
-                      <div className="font-medium text-ink text-sm truncate">{v.title}</div>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-2">
+                        <div className="font-medium text-ink text-sm truncate">{v.title}</div>
+                        <StatusBadge status={v.status || "Faol"} />
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-xs text-ink-3">{v.location}</span>
                         <span className="text-xs text-ink-3">·</span>
                         <span className="text-xs text-ink-3">{v.applications_count} ta ariza</span>
+                        <span className="text-xs text-ink-3">·</span>
+                        <span className="text-xs text-ink-3">{v.views || 0} ko'rish</span>
                       </div>
+                      {v.status === "Tuzatish kerak" && v.reject_reason && (
+                        <div className="text-xs text-red-500 mt-1">Sabab: {v.reject_reason}</div>
+                      )}
                     </Link>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => toggleVacancyStatus(v.id, v.status || "Faol")}
+                      <Link to={`/vacancies/${v.id}/edit`}
                         className="w-7 h-7 flex items-center justify-center rounded-md text-ink-3 hover:bg-surface transition-colors"
-                        title={v.status === "Nofaol" ? "Faollashtirish" : "O'chirish"}>
-                        {v.status === "Nofaol" ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        title="Tahrirlash">
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </Link>
+                      <button onClick={() => duplicateVacancy(v.id)}
+                        className="w-7 h-7 flex items-center justify-center rounded-md text-ink-3 hover:bg-surface transition-colors"
+                        title="Nusxalash">
+                        <Copy className="w-3.5 h-3.5" />
                       </button>
+                      {(v.status === "Faol" || v.status === "Nofaol") && (
+                        <button onClick={() => toggleVacancyStatus(v.id, v.status || "Faol")}
+                          className="w-7 h-7 flex items-center justify-center rounded-md text-ink-3 hover:bg-surface transition-colors"
+                          title={v.status === "Nofaol" ? "Faollashtirish" : "To'xtatish"}>
+                          {v.status === "Nofaol" ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      )}
+                      {(v.status === "Faol" || v.status === "Nofaol") && (
+                        <button onClick={() => archiveVacancy(v.id)}
+                          className="w-7 h-7 flex items-center justify-center rounded-md text-ink-3 hover:bg-surface transition-colors"
+                          title="Arxivlash">
+                          <Archive className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       <button onClick={() => deleteVacancy(v.id)} disabled={deletingId === v.id}
                         className="w-7 h-7 flex items-center justify-center rounded-md text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
                         title="O'chirish">
@@ -219,7 +275,8 @@ export default function EmployerDashboard() {
                   </div>
                 </div>
               ))}
-            </div>
+              </div>
+            </>
           )}
         </div>
       </div>

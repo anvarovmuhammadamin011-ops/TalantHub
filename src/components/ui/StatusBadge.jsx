@@ -13,6 +13,12 @@ const statusTone = {
   "Qabul qilindi": "success",
   "Rad etildi": "danger",
   Yangi: "accent",
+  Faol: "success",
+  Kutilmoqda: "accent",
+  "Tuzatish kerak": "danger",
+  Nofaol: "neutral",
+  Qoralama: "neutral",
+  Arxivlangan: "neutral",
 };
 
 const toneClasses = {

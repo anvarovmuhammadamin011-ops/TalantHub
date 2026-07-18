@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Briefcase, Clock, ChevronRight, Award, TrendingUp, CheckCircle, XCircle, MessageSquare, X, Paperclip } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Briefcase, Clock, ChevronRight, Award, TrendingUp, CheckCircle, XCircle, MessageSquare, X, Paperclip, Search, ChevronDown } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { timeAgo } from "../lib/format";
@@ -9,11 +9,16 @@ import MatchIndicator from "../components/ui/MatchIndicator";
 
 export default function Applications() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isEmployer = user?.role === "employer";
   const [applications, setApplications] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
+  const [contactingId, setContactingId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [expandedId, setExpandedId] = useState(null);
 
   const statusOrder = ["Yuborildi", "Ko'rib chiqilmoqda", "Interview", "Qabul qilindi", "Rad etildi"];
 
@@ -59,8 +64,27 @@ export default function Applications() {
     }
   };
 
+  const contactSpecialist = async (userId) => {
+    setContactingId(userId);
+    try {
+      await api("/chats/create", { method: "POST", body: { user_id: userId } });
+      navigate("/chat");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setContactingId(null);
+    }
+  };
+
+  const q = search.trim().toLowerCase();
+  const filtered = applications.filter((a) => {
+    if (statusFilter && a.status !== statusFilter) return false;
+    if (!q) return true;
+    return (a.vacancy_title || "").toLowerCase().includes(q) || (isEmployer ? a.specialist_name : a.company || "").toLowerCase().includes(q);
+  });
+
   const grouped = statusOrder.reduce((acc, status) => {
-    acc[status] = applications.filter((a) => a.status === status);
+    acc[status] = filtered.filter((a) => a.status === status);
     return acc;
   }, {});
 
@@ -112,6 +136,24 @@ export default function Applications() {
         </div>
       ) : (
         <>
+          <div className="flex flex-wrap gap-3 mb-6">
+            <div className="flex-1 min-w-[200px] relative">
+              <Search className="w-4 h-4 text-ink-3 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input value={search} onChange={(e) => setSearch(e.target.value)}
+                placeholder={isEmployer ? "Vakansiya yoki nomzod qidirish..." : "Vakansiya yoki kompaniya qidirish..."}
+                className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none bg-white" />
+            </div>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2.5 rounded-lg border border-border text-sm bg-white focus:border-ink/30 outline-none">
+              <option value="">Barcha holatlar</option>
+              {statusOrder.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+
+          {filtered.length === 0 && (
+            <div className="text-center py-10 text-ink-3 text-sm mb-6">Qidiruv bo'yicha ariza topilmadi</div>
+          )}
+
           <div className="flex gap-2 mb-6 overflow-x-auto pb-2 md:grid md:grid-cols-5 md:gap-4">
             {statusOrder.map((status) => (
               <div key={status} className="min-w-[250px] md:min-w-0">
@@ -125,23 +167,55 @@ export default function Applications() {
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div>
                           <h4 className="font-medium text-ink text-sm">{app.vacancy_title}</h4>
-                          <p className="text-xs text-ink-3 mt-0.5">{isEmployer ? app.specialist_name : app.company}</p>
+                          {isEmployer ? (
+                            <Link to={`/specialists/${app.user_id}`} className="text-xs text-ink-3 mt-0.5 hover:text-ink hover:underline">
+                              {app.specialist_name}
+                            </Link>
+                          ) : (
+                            <p className="text-xs text-ink-3 mt-0.5">{app.company}</p>
+                          )}
                           {isEmployer && app.specialist_category && (
                             <p className="text-[10px] text-ink-3 mt-0.5">{app.specialist_category}</p>
                           )}
                         </div>
                         {!isEmployer && <MatchIndicator percent={app.match_percent} size="sm" />}
                       </div>
-                      {isEmployer && app.resume_url && (
-                        <a
-                          href={app.resume_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-1 text-[11px] text-accent hover:underline mb-3 font-medium"
-                        >
-                          <Paperclip className="w-3 h-3" /> CV ko'rish
-                        </a>
+                      {isEmployer && (
+                        <div className="flex items-center gap-3 mb-3 flex-wrap">
+                          {app.resume_url && (
+                            <a
+                              href={app.resume_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 text-[11px] text-accent hover:underline font-medium"
+                            >
+                              <Paperclip className="w-3 h-3" /> CV ko'rish
+                            </a>
+                          )}
+                          <button onClick={() => contactSpecialist(app.user_id)} disabled={contactingId === app.user_id}
+                            className="inline-flex items-center gap-1 text-[11px] text-ink-2 hover:text-ink font-medium disabled:opacity-50">
+                            <MessageSquare className="w-3 h-3" /> Bog'lanish
+                          </button>
+                          {app.specialist_phone && <span className="text-[11px] text-ink-3">{app.specialist_phone}</span>}
+                          {app.specialist_telegram && <span className="text-[11px] text-ink-3">@{app.specialist_telegram.replace(/^@/, "")}</span>}
+                          {app.screening_answers?.length > 0 && (
+                            <button onClick={() => setExpandedId(expandedId === app.id ? null : app.id)}
+                              className="inline-flex items-center gap-1 text-[11px] text-ink-2 hover:text-ink font-medium">
+                              <ChevronDown className={`w-3 h-3 transition-transform ${expandedId === app.id ? "rotate-180" : ""}`} /> Javoblar
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {isEmployer && expandedId === app.id && app.screening_answers?.length > 0 && (
+                        <div className="space-y-2 mb-3 bg-surface rounded-lg p-3">
+                          {app.screening_answers.map((qa, i) => (
+                            <div key={i}>
+                              <div className="text-[11px] font-medium text-ink-3">{qa.question}</div>
+                              <div className="text-xs text-ink-2 mt-0.5">{qa.answer || "Javob berilmagan"}</div>
+                            </div>
+                          ))}
+                        </div>
                       )}
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-ink-3 flex items-center gap-1">
@@ -200,7 +274,7 @@ export default function Applications() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-soft">
-                {applications.map((app) => (
+                {filtered.map((app) => (
                   <tr key={app.id} className="hover:bg-surface transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -211,16 +285,26 @@ export default function Applications() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-ink-3">
-                      {isEmployer ? app.specialist_name : app.company}
-                      {isEmployer && app.resume_url && (
-                        <a
-                          href={app.resume_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-[11px] text-accent hover:underline mt-0.5 font-medium"
-                        >
-                          <Paperclip className="w-3 h-3" /> CV
-                        </a>
+                      {isEmployer ? (
+                        <Link to={`/specialists/${app.user_id}`} className="hover:text-ink hover:underline">{app.specialist_name}</Link>
+                      ) : app.company}
+                      {isEmployer && (
+                        <div className="flex items-center gap-3 mt-0.5">
+                          {app.resume_url && (
+                            <a
+                              href={app.resume_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-[11px] text-accent hover:underline font-medium"
+                            >
+                              <Paperclip className="w-3 h-3" /> CV
+                            </a>
+                          )}
+                          <button onClick={() => contactSpecialist(app.user_id)} disabled={contactingId === app.user_id}
+                            className="flex items-center gap-1 text-[11px] text-ink-2 hover:text-ink font-medium disabled:opacity-50">
+                            <MessageSquare className="w-3 h-3" /> Bog'lanish
+                          </button>
+                        </div>
                       )}
                     </td>
                     {!isEmployer && (

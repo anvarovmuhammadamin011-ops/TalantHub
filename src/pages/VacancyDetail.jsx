@@ -21,6 +21,7 @@ export default function VacancyDetail() {
   const [error, setError] = useState("");
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [resumeUrl, setResumeUrl] = useState("");
+  const [answers, setAnswers] = useState({});
 
   useEffect(() => {
     async function load() {
@@ -72,7 +73,10 @@ export default function VacancyDetail() {
     setApplying(true);
     setError("");
     try {
-      await api("/applications", { method: "POST", body: { vacancy_id: Number(id), resume_url: resumeUrl.trim() } });
+      const screening_answers = (vacancy.screening_questions || []).map((question) => ({
+        question, answer: (answers[question] || "").trim(),
+      }));
+      await api("/applications", { method: "POST", body: { vacancy_id: Number(id), resume_url: resumeUrl.trim(), screening_answers } });
       setApplied(true);
       setShowApplyModal(false);
     } catch (err) {
@@ -385,6 +389,22 @@ export default function VacancyDetail() {
               />
             </div>
             <p className="text-xs text-ink-3 mb-5">Havola qo'shsangiz, ish beruvchi CV'ingizni to'g'ridan-to'g'ri ko'ra oladi.</p>
+
+            {(vacancy.screening_questions || []).length > 0 && (
+              <div className="space-y-3 mb-5">
+                {vacancy.screening_questions.map((q) => (
+                  <div key={q}>
+                    <label className="block text-xs font-medium text-ink-3 mb-1.5">{q}</label>
+                    <textarea
+                      rows={2}
+                      value={answers[q] || ""}
+                      onChange={(e) => setAnswers({ ...answers, [q]: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors bg-white text-sm resize-none"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
 
             {error && <div className="text-xs text-red-500 mb-3">{error}</div>}
 

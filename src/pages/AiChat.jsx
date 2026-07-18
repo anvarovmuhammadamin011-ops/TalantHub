@@ -44,7 +44,7 @@ export default function AiChat() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col" style={{ height: "calc(100vh - 80px)" }}>
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col h-[calc(100dvh-128px)] md:h-[calc(100dvh-96px)]">
       <div className="flex items-center gap-3 mb-4 pb-4 border-b border-border">
         <div className="w-10 h-10 bg-ink rounded-xl flex items-center justify-center">
           <Sparkles className="w-5 h-5 text-white" />

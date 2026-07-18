@@ -1,0 +1,36 @@
+{
+  "nav": {
+    "home": "Bosh",
+    "vacancies": "Vakansiyalar",
+    "dashboard": "Dashboard",
+    "applications": "Arizalar",
+    "orders": "Zakazlar",
+    "chat": "Xabarlar",
+    "profile": "Profil",
+    "admin": "Admin",
+    "logout": "Chiqish",
+    "wallet": "Hamyon"
+  },
+  "role": {
+    "specialist": "Mutaxassis",
+    "employer": "Ish beruvchi",
+    "unlock": "{role} sifatida ham ishlash",
+    "switchTo": "{role}ga o'tish"
+  },
+  "common": {
+    "loading": "Yuklanmoqda...",
+    "save": "Saqlash",
+    "cancel": "Bekor qilish",
+    "delete": "O'chirish",
+    "edit": "Tahrirlash",
+    "search": "Qidirish...",
+    "back": "Orqaga"
+  },
+  "auth": {
+    "login": "Kirish",
+    "register": "Ro'yxatdan o'tish",
+    "email": "Email",
+    "password": "Parol",
+    "loginWithGoogle": "Google orqali kirish"
+  }
+}

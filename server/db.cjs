@@ -366,6 +366,40 @@ try {
 try {
   db.exec(`ALTER TABLE applications ADD COLUMN resume_url TEXT DEFAULT ''`);
 } catch (e) {}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN roles TEXT DEFAULT NULL`);
+} catch (e) {}
+db.exec(`UPDATE users SET roles = '["' || role || '"]' WHERE roles IS NULL AND role IN ('specialist','employer','admin')`);
+try {
+  db.exec(`ALTER TABLE vacancies ADD COLUMN reject_reason TEXT DEFAULT ''`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE vacancies ADD COLUMN views INTEGER DEFAULT 0`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE vacancies ADD COLUMN moderated_by INTEGER`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE vacancies ADD COLUMN moderated_at DATETIME`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE vacancies ADD COLUMN english_level TEXT DEFAULT ''`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE vacancies ADD COLUMN openings_count INTEGER DEFAULT 1`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE vacancies ADD COLUMN contact_method TEXT DEFAULT 'Platforma orqali'`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE vacancies ADD COLUMN screening_questions TEXT DEFAULT '[]'`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE vacancies ADD COLUMN salary_type TEXT DEFAULT 'Kelishiladi'`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE applications ADD COLUMN screening_answers TEXT DEFAULT '[]'`);
+} catch (e) {}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS verification_requests (

@@ -141,7 +141,18 @@ router.patch("/users/:id", authMiddleware, requireAdmin, requireSection("users")
     if (blocked_reason !== undefined) { sets.push("blocked_reason = ?"); params.push(blocked_reason); }
     if (rating !== undefined) { sets.push("rating = ?"); params.push(Number(rating)); logDetails.push(`rating=${rating}`); }
     if (reviews_count !== undefined) { sets.push("reviews_count = ?"); params.push(Number(reviews_count)); logDetails.push(`reviews_count=${reviews_count}`); }
-    if (role !== undefined) { sets.push("role = ?"); params.push(role); logDetails.push(`role=${role}`); }
+    if (role !== undefined) {
+      sets.push("role = ?"); params.push(role); logDetails.push(`role=${role}`);
+      if (role === "specialist" || role === "employer") {
+        // Admin-set roles only ever add to the unlocked-roles list, never revoke — an admin
+        // "demoting" someone to specialist shouldn't strip their ability to self-switch back.
+        let roles = [];
+        try { roles = JSON.parse(db.prepare("SELECT roles FROM users WHERE id = ?").get(targetId)?.roles || "[]"); } catch { roles = []; }
+        if (!Array.isArray(roles)) roles = [];
+        if (!roles.includes(role)) roles.push(role);
+        sets.push("roles = ?"); params.push(JSON.stringify(roles));
+      }
+    }
     if (admin_role !== undefined) { sets.push("admin_role = ?"); params.push(admin_role); logDetails.push(`admin_role=${admin_role}`); }
     if (name !== undefined && name.trim()) { sets.push("name = ?"); params.push(name.trim()); }
     if (phone !== undefined) { sets.push("phone = ?"); params.push(phone); }
@@ -193,14 +204,65 @@ router.get("/vacancies", authMiddleware, requireAdmin, requireSection("vacancies
   }
 });
 
+const VACANCY_MODERATION_STATUSES = ["Faol", "Tuzatish kerak", "Nofaol", "Arxivlangan"];
+
 router.patch("/vacancies/:id/status", authMiddleware, requireAdmin, requireSection("vacancies"), (req, res) => {
   try {
-    const { status } = req.body;
-    db.prepare("UPDATE vacancies SET status = ? WHERE id = ?").run(status, req.params.id);
+    const { status, reject_reason } = req.body;
+    if (!VACANCY_MODERATION_STATUSES.includes(status)) {
+      return res.status(400).json({ error: "Noto'g'ri status" });
+    }
+
+    const vacancy = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(req.params.id);
+    if (!vacancy) return res.status(404).json({ error: "Vakansiya topilmadi" });
+
+    db.prepare(`
+      UPDATE vacancies SET status = ?, reject_reason = ?, moderated_by = ?, moderated_at = CURRENT_TIMESTAMP WHERE id = ?
+    `).run(status, status === "Tuzatish kerak" ? (reject_reason || "") : "", req.userId, req.params.id);
+
     logAdmin(req.userId, "vacancy_status", "vacancy", req.params.id, `status=${status}`);
+
+    if (vacancy.employer_id) {
+      const title = status === "Faol" ? "Vakansiya tasdiqlandi"
+        : status === "Tuzatish kerak" ? "Vakansiya tuzatish talab qiladi"
+        : status === "Nofaol" ? "Vakansiya to'xtatildi"
+        : "Vakansiya arxivlandi";
+      const description = status === "Faol" ? `"${vacancy.title}" e'loningiz tasdiqlandi va endi barchaga ko'rinadi.`
+        : status === "Tuzatish kerak" ? `"${vacancy.title}": ${reject_reason || "Sabab ko'rsatilmagan"}`
+        : `"${vacancy.title}" e'loningiz holati o'zgardi.`;
+
+      db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'vacancy', ?, ?, '/dashboard')`)
+        .run(vacancy.employer_id, title, description);
+
+      if (req.app.get("io")) {
+        req.app.get("io").to(`user_${vacancy.employer_id}`).emit("notification", { type: "vacancy", title, description });
+      }
+    }
+
     res.json({ success: true });
   } catch (err) {
     console.error("Admin vacancy status error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.post("/wallet/adjust", authMiddleware, requireAdmin, requireSection("finance"), (req, res) => {
+  try {
+    const { user_id, amount, description } = req.body;
+    const amountNum = Number(amount);
+    if (!user_id || !amountNum) return res.status(400).json({ error: "user_id va amount majburiy" });
+
+    const target = db.prepare("SELECT id, name FROM users WHERE id = ?").get(user_id);
+    if (!target) return res.status(404).json({ error: "Foydalanuvchi topilmadi" });
+
+    db.prepare(`INSERT INTO transactions (user_id, amount, method, status, type, description) VALUES (?, ?, 'Admin', 'Tasdiqlangan', 'demo_topup', ?)`)
+      .run(user_id, amountNum, description || "Administrator tomonidan balans to'ldirildi");
+
+    logAdmin(req.userId, "wallet_adjust", "user", user_id, `${target.name}: ${amountNum > 0 ? "+" : ""}${amountNum}`);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Wallet adjust error:", err);
     res.status(500).json({ error: "Server xatoligi" });
   }
 });

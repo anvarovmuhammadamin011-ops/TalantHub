@@ -64,8 +64,28 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const unlockRole = async (role) => {
+    try {
+      const { user } = await api("/auth/roles/unlock", { method: "POST", body: { role } });
+      setUser(user);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message || "Xatolik yuz berdi" };
+    }
+  };
+
+  const switchRole = async (role) => {
+    try {
+      const { user } = await api("/auth/switch-role", { method: "POST", body: { role } });
+      setUser(user);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message || "Xatolik yuz berdi" };
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, register, login, logout, updateProfile, isLoggedIn: !!user, loading }}>
+    <AuthContext.Provider value={{ user, register, login, logout, updateProfile, unlockRole, switchRole, isLoggedIn: !!user, loading }}>
       {children}
     </AuthContext.Provider>
   );

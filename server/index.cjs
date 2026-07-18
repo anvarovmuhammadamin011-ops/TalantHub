@@ -26,6 +26,7 @@ const supportRoutes = require("./routes/support.cjs");
 const verificationRoutes = require("./routes/verification.cjs");
 const categoryRoutes = require("./routes/categories.cjs");
 const aiRoutes = require("./routes/ai.cjs");
+const walletRoutes = require("./routes/wallet.cjs");
 
 const allowedOrigins = [
   process.env.FRONTEND_URL || "http://localhost:5173",
@@ -71,6 +72,7 @@ app.use("/api/support", supportRoutes);
 app.use("/api/verification", verificationRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/wallet", walletRoutes);
 
 io.on("connection", (socket) => {
   const token = socket.handshake.auth?.token;

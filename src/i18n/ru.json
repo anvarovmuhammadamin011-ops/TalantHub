@@ -1,0 +1,36 @@
+{
+  "nav": {
+    "home": "Главная",
+    "vacancies": "Вакансии",
+    "dashboard": "Панель",
+    "applications": "Заявки",
+    "orders": "Заказы",
+    "chat": "Сообщения",
+    "profile": "Профиль",
+    "admin": "Админ",
+    "logout": "Выйти",
+    "wallet": "Кошелёк"
+  },
+  "role": {
+    "specialist": "Специалист",
+    "employer": "Работодатель",
+    "unlock": "Работать также как {role}",
+    "switchTo": "Переключиться на {role}"
+  },
+  "common": {
+    "loading": "Загрузка...",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "search": "Поиск...",
+    "back": "Назад"
+  },
+  "auth": {
+    "login": "Войти",
+    "register": "Регистрация",
+    "email": "Email",
+    "password": "Пароль",
+    "loginWithGoogle": "Войти через Google"
+  }
+}

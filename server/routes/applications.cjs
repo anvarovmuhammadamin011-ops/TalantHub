@@ -38,13 +38,17 @@ router.get("/employer", authMiddleware, (req, res) => {
       SELECT a.*, v.title as vacancy_title, v.id as vacancy_id_ref,
              u.name as specialist_name, u.category as specialist_category, u.avatar as specialist_avatar,
              u.rating as specialist_rating, u.reviews_count as specialist_reviews, u.experience as specialist_experience,
-             u.orders_count as specialist_orders
+             u.orders_count as specialist_orders, u.phone as specialist_phone,
+             u.social_telegram as specialist_telegram, u.email as specialist_email
       FROM applications a
       JOIN vacancies v ON a.vacancy_id = v.id
       JOIN users u ON a.user_id = u.id
       WHERE v.employer_id = ?
       ORDER BY a.created_at DESC
-    `).all(req.userId);
+    `).all(req.userId).map((a) => {
+      try { a.screening_answers = JSON.parse(a.screening_answers || "[]"); } catch { a.screening_answers = []; }
+      return a;
+    });
 
     res.json({ applications });
   } catch (err) {
@@ -60,7 +64,7 @@ router.post("/", authMiddleware, (req, res) => {
       return res.status(403).json({ error: "Faqat mutaxassislar ariza yubora oladi" });
     }
 
-    const { vacancy_id, resume_url } = req.body;
+    const { vacancy_id, resume_url, screening_answers } = req.body;
     if (!vacancy_id) return res.status(400).json({ error: "Vakansiya ID kerak" });
 
     const existing = db.prepare("SELECT id FROM applications WHERE vacancy_id = ? AND user_id = ?").get(vacancy_id, req.userId);
@@ -68,14 +72,28 @@ router.post("/", authMiddleware, (req, res) => {
 
     const matchPercent = Math.floor(60 + Math.random() * 35);
 
-    const result = db.prepare("INSERT INTO applications (vacancy_id, user_id, status, match_percent, resume_url) VALUES (?, ?, ?, ?, ?)").run(vacancy_id, req.userId, "Ko'rib chiqilmoqda", matchPercent, resume_url || "");
+    const result = db.prepare("INSERT INTO applications (vacancy_id, user_id, status, match_percent, resume_url, screening_answers) VALUES (?, ?, ?, ?, ?, ?)").run(
+      vacancy_id, req.userId, "Yuborildi", matchPercent, resume_url || "", JSON.stringify(screening_answers || [])
+    );
 
     const application = db.prepare(`
-      SELECT a.*, v.title as vacancy_title, v.company, v.salary, v.location
+      SELECT a.*, v.title as vacancy_title, v.company, v.salary, v.location, v.employer_id
       FROM applications a
       JOIN vacancies v ON a.vacancy_id = v.id
       WHERE a.id = ?
     `).get(result.lastInsertRowid);
+
+    if (application.employer_id) {
+      const specialist = db.prepare("SELECT name FROM users WHERE id = ?").get(req.userId);
+      db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'application', 'Yangi ariza', ?, '/applications')`).run(
+        application.employer_id, `${specialist?.name || "Nomzod"} "${application.vacancy_title}" vakansiyasiga ariza yubordi`
+      );
+      if (req.app.get("io")) {
+        req.app.get("io").to(`user_${application.employer_id}`).emit("notification", {
+          type: "application", title: "Yangi ariza", description: `${specialist?.name || "Nomzod"} "${application.vacancy_title}" vakansiyasiga ariza yubordi`
+        });
+      }
+    }
 
     res.json({ application });
   } catch (err) {

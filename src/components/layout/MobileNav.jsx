@@ -1,11 +1,13 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, Briefcase, MessageSquare, User, Package, LayoutDashboard, BarChart3, Shield, LogOut } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useT } from "../../context/I18nContext";
 
 export default function MobileNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { t } = useT();
   const isEmployer = user?.role === "employer";
   const isAdmin = user?.role === "admin";
 
@@ -16,21 +18,21 @@ export default function MobileNav() {
 
   const tabs = isAdmin
     ? [
-        { to: "/", label: "Bosh", icon: Home },
-        { to: "/admin", label: "Admin", icon: Shield },
-        { to: "/vacancies", label: "Vakansiyalar", icon: Briefcase },
-        { to: "/chat", label: "Xabarlar", icon: MessageSquare },
-        { action: handleLogout, label: "Chiqish", icon: LogOut },
+        { to: "/", label: t("nav.home"), icon: Home },
+        { to: "/admin", label: t("nav.admin"), icon: Shield },
+        { to: "/vacancies", label: t("nav.vacancies"), icon: Briefcase },
+        { to: "/chat", label: t("nav.chat"), icon: MessageSquare },
+        { action: handleLogout, label: t("nav.logout"), icon: LogOut },
       ]
     : [
-        { to: "/", label: "Bosh", icon: Home },
-        { to: "/vacancies", label: "Vakansiyalar", icon: Briefcase },
+        { to: "/", label: t("nav.home"), icon: Home },
+        { to: "/vacancies", label: t("nav.vacancies"), icon: Briefcase },
         isEmployer
-          ? { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard }
-          : { to: "/applications", label: "Arizalar", icon: BarChart3 },
-        { to: "/orders", label: "Zakazlar", icon: Package },
-        { to: "/chat", label: "Xabarlar", icon: MessageSquare },
-        { to: "/profile", label: "Profil", icon: User },
+          ? { to: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard }
+          : { to: "/applications", label: t("nav.applications"), icon: BarChart3 },
+        { to: "/orders", label: t("nav.orders"), icon: Package },
+        { to: "/chat", label: t("nav.chat"), icon: MessageSquare },
+        { to: "/profile", label: t("nav.profile"), icon: User },
       ];
 
   return (

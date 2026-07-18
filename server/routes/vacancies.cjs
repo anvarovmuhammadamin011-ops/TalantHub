@@ -4,6 +4,24 @@ const { authMiddleware } = require("../middleware/auth.cjs");
 
 const router = express.Router();
 
+const EMPLOYER_SETTABLE_STATUSES = ["Faol", "Nofaol", "Arxivlangan"];
+
+function getInitialStatus() {
+  const modeRow = db.prepare("SELECT value FROM settings WHERE key = 'vacancy_moderation_mode'").get();
+  return modeRow?.value === "pre" ? "Kutilmoqda" : "Faol";
+}
+
+function parseVacancy(v) {
+  return {
+    ...v,
+    tags: JSON.parse(v.tags),
+    requirements: JSON.parse(v.requirements),
+    conditions: JSON.parse(v.conditions),
+    responsibilities: JSON.parse(v.responsibilities || "[]"),
+    screening_questions: JSON.parse(v.screening_questions || "[]"),
+  };
+}
+
 router.get("/", (req, res) => {
   try {
     const { search, location, format, experience, category } = req.query;
@@ -39,13 +57,7 @@ router.get("/", (req, res) => {
 
     sql += ` ORDER BY v.created_at DESC`;
 
-    const vacancies = db.prepare(sql).all(...params).map((v) => ({
-      ...v,
-      tags: JSON.parse(v.tags),
-      requirements: JSON.parse(v.requirements),
-      conditions: JSON.parse(v.conditions),
-      responsibilities: JSON.parse(v.responsibilities || "[]"),
-    }));
+    const vacancies = db.prepare(sql).all(...params).map(parseVacancy);
 
     res.json({ vacancies, total: vacancies.length });
   } catch (err) {
@@ -61,13 +73,7 @@ router.get("/mine", authMiddleware, (req, res) => {
       FROM vacancies v
       WHERE v.employer_id = ?
       ORDER BY v.created_at DESC
-    `).all(req.userId).map((v) => ({
-      ...v,
-      tags: JSON.parse(v.tags),
-      requirements: JSON.parse(v.requirements),
-      conditions: JSON.parse(v.conditions),
-      responsibilities: JSON.parse(v.responsibilities || "[]"),
-    }));
+    `).all(req.userId).map(parseVacancy);
 
     res.json({ vacancies });
   } catch (err) {
@@ -78,6 +84,8 @@ router.get("/mine", authMiddleware, (req, res) => {
 
 router.get("/:id", (req, res) => {
   try {
+    db.prepare("UPDATE vacancies SET views = views + 1 WHERE id = ?").run(req.params.id);
+
     const vacancy = db.prepare(`
       SELECT v.*, u.name as author_name, u.id as author_id
       FROM vacancies v
@@ -87,12 +95,7 @@ router.get("/:id", (req, res) => {
 
     if (!vacancy) return res.status(404).json({ error: "Vakansiya topilmadi" });
 
-    vacancy.tags = JSON.parse(vacancy.tags);
-    vacancy.requirements = JSON.parse(vacancy.requirements);
-    vacancy.conditions = JSON.parse(vacancy.conditions);
-    vacancy.responsibilities = JSON.parse(vacancy.responsibilities || "[]");
-
-    res.json({ vacancy });
+    res.json({ vacancy: parseVacancy(vacancy) });
   } catch (err) {
     console.error("Vacancy detail error:", err);
     res.status(500).json({ error: "Server xatoligi" });
@@ -109,21 +112,22 @@ router.post("/", authMiddleware, (req, res) => {
     const {
       title, company, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions,
       employment_type, schedule, gender, responsibilities, salary_details, day_off,
+      english_level, openings_count, contact_method, screening_questions, salary_type, save_as,
     } = req.body;
 
     if (!title || !company) {
       return res.status(400).json({ error: "Sarlavha va kompaniya majburiy" });
     }
 
-    const modeRow = db.prepare("SELECT value FROM settings WHERE key = 'vacancy_moderation_mode'").get();
-    const initialStatus = modeRow?.value === "pre" ? "Kutilmoqda" : "Faol";
+    const initialStatus = save_as === "draft" ? "Qoralama" : getInitialStatus();
 
     const stmt = db.prepare(`
       INSERT INTO vacancies (
         title, company, company_logo, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions, employer_id, status,
-        employment_type, schedule, gender, responsibilities, salary_details, day_off
+        employment_type, schedule, gender, responsibilities, salary_details, day_off,
+        english_level, openings_count, contact_method, screening_questions, salary_type
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -143,18 +147,51 @@ router.post("/", authMiddleware, (req, res) => {
       gender || "Farqi yo'q",
       JSON.stringify(responsibilities || []),
       salary_details || "",
-      day_off || ""
+      day_off || "",
+      english_level || "",
+      openings_count || 1,
+      contact_method || "Platforma orqali",
+      JSON.stringify(screening_questions || []),
+      salary_type || "Kelishiladi"
     );
 
     const vacancy = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(result.lastInsertRowid);
-    vacancy.tags = JSON.parse(vacancy.tags);
-    vacancy.requirements = JSON.parse(vacancy.requirements);
-    vacancy.conditions = JSON.parse(vacancy.conditions);
-    vacancy.responsibilities = JSON.parse(vacancy.responsibilities || "[]");
 
-    res.json({ vacancy });
+    res.json({ vacancy: parseVacancy(vacancy) });
   } catch (err) {
     console.error("Vacancy create error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.post("/:id/duplicate", authMiddleware, (req, res) => {
+  try {
+    const source = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(req.params.id);
+    if (!source) return res.status(404).json({ error: "Vakansiya topilmadi" });
+    if (source.employer_id !== req.userId) return res.status(403).json({ error: "Ruxsat yo'q" });
+
+    const result = db.prepare(`
+      INSERT INTO vacancies (
+        title, company, company_logo, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions, employer_id, status,
+        employment_type, schedule, gender, responsibilities, salary_details, day_off,
+        english_level, openings_count, contact_method, screening_questions, salary_type
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Qoralama', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      `${source.title} (nusxa)`, source.company, source.company_logo,
+      source.location, source.salary, source.salary_min, source.salary_max,
+      source.format, source.experience, source.category, source.tags,
+      source.description, source.requirements, source.conditions, req.userId,
+      source.employment_type, source.schedule, source.gender, source.responsibilities,
+      source.salary_details, source.day_off,
+      source.english_level, source.openings_count, source.contact_method,
+      source.screening_questions, source.salary_type
+    );
+
+    const vacancy = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(result.lastInsertRowid);
+    res.json({ vacancy: parseVacancy(vacancy) });
+  } catch (err) {
+    console.error("Vacancy duplicate error:", err);
     res.status(500).json({ error: "Server xatoligi" });
   }
 });
@@ -184,7 +221,27 @@ router.patch("/:id", authMiddleware, (req, res) => {
     const {
       title, company, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions, status,
       employment_type, schedule, gender, responsibilities, salary_details, day_off,
+      english_level, openings_count, contact_method, screening_questions, salary_type, save_as,
     } = req.body;
+
+    // Employers may only ever pause/resume/archive an already-moderated vacancy directly —
+    // never jump straight to "Faol" from a pending/rejected/draft state, which would bypass
+    // review. Those transitions are server-computed below instead.
+    let resolvedStatus = null;
+    if (status !== undefined) {
+      const employerCanSetDirectly = ["Faol", "Nofaol"].includes(vacancy.status);
+      if (!EMPLOYER_SETTABLE_STATUSES.includes(status) || !employerCanSetDirectly) {
+        return res.status(400).json({ error: "Noto'g'ri status qiymati" });
+      }
+      resolvedStatus = status;
+    } else if (vacancy.status === "Qoralama" && save_as !== "draft") {
+      // Submitting a draft for review.
+      resolvedStatus = getInitialStatus();
+    } else if (vacancy.status === "Tuzatish kerak") {
+      // Any employer edit to a rejected vacancy re-enters the moderation queue.
+      resolvedStatus = getInitialStatus();
+    }
+    const clearRejectReason = resolvedStatus !== null && resolvedStatus !== "Tuzatish kerak";
 
     db.prepare(`
       UPDATE vacancies SET
@@ -202,12 +259,18 @@ router.patch("/:id", authMiddleware, (req, res) => {
         requirements = COALESCE(?, requirements),
         conditions = COALESCE(?, conditions),
         status = COALESCE(?, status),
+        reject_reason = CASE WHEN ? THEN '' ELSE reject_reason END,
         employment_type = COALESCE(?, employment_type),
         schedule = COALESCE(?, schedule),
         gender = COALESCE(?, gender),
         responsibilities = COALESCE(?, responsibilities),
         salary_details = COALESCE(?, salary_details),
-        day_off = COALESCE(?, day_off)
+        day_off = COALESCE(?, day_off),
+        english_level = COALESCE(?, english_level),
+        openings_count = COALESCE(?, openings_count),
+        contact_method = COALESCE(?, contact_method),
+        screening_questions = COALESCE(?, screening_questions),
+        salary_type = COALESCE(?, salary_type)
       WHERE id = ?
     `).run(
       title || null, company || null, location || null, salary || null,
@@ -216,23 +279,25 @@ router.patch("/:id", authMiddleware, (req, res) => {
       description || null,
       requirements ? JSON.stringify(requirements) : null,
       conditions ? JSON.stringify(conditions) : null,
-      status || null,
+      resolvedStatus,
+      clearRejectReason ? 1 : 0,
       employment_type || null,
       schedule || null,
       gender || null,
       responsibilities ? JSON.stringify(responsibilities) : null,
       salary_details || null,
       day_off || null,
+      english_level || null,
+      openings_count || null,
+      contact_method || null,
+      screening_questions ? JSON.stringify(screening_questions) : null,
+      salary_type || null,
       req.params.id
     );
 
     const updated = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(req.params.id);
-    updated.tags = JSON.parse(updated.tags);
-    updated.requirements = JSON.parse(updated.requirements);
-    updated.conditions = JSON.parse(updated.conditions);
-    updated.responsibilities = JSON.parse(updated.responsibilities || "[]");
 
-    res.json({ vacancy: updated });
+    res.json({ vacancy: parseVacancy(updated) });
   } catch (err) {
     console.error("Vacancy update error:", err);
     res.status(500).json({ error: "Server xatoligi" });
