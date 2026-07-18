@@ -73,6 +73,8 @@ router.post("/register", authRateLimit, (req, res) => {
       return res.status(409).json({ error: "Bu email allaqachon ro'yxatdan o'tgan" });
     }
 
+    const safeRole = role === "employer" ? "employer" : "specialist";
+
     const hashed = bcrypt.hashSync(password, 10);
 
     const stmt = db.prepare(`
@@ -82,7 +84,7 @@ router.post("/register", authRateLimit, (req, res) => {
 
     const result = stmt.run(
       name, email, hashed,
-      phone || "", city || "", role || "specialist",
+      phone || "", city || "", safeRole,
       JSON.stringify(fields || []),
       JSON.stringify(categories || []),
       category || ""
@@ -92,7 +94,7 @@ router.post("/register", authRateLimit, (req, res) => {
     user.fields = JSON.parse(user.fields);
     user.categories = JSON.parse(user.categories);
 
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ id: user.id, email: user.email, tokenVersion: 0 }, JWT_SECRET, { expiresIn: "7d" });
 
     res.json({ token, user });
   } catch (err) {
@@ -129,7 +131,7 @@ router.post("/login", authRateLimit, (req, res) => {
     safe.certificates = JSON.parse(safe.certificates);
     safe.timeline = JSON.parse(safe.timeline);
 
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ id: user.id, email: user.email, tokenVersion: user.token_version || 0 }, JWT_SECRET, { expiresIn: "7d" });
 
     try {
       const ip = (req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "").toString().split(",")[0].trim();
@@ -162,6 +164,17 @@ router.get("/me", authMiddleware, (req, res) => {
     res.json({ user: safe });
   } catch (err) {
     console.error("Me error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+// Invalidates every token issued for this user (this one included) by bumping token_version.
+router.post("/logout", authMiddleware, (req, res) => {
+  try {
+    db.prepare("UPDATE users SET token_version = token_version + 1 WHERE id = ?").run(req.userId);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Logout error:", err);
     res.status(500).json({ error: "Server xatoligi" });
   }
 });
@@ -247,11 +260,11 @@ router.get("/callback/google", (req, res, next) => {
   }
   passport.authenticate("google", { session: false, failureRedirect: `${FRONTEND_URL}/login?error=google_failed` }, (err, user) => {
     if (err || !user) return res.redirect(`${FRONTEND_URL}/login?error=google_failed`);
-    const role = req.query.state || "specialist";
+    const role = req.query.state === "employer" ? "employer" : "specialist";
     if (user.role === "specialist" && req.query.state) {
       db.prepare("UPDATE users SET role = ? WHERE id = ? AND role = 'specialist'").run(role, user.id);
     }
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ id: user.id, email: user.email, tokenVersion: user.token_version || 0 }, JWT_SECRET, { expiresIn: "7d" });
     res.redirect(`${FRONTEND_URL}/auth/callback?token=${token}`);
   })(req, res, next);
 });

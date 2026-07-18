@@ -27,13 +27,26 @@ const verificationRoutes = require("./routes/verification.cjs");
 const categoryRoutes = require("./routes/categories.cjs");
 const aiRoutes = require("./routes/ai.cjs");
 
+const allowedOrigins = [
+  process.env.FRONTEND_URL || "http://localhost:5173",
+  "http://localhost:5173",
+  "http://localhost:4000",
+  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim()) : []),
+];
+
+function corsOriginCheck(origin, callback) {
+  // No Origin header (native apps, curl, server-to-server) — nothing for CORS to enforce.
+  if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+  callback(new Error("Not allowed by CORS"));
+}
+
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, { cors: { origin: allowedOrigins } });
 
 app.set("io", io);
 
-app.use(cors());
+app.use(cors({ origin: corsOriginCheck }));
 app.use(express.json({ limit: "1mb" }));
 app.use(passport.initialize());
 

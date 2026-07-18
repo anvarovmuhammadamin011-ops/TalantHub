@@ -1,12 +1,31 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { Package, Clock, CheckCircle, Star, MessageSquare, Briefcase, ArrowRight, TrendingUp, AlertCircle, Sparkles, User, FileText, Loader2, Bot } from "lucide-react";
+import { Package, Clock, CheckCircle, Star, MessageSquare, Briefcase, ArrowRight, TrendingUp, AlertCircle, Sparkles, User, FileText, Loader2, Bot, Search, SlidersHorizontal, Code2, Server, Smartphone, Languages, Calculator, GraduationCap, LayoutGrid, ShieldCheck, Wallet, MapPinned, Zap } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import StatusBadge from "../components/ui/StatusBadge";
 import VerifiedBadge from "../components/ui/VerifiedBadge";
 import MatchIndicator from "../components/ui/MatchIndicator";
+import Notifications from "../components/ui/Notifications";
+
+const popularCategories = [
+  { label: "Frontend", query: "Frontend Developer", icon: Code2 },
+  { label: "Backend", query: "Backend Developer", icon: Server },
+  { label: "Mobile", query: "Mobile Developer", icon: Smartphone },
+  { label: "Vibecoder", query: "Vibecoder", icon: Sparkles },
+  { label: "Ingliz tili", query: "Ingliz tili o'qituvchisi", icon: Languages },
+  { label: "Matematika", query: "Matematika o'qituvchisi", icon: Calculator },
+  { label: "SAT", query: "SAT o'qituvchisi", icon: GraduationCap },
+  { label: "Barchasi", query: "", icon: LayoutGrid },
+];
+
+const trustSignals = [
+  { label: "Tekshirilgan mutaxassislar", icon: ShieldCheck },
+  { label: "Shaffof narxlar", icon: Wallet },
+  { label: "AI mos ish tanlash", icon: Zap },
+  { label: "Xavfsiz to'lov", icon: MapPinned },
+];
 
 const weekdays = ["Yak", "Dush", "Sesh", "Chor", "Pay", "Jum", "Shan"];
 
@@ -23,6 +42,8 @@ function groupByWeekday(items) {
 
 export default function Home() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [homeSearch, setHomeSearch] = useState("");
   const [orders, setOrders] = useState([]);
   const [orderStats, setOrderStats] = useState({});
   const [vacancies, setVacancies] = useState([]);
@@ -92,6 +113,7 @@ export default function Home() {
 
   const weekData = groupByWeekday(orders);
   const activeOrders = orders.filter((o) => o.status === "Yangi" || o.status === "Qabul qilindi" || o.status === "Jarayonda");
+  const completedOrders = orders.filter((o) => o.status === "Tugatildi").slice(0, 4);
 
   if (loading) {
     return (
@@ -101,14 +123,104 @@ export default function Home() {
     );
   }
 
+  const goSearch = (query) => {
+    const q = query.trim();
+    navigate(q ? `/vacancies?search=${encodeURIComponent(q)}` : "/vacancies");
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
-      {/* 1. Quick Stats */}
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-ink tracking-tight mb-1">Assalomu alaykum, {user?.name?.split(" ")[0]}</h1>
-        <p className="text-sm text-ink-3">Bugungi holatingiz</p>
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3 mb-5">
+        <div>
+          <h1 className="text-xl font-bold text-ink tracking-tight mb-1">Assalomu alaykum, {user?.name?.split(" ")[0]}</h1>
+          <p className="text-sm text-ink-3">Bugun sizni qanday ish kutmoqda?</p>
+        </div>
+        <div className="flex-shrink-0 md:hidden">
+          <Notifications />
+        </div>
       </div>
 
+      {/* Search bar */}
+      <form
+        onSubmit={(e) => { e.preventDefault(); goSearch(homeSearch); }}
+        className="flex gap-3 mb-6"
+      >
+        <div className="flex-1 relative">
+          <Search className="w-4 h-4 text-ink-3 absolute left-4 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Kasb, kompaniya yoki ko'nikma qidirish..."
+            value={homeSearch}
+            onChange={(e) => setHomeSearch(e.target.value)}
+            className="w-full pl-11 pr-4 py-3 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors bg-white text-sm"
+          />
+        </div>
+        <Link to="/vacancies" className="flex items-center gap-2 px-4 py-3 rounded-lg border border-border bg-white text-ink-2 hover:border-ink/30 transition-colors">
+          <SlidersHorizontal className="w-4 h-4" />
+        </Link>
+      </form>
+
+      {/* Hero banner */}
+      <Link
+        to="/ai-chat"
+        className="block bg-gradient-to-br from-ink via-ink to-ink/80 rounded-2xl p-6 text-white relative overflow-hidden mb-6 hover:shadow-lg transition-shadow"
+      >
+        <div className="absolute right-0 top-0 w-40 h-40 bg-white/5 rounded-full -mr-16 -mt-16" />
+        <div className="absolute right-8 bottom-0 w-24 h-24 bg-white/5 rounded-full -mb-10" />
+        <div className="relative max-w-sm">
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-white/15 px-2.5 py-1 rounded-full mb-3">
+            <Sparkles className="w-3 h-3" /> AI yordamchi
+          </span>
+          <h2 className="text-lg sm:text-xl font-semibold mb-1.5">Mos ish topa olmayapsizmi?</h2>
+          <p className="text-sm text-white/70 mb-4">Nima qidirayotganingizni yozing — AI sizga eng mos vakansiyalarni tanlab beradi.</p>
+          <div className="flex flex-wrap gap-2">
+            <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium bg-white text-ink px-4 py-2 rounded-lg">
+              <Bot className="w-3.5 h-3.5" /> AI bilan qidirish
+            </span>
+            <span
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate("/vacancies"); }}
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium border border-white/30 px-4 py-2 rounded-lg hover:bg-white/10 transition-colors"
+            >
+              Vakansiyalarni ko'rish
+            </span>
+          </div>
+        </div>
+      </Link>
+
+      {/* Popular categories */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-ink">Mashhur yo'nalishlar</h2>
+          <Link to="/vacancies" className="text-xs font-medium text-ink-2 hover:text-ink transition-colors">Hammasi <ArrowRight className="w-3 h-3 inline" /></Link>
+        </div>
+        <div className="grid grid-cols-4 gap-2 sm:gap-3">
+          {popularCategories.map((cat) => (
+            <button
+              key={cat.label}
+              onClick={() => cat.query ? goSearch(cat.query) : navigate("/vacancies")}
+              className="flex flex-col items-center justify-center gap-1.5 sm:gap-2 py-3 sm:py-4 rounded-xl border border-border bg-white hover:border-ink/20 transition-colors"
+            >
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-accent-soft flex items-center justify-center">
+                <cat.icon className="w-4 h-4 sm:w-5 sm:h-5 text-accent" />
+              </div>
+              <span className="text-[11px] sm:text-xs font-medium text-ink-2 text-center leading-tight">{cat.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Trust signals */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-6">
+        {trustSignals.map((t) => (
+          <div key={t.label} className="flex flex-col items-center text-center gap-1.5 bg-white border border-border rounded-xl p-3">
+            <t.icon className="w-4 h-4 text-ink-2" />
+            <span className="text-[10px] sm:text-[11px] font-medium text-ink-3 leading-tight">{t.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Quick Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <div className="bg-white rounded-xl border border-border p-4 hover:shadow-sm transition-shadow">
           <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-blue-50 text-blue-600 mb-2">
@@ -195,6 +307,40 @@ export default function Home() {
             )}
           </div>
 
+          {/* Completed work */}
+          {completedOrders.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-semibold text-ink">Bajarilgan ishlar</h2>
+                <Link to="/orders" className="text-xs font-medium text-ink-2 hover:text-ink transition-colors">Hammasini ko'rish <ArrowRight className="w-3 h-3 inline" /></Link>
+              </div>
+              <div className="space-y-2">
+                {completedOrders.map((o) => (
+                  <div key={o.id} className="bg-white rounded-xl border border-border p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-ink text-sm">{o.title}</h3>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-ink-3">
+                          <span>{o.employer_name}</span>
+                          <span>·</span>
+                          <span>{o.price}</span>
+                        </div>
+                        {o.review && <p className="text-xs text-ink-3 mt-1.5 italic">"{o.review}"</p>}
+                      </div>
+                      {o.rating > 0 ? (
+                        <span className="flex items-center gap-1 text-xs font-medium text-amber-500 flex-shrink-0">
+                          <Star className="w-3.5 h-3.5 fill-amber-500" /> {o.rating}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-ink-3 flex-shrink-0">Baholanmagan</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 3. AI Matched Vacancies */}
           {(matchedVacancies.length > 0 || aiMatching) && (
             <div>
@@ -216,7 +362,7 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {matchedVacancies.slice(0, 4).map((v) => (
+                  {matchedVacancies.slice(0, 6).map((v) => (
                     <Link key={v.id} to={`/vacancies/${v.id}`}
                       className="bg-white rounded-xl border border-border p-4 hover:shadow-md hover:-translate-y-0.5 transition-all">
                       <div className="flex items-start justify-between mb-2">
@@ -324,20 +470,6 @@ export default function Home() {
               </div>
             )}
           </div>
-
-          {/* 7. AI Assistant Banner */}
-          <Link to="/ai-chat"
-            className="bg-gradient-to-br from-ink to-ink/70 rounded-xl p-5 text-white block hover:shadow-lg transition-shadow relative overflow-hidden">
-            <div className="absolute right-0 top-0 w-24 h-24 bg-white/5 rounded-full -mr-8 -mt-8" />
-            <div className="relative">
-              <Sparkles className="w-6 h-6 text-white/40 mb-2" />
-              <h3 className="font-semibold text-sm mb-1">AI Ish topish yordamchisi</h3>
-              <p className="text-xs text-white/60 mb-2">Qanday ish kerakligini yozing — sizga eng mos takliflarni topib beramiz</p>
-              <span className="inline-flex items-center gap-1 text-xs font-medium bg-white/15 px-3 py-1.5 rounded-lg">
-                Sinab ko'ring <ArrowRight className="w-3 h-3" />
-              </span>
-            </div>
-          </Link>
         </div>
       </div>
     </div>

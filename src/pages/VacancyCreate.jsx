@@ -6,6 +6,10 @@ import { api } from "../lib/api";
 const categories = ["IT", "Ta'lim"];
 const formats = ["Ofis", "Masofaviy", "Gibrid"];
 const experienceLevels = ["Junior", "Middle", "Senior", "Expert"];
+const employmentTypes = ["To'liq stavka", "Yarim stavka", "Amaliyot", "Loyihaviy"];
+const genderOptions = ["Farqi yo'q", "Erkaklar", "Ayollar"];
+const scheduleOptions = ["5/2", "6/1", "2/2", "Erkin grafik"];
+const weekdays = ["Yakshanba", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"];
 
 export default function VacancyCreate() {
   const navigate = useNavigate();
@@ -22,11 +26,18 @@ export default function VacancyCreate() {
     experience: "Junior",
     category: "IT",
     description: "",
+    employment_type: "To'liq stavka",
+    schedule: "5/2",
+    gender: "Farqi yo'q",
+    salary_details: "",
+    day_off: "Yakshanba",
   });
   const [tags, setTags] = useState([]);
   const [newTag, setNewTag] = useState("");
   const [requirements, setRequirements] = useState([]);
   const [newReq, setNewReq] = useState("");
+  const [responsibilities, setResponsibilities] = useState([]);
+  const [newResp, setNewResp] = useState("");
   const [conditions, setConditions] = useState([]);
   const [newCond, setNewCond] = useState("");
 
@@ -48,6 +59,12 @@ export default function VacancyCreate() {
   };
   const removeReq = (r) => setRequirements(requirements.filter((x) => x !== r));
 
+  const addResp = () => {
+    const r = newResp.trim();
+    if (r && !responsibilities.includes(r)) { setResponsibilities([...responsibilities, r]); setNewResp(""); }
+  };
+  const removeResp = (r) => setResponsibilities(responsibilities.filter((x) => x !== r));
+
   const addCond = () => {
     const c = newCond.trim();
     if (c && !conditions.includes(c)) { setConditions([...conditions, c]); setNewCond(""); }
@@ -66,6 +83,7 @@ export default function VacancyCreate() {
           salary_max: Number(form.salary_max) || 0,
           tags,
           requirements,
+          responsibilities,
           conditions,
         },
       });
@@ -150,7 +168,7 @@ export default function VacancyCreate() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Ish formati</label>
+              <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Ish tartibi</label>
               <select value={form.format} onChange={(e) => update("format", e.target.value)}
                 className="w-full px-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none bg-white">
                 {formats.map((f) => <option key={f} value={f}>{f}</option>)}
@@ -166,8 +184,32 @@ export default function VacancyCreate() {
             <div>
               <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Maosh</label>
               <input value={form.salary} onChange={(e) => update("salary", e.target.value)}
-                placeholder="masalan: $500-800"
+                placeholder="masalan: Kelishiladi yoki $500-800"
                 className="w-full px-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Format</label>
+              <select value={form.employment_type} onChange={(e) => update("employment_type", e.target.value)}
+                className="w-full px-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none bg-white">
+                {employmentTypes.map((f) => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Jadval</label>
+              <select value={form.schedule} onChange={(e) => update("schedule", e.target.value)}
+                className="w-full px-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none bg-white">
+                {scheduleOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Jins</label>
+              <select value={form.gender} onChange={(e) => update("gender", e.target.value)}
+                className="w-full px-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none bg-white">
+                {genderOptions.map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
             </div>
           </div>
 
@@ -183,6 +225,22 @@ export default function VacancyCreate() {
               <input type="number" value={form.salary_max} onChange={(e) => update("salary_max", e.target.value)}
                 placeholder="0"
                 className="w-full px-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Maosh tafsiloti</label>
+              <input value={form.salary_details} onChange={(e) => update("salary_details", e.target.value)}
+                placeholder="masalan: Oylik o'z vaqtida, bonus tizimi mavjud"
+                className="w-full px-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Dam olish kuni</label>
+              <select value={form.day_off} onChange={(e) => update("day_off", e.target.value)}
+                className="w-full px-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none bg-white">
+                {weekdays.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
             </div>
           </div>
 
@@ -216,6 +274,27 @@ export default function VacancyCreate() {
           )}
 
           <div>
+            <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Vazifalar</label>
+            <div className="space-y-2 mb-2">
+              {responsibilities.map((r, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="flex-1 px-3 py-2 bg-surface rounded-lg text-sm text-ink">{r}</span>
+                  <button onClick={() => removeResp(r)} className="text-ink-3 hover:text-red-500"><X className="w-3 h-3" /></button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input value={newResp} onChange={(e) => setNewResp(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addResp()}
+                placeholder="Vazifa qo'shing..."
+                className="flex-1 px-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none" />
+              <button onClick={addResp} className="px-4 py-2.5 bg-surface rounded-lg text-sm font-medium text-ink-2 hover:bg-border-soft transition-colors border border-border">
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <div>
             <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Talablar</label>
             <div className="space-y-2 mb-2">
               {requirements.map((r, i) => (
@@ -237,7 +316,7 @@ export default function VacancyCreate() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Shartlar</label>
+            <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5">Imtiyozlar</label>
             <div className="space-y-2 mb-2">
               {conditions.map((c, i) => (
                 <div key={i} className="flex items-center gap-2">
@@ -249,7 +328,7 @@ export default function VacancyCreate() {
             <div className="flex gap-2">
               <input value={newCond} onChange={(e) => setNewCond(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addCond()}
-                placeholder="Shart qo'shing..."
+                placeholder="Imtiyoz qo'shing..."
                 className="flex-1 px-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none" />
               <button onClick={addCond} className="px-4 py-2.5 bg-surface rounded-lg text-sm font-medium text-ink-2 hover:bg-border-soft transition-colors border border-border">
                 <Plus className="w-4 h-4" />

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Star, Briefcase, Award, Eye, EyeOff, Edit3, LogOut, Share2, Clock, Phone, Mail, Calendar, Plus, X, Send, Save, Lock } from "lucide-react";
+import { MapPin, Star, Briefcase, Award, Eye, EyeOff, Edit3, LogOut, Share2, Clock, Phone, Mail, Calendar, Plus, X, Send, Save, Lock, User, GraduationCap, Settings } from "lucide-react";
 import { api } from "../lib/api";
 import VerifiedBadge from "../components/ui/VerifiedBadge";
 import VerificationPanel from "../components/ui/VerificationPanel";
@@ -122,12 +122,12 @@ export default function SpecialistProfile() {
     await updateProfile({ timeline: timeline.filter((_, i) => i !== idx) });
   };
 
-  const tabs = [
-    { id: "about", label: "Ma'lumotlar" },
-    { id: "experience", label: "Tajriba" },
-    { id: "skills", label: "Ko'nikmalar" },
-    { id: "orders", label: "Buyurtmalar" },
+  const groups = [
+    { id: "account", label: "Hisobim", icon: User, tabs: [{ id: "about", label: "Ma'lumotlar" }] },
+    { id: "qualification", label: "Malaka", icon: GraduationCap, tabs: [{ id: "experience", label: "Tajriba" }, { id: "skills", label: "Ko'nikmalar" }] },
+    { id: "general", label: "Umumiy", icon: Settings, tabs: [{ id: "orders", label: "Buyurtmalar" }] },
   ];
+  const activeGroup = groups.find((g) => g.tabs.some((t) => t.id === activeTab)) || groups[0];
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -198,15 +198,33 @@ export default function SpecialistProfile() {
       <div className="grid md:grid-cols-3 gap-4">
         <div className="md:col-span-2 space-y-4">
           <div className="bg-white rounded-xl border border-border">
-            <div className="flex border-b border-border overflow-x-auto">
-              {tabs.map((tab) => (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 sm:px-5 py-3 text-xs sm:text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === tab.id ? "text-ink" : "text-ink-3 hover:text-ink-2"}`}>
-                  {tab.label}
-                  {activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-ink" />}
+            {/* Section groups */}
+            <div className="flex gap-1.5 sm:gap-2 p-2 sm:p-3 border-b border-border overflow-x-auto">
+              {groups.map((group) => (
+                <button
+                  key={group.id}
+                  onClick={() => setActiveTab(group.tabs[0].id)}
+                  className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                    activeGroup.id === group.id ? "bg-ink text-white" : "bg-surface text-ink-2 hover:bg-border-soft"
+                  }`}
+                >
+                  <group.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  {group.label}
                 </button>
               ))}
             </div>
+            {/* Sub-tabs (only when a group has more than one) */}
+            {activeGroup.tabs.length > 1 && (
+              <div className="flex border-b border-border overflow-x-auto">
+                {activeGroup.tabs.map((tab) => (
+                  <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                    className={`px-4 sm:px-5 py-3 text-xs sm:text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === tab.id ? "text-ink" : "text-ink-3 hover:text-ink-2"}`}>
+                    {tab.label}
+                    {activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-ink" />}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="p-4 sm:p-6">
               {activeTab === "about" && (
                 <div className="space-y-6">

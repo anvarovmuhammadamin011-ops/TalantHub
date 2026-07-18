@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const db = require("../db.cjs");
 
 function loadOrCreateSecret() {
   if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
@@ -27,6 +28,10 @@ function authMiddleware(req, res, next) {
   const token = header.split(" ")[1];
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+    const user = db.prepare("SELECT token_version FROM users WHERE id = ?").get(decoded.id);
+    if (!user || (decoded.tokenVersion || 0) !== (user.token_version || 0)) {
+      return res.status(401).json({ error: "Token muddati tugagan" });
+    }
     req.userId = decoded.id;
     next();
   } catch {

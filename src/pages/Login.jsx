@@ -1,11 +1,8 @@
 import { useState, useRef } from "react";
 import { Link, useNavigate, useLocation, Navigate } from "react-router-dom";
-import { LogIn, Mail, Lock, Info, Zap, Shield } from "lucide-react";
+import { LogIn, Mail, Lock, Info, Zap } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { BASE_URL } from "../lib/api";
-
-const ADMIN_EMAIL = "admin@talenthub.uz";
-const ADMIN_PASSWORD = "Admin123!";
 
 const demoAccounts = [
   { name: "Aziz Karimov", email: "aziz@demo.com", role: "IT mutaxassis", color: "bg-blue-50 text-blue-600" },
@@ -43,13 +40,6 @@ export default function Login() {
     } else {
       setError(result.error);
     }
-  };
-
-  const fillAdmin = () => {
-    setError("");
-    setEmail(ADMIN_EMAIL);
-    setPassword(ADMIN_PASSWORD);
-    passwordRef.current?.focus();
   };
 
   const quickLogin = async (demoEmail) => {
@@ -155,15 +145,6 @@ export default function Login() {
               Ro'yxatdan o'ting
             </Link>
           </p>
-
-          <button
-            type="button"
-            onClick={fillAdmin}
-            className="w-full flex items-center justify-center gap-1.5 text-xs text-ink-3 hover:text-ink mt-4 pt-4 border-t border-border transition-colors"
-          >
-            <Shield className="w-3.5 h-3.5" />
-            Admin sifatida kirish
-          </button>
         </div>
 
         {/* Demo Accounts — one-click login */}

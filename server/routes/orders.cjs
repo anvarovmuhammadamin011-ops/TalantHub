@@ -4,6 +4,19 @@ const { authMiddleware } = require("../middleware/auth.cjs");
 
 const router = express.Router();
 
+const ORDER_STATUSES = ["Yangi", "Qabul qilindi", "Jarayonda", "Tugatildi", "Bekor qilindi"];
+
+// Which transitions are allowed, and who (relative to the order) may trigger them.
+function canTransitionOrder(order, userId, newStatus) {
+  const isEmployer = order.employer_id === userId;
+  const isSpecialist = order.specialist_id === userId;
+  if (order.status === "Yangi" && newStatus === "Qabul qilindi") return isSpecialist;
+  if (order.status === "Yangi" && newStatus === "Bekor qilindi") return isEmployer;
+  if (order.status === "Qabul qilindi" && newStatus === "Jarayonda") return isEmployer || isSpecialist;
+  if (order.status === "Jarayonda" && newStatus === "Tugatildi") return isSpecialist;
+  return false;
+}
+
 router.get("/", authMiddleware, (req, res) => {
   try {
     const user = db.prepare("SELECT role FROM users WHERE id = ?").get(req.userId);
@@ -88,10 +101,17 @@ router.post("/", authMiddleware, (req, res) => {
 router.patch("/:id/status", authMiddleware, (req, res) => {
   try {
     const { status } = req.body;
+    if (!ORDER_STATUSES.includes(status)) {
+      return res.status(400).json({ error: "Noto'g'ri status qiymati" });
+    }
+
     const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(req.params.id);
     if (!order) return res.status(404).json({ error: "Zakaz topilmadi" });
     if (order.employer_id !== req.userId && order.specialist_id !== req.userId) {
       return res.status(403).json({ error: "Ruxsat yo'q" });
+    }
+    if (!canTransitionOrder(order, req.userId, status)) {
+      return res.status(409).json({ error: `"${order.status}" holatidan "${status}" holatiga o'tish mumkin emas` });
     }
 
     db.prepare("UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(status, req.params.id);

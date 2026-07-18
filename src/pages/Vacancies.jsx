@@ -1,28 +1,52 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Search, SlidersHorizontal, MapPin, Heart, Clock, X } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Search, SlidersHorizontal, MapPin, Heart, Clock, X, Code2, Server, Smartphone, Sparkles, Languages, Calculator, GraduationCap, LayoutGrid } from "lucide-react";
 import { api } from "../lib/api";
 import { timeAgo, computeMatch } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
 import MatchIndicator from "../components/ui/MatchIndicator";
 import StatusBadge from "../components/ui/StatusBadge";
 
+const SALARY_MIN = 0;
+const SALARY_MAX = 20_000_000;
+const SALARY_STEP = 500_000;
+
+function formatSalaryShort(n) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)} mln`;
+  if (n >= 1_000) return `${Math.round(n / 1000)} ming`;
+  return String(n);
+}
+
 export default function Vacancies() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const isTeacher = user?.role === "specialist" && (user?.category === "Ta'lim" || (user?.fields || []).includes("Ta'lim"));
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(searchParams.get("search") || "");
   const [showFilters, setShowFilters] = useState(isTeacher);
   const [filters, setFilters] = useState({
     category: isTeacher ? "Ta'lim" : "",
     city: "",
-    format: "",
-    experience: "",
+    format: [],
+    experience: [],
     subcategory: "",
+    salaryMin: SALARY_MIN,
+    salaryMax: SALARY_MAX,
   });
   const [vacancies, setVacancies] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const cities = ["Toshkent", "Samarqand", "Buxoro", "Farg'ona", "Namangan", "Xiva", "Qo'qon"];
+
+  const popularCategories = [
+    { label: "Frontend", query: "Frontend Developer", icon: Code2 },
+    { label: "Backend", query: "Backend Developer", icon: Server },
+    { label: "Mobile", query: "Mobile Developer", icon: Smartphone },
+    { label: "Vibecoder", query: "Vibecoder", icon: Sparkles },
+    { label: "Ingliz tili", query: "Ingliz tili o'qituvchisi", icon: Languages },
+    { label: "Matematika", query: "Matematika o'qituvchisi", icon: Calculator },
+    { label: "SAT", query: "SAT o'qituvchisi", icon: GraduationCap },
+    { label: "Barchasi", query: "", icon: LayoutGrid },
+  ];
 
   const teacherSubcategories = [
     "Ingliz tili", "Matematika", "Fizika", "Kimyo", "Biologiya",
@@ -34,7 +58,7 @@ export default function Vacancies() {
       loadVacancies();
     }, 250);
     return () => clearTimeout(timeout);
-  }, [search, filters]);
+  }, [search, filters.category, filters.city]);
 
   const loadVacancies = async () => {
     setLoading(true);
@@ -43,8 +67,6 @@ export default function Vacancies() {
       if (search) params.set("search", search);
       if (filters.category) params.set("category", filters.category);
       if (filters.city) params.set("location", filters.city);
-      if (filters.format) params.set("format", filters.format);
-      if (filters.experience) params.set("experience", filters.experience);
 
       const data = await api(`/vacancies?${params.toString()}`);
       setVacancies(data.vacancies);
@@ -53,6 +75,13 @@ export default function Vacancies() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleMulti = (field, value) => {
+    setFilters((prev) => ({
+      ...prev,
+      [field]: prev[field].includes(value) ? prev[field].filter((x) => x !== value) : [...prev[field], value],
+    }));
   };
 
   let filtered = vacancies.map((v) => ({
@@ -68,6 +97,23 @@ export default function Vacancies() {
       v.tags.some((t) => t.toLowerCase().includes(q)) ||
       (v.category || "").toLowerCase().includes(q)
     );
+  }
+
+  if (filters.experience.length > 0) {
+    filtered = filtered.filter((v) => filters.experience.includes(v.experience));
+  }
+
+  if (filters.format.length > 0) {
+    filtered = filtered.filter((v) => filters.format.includes(v.format));
+  }
+
+  if (filters.salaryMin > SALARY_MIN || filters.salaryMax < SALARY_MAX) {
+    filtered = filtered.filter((v) => {
+      const vMin = Number(v.salary_min) || 0;
+      const vMax = Number(v.salary_max) || 0;
+      if (vMin === 0 && vMax === 0) return true; // "Kelishiladi" — raqam kiritilmagan vakansiyalarni yashirmaymiz
+      return vMax >= filters.salaryMin && vMin <= filters.salaryMax;
+    });
   }
 
   const FilterGroup = ({ label, options, value, onChange }) => (
@@ -89,6 +135,54 @@ export default function Vacancies() {
     </div>
   );
 
+  const CheckboxGroup = ({ label, options, values, onToggle }) => (
+    <div>
+      <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-2.5">{label}</label>
+      <div className="space-y-2">
+        {options.map((opt) => (
+          <label key={opt} className="flex items-center gap-2.5 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={values.includes(opt)}
+              onChange={() => onToggle(opt)}
+              className="w-4 h-4 rounded border-border text-ink accent-ink cursor-pointer"
+            />
+            <span className="text-sm text-ink-2 group-hover:text-ink transition-colors">{opt}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+
+  const SalaryRangeSlider = () => {
+    const pctMin = ((filters.salaryMin - SALARY_MIN) / (SALARY_MAX - SALARY_MIN)) * 100;
+    const pctMax = ((filters.salaryMax - SALARY_MIN) / (SALARY_MAX - SALARY_MIN)) * 100;
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-2.5">
+          <label className="text-xs font-medium text-ink-3 uppercase tracking-wide">Maosh (so'm)</label>
+          <span className="text-xs font-medium text-ink">{formatSalaryShort(filters.salaryMin)} – {formatSalaryShort(filters.salaryMax)}</span>
+        </div>
+        <div className="relative h-5 flex items-center">
+          <div className="absolute left-0 right-0 h-1 bg-surface rounded-full" />
+          <div className="absolute h-1 bg-ink rounded-full" style={{ left: `${pctMin}%`, right: `${100 - pctMax}%` }} />
+          <input
+            type="range" min={SALARY_MIN} max={SALARY_MAX} step={SALARY_STEP}
+            value={filters.salaryMin}
+            onChange={(e) => setFilters({ ...filters, salaryMin: Math.min(Number(e.target.value), filters.salaryMax - SALARY_STEP) })}
+            className="absolute w-full appearance-none bg-transparent pointer-events-none accent-ink [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-ink [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-ink [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer"
+          />
+          <input
+            type="range" min={SALARY_MIN} max={SALARY_MAX} step={SALARY_STEP}
+            value={filters.salaryMax}
+            onChange={(e) => setFilters({ ...filters, salaryMax: Math.max(Number(e.target.value), filters.salaryMin + SALARY_STEP) })}
+            className="absolute w-full appearance-none bg-transparent pointer-events-none accent-ink [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-ink [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-ink [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer"
+          />
+        </div>
+      </div>
+    );
+  };
+
   const FilterPanel = () => (
     <div className="space-y-6">
       {isTeacher && (
@@ -101,8 +195,9 @@ export default function Vacancies() {
       )}
       <FilterGroup label="Kategoriya" options={["", "IT", "Ta'lim"]} value={filters.category} onChange={(v) => setFilters({ ...filters, category: v })} />
       <FilterGroup label="Shahar" options={["", ...cities]} value={filters.city} onChange={(v) => setFilters({ ...filters, city: v })} />
-      <FilterGroup label="Tajriba" options={["", "Junior", "Middle", "Senior"]} value={filters.experience} onChange={(v) => setFilters({ ...filters, experience: v })} />
-      <FilterGroup label="Ish formati" options={["", "Ofis", "Masofaviy", "Gibrid"]} value={filters.format} onChange={(v) => setFilters({ ...filters, format: v })} />
+      <CheckboxGroup label="Tajriba" options={["Junior", "Middle", "Senior"]} values={filters.experience} onToggle={(v) => toggleMulti("experience", v)} />
+      <CheckboxGroup label="Ish formati" options={["Ofis", "Masofaviy", "Gibrid"]} values={filters.format} onToggle={(v) => toggleMulti("format", v)} />
+      <SalaryRangeSlider />
     </div>
   );
 
@@ -141,6 +236,35 @@ export default function Vacancies() {
           <SlidersHorizontal className="w-4 h-4" />
           <span className="hidden sm:inline">Filtrlar</span>
         </button>
+      </div>
+
+      {/* Popular categories */}
+      <div className="mb-6">
+        <h2 className="text-sm font-semibold text-ink mb-3">Mashhur yo'nalishlar</h2>
+        <div className="grid grid-cols-4 gap-2 sm:gap-3">
+          {popularCategories.map((cat) => (
+            <button
+              key={cat.label}
+              onClick={() => {
+                if (!cat.query) {
+                  setShowFilters(true);
+                  return;
+                }
+                setSearch(cat.query);
+              }}
+              className={`flex flex-col items-center justify-center gap-1.5 sm:gap-2 py-3 sm:py-4 rounded-xl border transition-colors ${
+                search === cat.query && cat.query
+                  ? "border-ink bg-ink/5"
+                  : "border-border bg-white hover:border-ink/20"
+              }`}
+            >
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-accent-soft flex items-center justify-center">
+                <cat.icon className="w-4 h-4 sm:w-5 sm:h-5 text-accent" />
+              </div>
+              <span className="text-[11px] sm:text-xs font-medium text-ink-2 text-center leading-tight">{cat.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Desktop Filters */}

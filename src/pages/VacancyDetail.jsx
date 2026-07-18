@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Clock, Star, CheckCircle, XCircle, Building, Briefcase, Send } from "lucide-react";
+import { ArrowLeft, MapPin, Clock, Star, CheckCircle, XCircle, Building, Briefcase, Send, TrendingUp, Paperclip, X } from "lucide-react";
 import { api } from "../lib/api";
-import { timeAgo, computeMatch } from "../lib/format";
+import { timeAgo, computeMatch, formatSalary } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
 import MatchIndicator from "../components/ui/MatchIndicator";
 import StatusBadge from "../components/ui/StatusBadge";
@@ -13,10 +13,14 @@ export default function VacancyDetail() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [vacancy, setVacancy] = useState(null);
+  const [similar, setSimilar] = useState([]);
+  const [marketSalary, setMarketSalary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [applied, setApplied] = useState(false);
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState("");
+  const [showApplyModal, setShowApplyModal] = useState(false);
+  const [resumeUrl, setResumeUrl] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -28,6 +32,22 @@ export default function VacancyDetail() {
         ]);
         setVacancy(vacancy);
         setApplied(applications.some((a) => String(a.vacancy_id) === String(id)));
+
+        if (vacancy?.category) {
+          const { vacancies: sameCategory } = await api(`/vacancies?category=${encodeURIComponent(vacancy.category)}`).catch(() => ({ vacancies: [] }));
+          const others = sameCategory.filter((v) => String(v.id) !== String(id));
+          setSimilar(others.slice(0, 3));
+
+          const mins = others.map((v) => Number(v.salary_min) || 0).filter((n) => n > 0);
+          const maxs = others.map((v) => Number(v.salary_max) || 0).filter((n) => n > 0);
+          const allVals = [...mins, ...maxs, Number(vacancy.salary_min) || 0, Number(vacancy.salary_max) || 0].filter((n) => n > 0);
+          if (allVals.length >= 2) {
+            const min = Math.min(...allVals);
+            const max = Math.max(...allVals);
+            const avg = Math.round(allVals.reduce((a, b) => a + b, 0) / allVals.length);
+            setMarketSalary({ min, avg, max });
+          }
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -37,13 +57,24 @@ export default function VacancyDetail() {
     load();
   }, [id]);
 
+  const openApplyModal = () => {
+    if (applied || applying) return;
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+    setError("");
+    setShowApplyModal(true);
+  };
+
   const handleApply = async () => {
     if (applied || applying) return;
     setApplying(true);
     setError("");
     try {
-      await api("/applications", { method: "POST", body: { vacancy_id: Number(id) } });
+      await api("/applications", { method: "POST", body: { vacancy_id: Number(id), resume_url: resumeUrl.trim() } });
       setApplied(true);
+      setShowApplyModal(false);
     } catch (err) {
       if (err.status === 401) {
         navigate("/login");
@@ -51,6 +82,7 @@ export default function VacancyDetail() {
       }
       if (err.status === 409) {
         setApplied(true);
+        setShowApplyModal(false);
       } else {
         setError(err.message || "Xatolik yuz berdi");
       }
@@ -101,6 +133,9 @@ export default function VacancyDetail() {
             <div className="flex items-center gap-1.5 mt-4 flex-wrap">
               <StatusBadge status={vacancy.experience} />
               <StatusBadge status={vacancy.format} />
+              {!!vacancy.employment_type && <StatusBadge status={vacancy.employment_type} />}
+              {!!vacancy.schedule && <StatusBadge status={vacancy.schedule} />}
+              {!!vacancy.gender && vacancy.gender !== "Farqi yo'q" && <StatusBadge status={vacancy.gender} />}
               {vacancy.tags.map((tag) => (
                 <span key={tag} className="px-2.5 py-1 bg-surface text-ink-2 rounded-full text-xs font-medium">
                   {tag}
@@ -115,12 +150,19 @@ export default function VacancyDetail() {
         </div>
 
         <div className="mt-6 pt-6 border-t border-border-soft flex items-center justify-between">
-          <div className="text-lg font-semibold text-ink">{vacancy.salary}</div>
+          <div>
+            <div className="text-lg font-semibold text-ink">{vacancy.salary}</div>
+            {!!vacancy.salary_details && <div className="text-xs text-ink-3 mt-0.5">{vacancy.salary_details}</div>}
+          </div>
           <div className="flex items-center gap-1 text-sm text-ink-3">
             <Star className="w-3.5 h-3.5 text-ink fill-ink" />
             {vacancy.company_rating} ({vacancy.company_reviews} sharh)
           </div>
         </div>
+
+        {!!vacancy.day_off && (
+          <div className="mt-3 text-xs text-ink-3">Dam olish kuni: <span className="text-ink-2 font-medium">{vacancy.day_off}</span></div>
+        )}
       </div>
 
       <div className="grid md:grid-cols-3 gap-4">
@@ -131,6 +173,21 @@ export default function VacancyDetail() {
             <h2 className="text-base font-semibold text-ink mb-3">Vakansiya haqida</h2>
             <p className="text-ink-2 text-sm leading-relaxed">{vacancy.description}</p>
           </div>
+
+          {/* Responsibilities */}
+          {vacancy.responsibilities && vacancy.responsibilities.length > 0 && (
+            <div className="bg-white rounded-xl border border-border p-6">
+              <h2 className="text-base font-semibold text-ink mb-3">Vazifalar</h2>
+              <ul className="space-y-2.5">
+                {vacancy.responsibilities.map((r, i) => (
+                  <li key={i} className="flex items-start gap-2.5">
+                    <Briefcase className="w-4 h-4 text-ink-3 mt-0.5 flex-shrink-0" />
+                    <span className="text-ink-2 text-sm">{r}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Requirements */}
           {vacancy.requirements.length > 0 && (
@@ -150,7 +207,7 @@ export default function VacancyDetail() {
           {/* Conditions */}
           {vacancy.conditions.length > 0 && (
             <div className="bg-white rounded-xl border border-border p-6">
-              <h2 className="text-base font-semibold text-ink mb-3">Sharoitlar</h2>
+              <h2 className="text-base font-semibold text-ink mb-3">Imtiyozlar</h2>
               <ul className="space-y-2.5">
                 {vacancy.conditions.map((cond, i) => (
                   <li key={i} className="flex items-start gap-2.5">
@@ -161,10 +218,55 @@ export default function VacancyDetail() {
               </ul>
             </div>
           )}
+
+          {/* Similar vacancies */}
+          {similar.length > 0 && (
+            <div className="bg-white rounded-xl border border-border p-6">
+              <h2 className="text-base font-semibold text-ink mb-4">O'xshash vakansiyalar</h2>
+              <div className="space-y-1">
+                {similar.map((v) => (
+                  <Link key={v.id} to={`/vacancies/${v.id}`} className="flex items-center gap-3 p-3 -mx-3 rounded-lg hover:bg-surface transition-colors">
+                    <div className="w-10 h-10 bg-surface rounded-lg flex items-center justify-center text-lg flex-shrink-0">
+                      {v.company_logo || "🏢"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-ink text-sm truncate">{v.title}</div>
+                      <div className="text-xs text-ink-3">{v.company} · {v.location}</div>
+                    </div>
+                    <div className="text-xs font-semibold text-ink whitespace-nowrap">{v.salary}</div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Sidebar */}
         <div className="space-y-4">
+          {/* Market salary */}
+          {marketSalary && (
+            <div className="bg-white rounded-xl border border-border p-6">
+              <h3 className="font-semibold text-ink text-sm mb-1 flex items-center gap-1.5">
+                <TrendingUp className="w-4 h-4 text-ink-3" /> Bu lavozim uchun odatdagi maosh
+              </h3>
+              <p className="text-xs text-ink-3 mb-4">Shu kategoriyadagi vakansiyalar asosida</p>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <div className="text-sm font-semibold text-ink">{formatSalary(marketSalary.min)}</div>
+                  <div className="text-[10px] text-ink-3 mt-0.5">minimum</div>
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-accent">{formatSalary(marketSalary.avg)}</div>
+                  <div className="text-[10px] text-ink-3 mt-0.5">o'rtacha</div>
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-ink">{formatSalary(marketSalary.max)}</div>
+                  <div className="text-[10px] text-ink-3 mt-0.5">maksimum</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Match details */}
           <div className="bg-white rounded-xl border border-border p-6">
             <h3 className="font-semibold text-ink text-sm mb-4 text-center">Moslik tahlili</h3>
@@ -229,9 +331,9 @@ export default function VacancyDetail() {
             <div className="text-xs text-ink-3">Maosh</div>
             <div className="font-semibold text-ink text-sm">{vacancy.salary}</div>
           </div>
-          {error && <div className="text-xs text-red-500 flex-1 text-right">{error}</div>}
+          {error && !showApplyModal && <div className="text-xs text-red-500 flex-1 text-right">{error}</div>}
           <button
-            onClick={handleApply}
+            onClick={openApplyModal}
             disabled={applied || applying}
             className={`px-8 py-3 rounded-lg font-medium text-sm transition-colors flex items-center gap-2 flex-shrink-0 ${
               applied
@@ -255,6 +357,56 @@ export default function VacancyDetail() {
           </button>
         </div>
       </div>
+
+      {/* Apply modal */}
+      {showApplyModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => !applying && setShowApplyModal(false)} />
+          <div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md p-6 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-semibold text-ink text-base">Ariza yuborish</h3>
+              <button onClick={() => !applying && setShowApplyModal(false)} className="p-1 text-ink-3 hover:text-ink">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-ink-3 mb-5">{vacancy.title} — {vacancy.company}</p>
+
+            <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-2">
+              CV / rezyume havolasi (ixtiyoriy)
+            </label>
+            <div className="relative mb-1.5">
+              <Paperclip className="w-4 h-4 text-ink-3 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Google Drive, PDF yoki boshqa havola"
+                value={resumeUrl}
+                onChange={(e) => setResumeUrl(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors bg-white text-sm"
+              />
+            </div>
+            <p className="text-xs text-ink-3 mb-5">Havola qo'shsangiz, ish beruvchi CV'ingizni to'g'ridan-to'g'ri ko'ra oladi.</p>
+
+            {error && <div className="text-xs text-red-500 mb-3">{error}</div>}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowApplyModal(false)}
+                disabled={applying}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-border text-ink-2 text-sm font-medium hover:bg-surface transition-colors"
+              >
+                Bekor qilish
+              </button>
+              <button
+                onClick={handleApply}
+                disabled={applying}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-ink text-white text-sm font-medium hover:bg-ink/90 transition-colors flex items-center justify-center gap-2"
+              >
+                {applying ? "Yuborilmoqda..." : (<><Send className="w-4 h-4" /> Yuborish</>)}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

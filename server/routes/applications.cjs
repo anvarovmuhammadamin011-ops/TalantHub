@@ -4,6 +4,8 @@ const { authMiddleware } = require("../middleware/auth.cjs");
 
 const router = express.Router();
 
+const APPLICATION_STATUSES = ["Yuborildi", "Ko'rib chiqilmoqda", "Interview", "Qabul qilindi", "Rad etildi"];
+
 router.get("/", authMiddleware, (req, res) => {
   try {
     const applications = db.prepare(`
@@ -58,7 +60,7 @@ router.post("/", authMiddleware, (req, res) => {
       return res.status(403).json({ error: "Faqat mutaxassislar ariza yubora oladi" });
     }
 
-    const { vacancy_id } = req.body;
+    const { vacancy_id, resume_url } = req.body;
     if (!vacancy_id) return res.status(400).json({ error: "Vakansiya ID kerak" });
 
     const existing = db.prepare("SELECT id FROM applications WHERE vacancy_id = ? AND user_id = ?").get(vacancy_id, req.userId);
@@ -66,7 +68,7 @@ router.post("/", authMiddleware, (req, res) => {
 
     const matchPercent = Math.floor(60 + Math.random() * 35);
 
-    const result = db.prepare("INSERT INTO applications (vacancy_id, user_id, status, match_percent) VALUES (?, ?, ?, ?)").run(vacancy_id, req.userId, "Ko'rib chiqilmoqda", matchPercent);
+    const result = db.prepare("INSERT INTO applications (vacancy_id, user_id, status, match_percent, resume_url) VALUES (?, ?, ?, ?, ?)").run(vacancy_id, req.userId, "Ko'rib chiqilmoqda", matchPercent, resume_url || "");
 
     const application = db.prepare(`
       SELECT a.*, v.title as vacancy_title, v.company, v.salary, v.location
@@ -85,6 +87,9 @@ router.post("/", authMiddleware, (req, res) => {
 router.patch("/:id/status", authMiddleware, (req, res) => {
   try {
     const { status } = req.body;
+    if (!APPLICATION_STATUSES.includes(status)) {
+      return res.status(400).json({ error: "Noto'g'ri status qiymati" });
+    }
 
     const application = db.prepare(`
       SELECT a.*, v.employer_id FROM applications a

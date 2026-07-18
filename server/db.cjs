@@ -306,9 +306,11 @@ const defaultCategories = [
   ["IT", "Frontend Developer"], ["IT", "Backend Developer"], ["IT", "Mobile Developer"],
   ["IT", "UI/UX Designer"], ["IT", "DevOps Engineer"], ["IT", "Data Scientist"],
   ["IT", "QA Engineer"], ["IT", "Project Manager"], ["IT", "AI/ML Engineer"], ["IT", "Cyber Security"],
+  ["IT", "Vibecoder"],
   ["Ta'lim", "Ingliz tili o'qituvchisi"], ["Ta'lim", "Matematika o'qituvchisi"], ["Ta'lim", "Fizika o'qituvchisi"],
   ["Ta'lim", "Informatika o'qituvchisi"], ["Ta'lim", "Biologiya o'qituvchisi"], ["Ta'lim", "Tarix o'qituvchisi"],
   ["Ta'lim", "Kimyo o'qituvchisi"], ["Ta'lim", "Geografiya o'qituvchisi"], ["Ta'lim", "Adabiyot o'qituvchisi"],
+  ["Ta'lim", "SAT o'qituvchisi"],
 ];
 const insertCategory = db.prepare("INSERT OR IGNORE INTO categories (group_name, name, sort_order) VALUES (?, ?, ?)");
 defaultCategories.forEach(([group, name], i) => insertCategory.run(group, name, i));
@@ -335,10 +337,34 @@ try {
   db.exec(`ALTER TABLE users ADD COLUMN oauth_provider TEXT DEFAULT 'local'`);
 } catch (e) {}
 try {
+  db.exec(`ALTER TABLE users ADD COLUMN token_version INTEGER DEFAULT 0`);
+} catch (e) {}
+try {
   db.exec(`ALTER TABLE orders ADD COLUMN specialist_rating INTEGER DEFAULT 0`);
 } catch (e) {}
 try {
   db.exec(`ALTER TABLE orders ADD COLUMN specialist_review TEXT DEFAULT ''`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE vacancies ADD COLUMN employment_type TEXT DEFAULT 'To''liq stavka'`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE vacancies ADD COLUMN schedule TEXT DEFAULT ''`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE vacancies ADD COLUMN gender TEXT DEFAULT 'Farqi yo''q'`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE vacancies ADD COLUMN responsibilities TEXT DEFAULT '[]'`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE vacancies ADD COLUMN salary_details TEXT DEFAULT ''`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE vacancies ADD COLUMN day_off TEXT DEFAULT ''`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE applications ADD COLUMN resume_url TEXT DEFAULT ''`);
 } catch (e) {}
 
 db.exec(`

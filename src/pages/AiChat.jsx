@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Send, Sparkles, Bot, MapPin, Star, Briefcase } from "lucide-react";
-import { generateGreeting, generateResponse } from "../lib/aiSearch";
+import { generateGreeting } from "../lib/aiSearch";
 import { api } from "../lib/api";
 import VerifiedBadge from "../components/ui/VerifiedBadge";
 import StatusBadge from "../components/ui/StatusBadge";
@@ -17,12 +17,10 @@ export default function AiChat() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [specialists, setSpecialists] = useState([]);
   const chatEndRef = useRef(null);
 
   useEffect(() => {
     setMessages([{ id: 0, role: "ai", text: generateGreeting(), specialists: [] }]);
-    api("/specialists").then((data) => setSpecialists(data.specialists)).catch((err) => console.error(err));
   }, []);
 
   useEffect(() => {
@@ -35,9 +33,13 @@ export default function AiChat() {
     setInput("");
     setMessages((prev) => [...prev, { id: Date.now(), role: "user", text: msg }]);
     setIsTyping(true);
-    await new Promise((r) => setTimeout(r, 600 + Math.random() * 800));
-    const response = generateResponse(msg, specialists);
-    setMessages((prev) => [...prev, { id: Date.now() + 1, role: "ai", text: response.text, specialists: response.specialists }]);
+    try {
+      const response = await api("/ai/search-specialists", { method: "POST", body: { query: msg } });
+      setMessages((prev) => [...prev, { id: Date.now() + 1, role: "ai", text: response.text, specialists: response.specialists || [] }]);
+    } catch (err) {
+      console.error(err);
+      setMessages((prev) => [...prev, { id: Date.now() + 1, role: "ai", text: "Kechirasiz, so'rovni qayta ishlashda xatolik yuz berdi. Birozdan so'ng qayta urinib ko'ring.", specialists: [] }]);
+    }
     setIsTyping(false);
   };
 

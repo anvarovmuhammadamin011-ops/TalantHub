@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Briefcase, Clock, ChevronRight, Award, TrendingUp, CheckCircle, XCircle, MessageSquare, X } from "lucide-react";
+import { Briefcase, Clock, ChevronRight, Award, TrendingUp, CheckCircle, XCircle, MessageSquare, X, Paperclip } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { timeAgo } from "../lib/format";
@@ -132,6 +132,17 @@ export default function Applications() {
                         </div>
                         {!isEmployer && <MatchIndicator percent={app.match_percent} size="sm" />}
                       </div>
+                      {isEmployer && app.resume_url && (
+                        <a
+                          href={app.resume_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 text-[11px] text-accent hover:underline mb-3 font-medium"
+                        >
+                          <Paperclip className="w-3 h-3" /> CV ko'rish
+                        </a>
+                      )}
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-ink-3 flex items-center gap-1">
                           <Clock className="w-3 h-3" /> {timeAgo(app.created_at)}
@@ -199,7 +210,19 @@ export default function Applications() {
                         <span className="font-medium text-ink text-sm block">{app.vacancy_title}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-ink-3">{isEmployer ? app.specialist_name : app.company}</td>
+                    <td className="px-6 py-4 text-sm text-ink-3">
+                      {isEmployer ? app.specialist_name : app.company}
+                      {isEmployer && app.resume_url && (
+                        <a
+                          href={app.resume_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-[11px] text-accent hover:underline mt-0.5 font-medium"
+                        >
+                          <Paperclip className="w-3 h-3" /> CV
+                        </a>
+                      )}
+                    </td>
                     {!isEmployer && (
                       <td className="px-6 py-4"><MatchIndicator percent={app.match_percent} size="sm" /></td>
                     )}

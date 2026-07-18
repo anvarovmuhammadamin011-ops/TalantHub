@@ -116,6 +116,42 @@ function seed() {
       '["Python 3+ yil", "Django/FastAPI", "PostgreSQL"]',
       '["100% masofaviy", "Chet el safari", "Equipment allowance"]',
       7, 4.7, 78],
+    ["Mobile Developer", "PixelCraft", "", "Toshkent", "45 000 - 75 000 so'm", 45000, 75000, "Masofaviy", "Middle", "IT",
+      '["Flutter", "Dart", "Mobile"]',
+      "Flutter yordamida iOS va Android uchun ilovalar yaratish.",
+      '["Flutter 2+ yil tajriba", "Dart bilim", "REST API integratsiyasi"]',
+      '["Masofadan ishlash", "Moslashuvchan ish vaqti", "Bonuslar"]',
+      7, 4.6, 52],
+    ["DevOps Engineer", "CloudTech", "", "Toshkent", "60 000 - 100 000 so'm", 60000, 100000, "Ofis", "Senior", "IT",
+      '["Docker", "Kubernetes", "CI/CD"]',
+      "Infratuzilmani boshqarish va CI/CD pipeline qurish.",
+      '["Docker/Kubernetes 3+ yil", "AWS/GCP tajribasi", "Linux bilim"]',
+      '["Tibbiy sug\'urta", "Yillik bonus", "Conference budget"]',
+      7, 4.7, 41],
+    ["Data Scientist", "DataFlow", "", "Toshkent", "60 000 - 95 000 so'm", 60000, 95000, "Masofaviy", "Middle", "IT",
+      '["Python", "Machine Learning", "Pandas"]',
+      "Mashinaviy o'qitish modellarini ishlab chiqish va ma'lumotlarni tahlil qilish.",
+      '["Python 2+ yil", "Pandas/NumPy", "ML asoslari"]',
+      '["100% masofaviy", "Equipment allowance", "Bonuslar"]',
+      7, 4.7, 33],
+    ["QA Engineer", "TexnoLabs", "", "Toshkent", "30 000 - 55 000 so'm", 30000, 55000, "Ofis", "Junior", "IT",
+      '["Testing", "Selenium", "Manual QA"]',
+      "Veb va mobil ilovalarni qo'lda va avtomatlashtirilgan usulda sinovdan o'tkazish.",
+      '["Test case yozish ko\'nikmasi", "Selenium asoslari"]',
+      '["Bepul ovqat", "Tibbiy sug\'urta", "Sport zal"]',
+      7, 4.5, 128],
+    ["Fizika o'qituvchisi", "Musaffo Ta'lim Markazi", "", "Buxoro", "28 000 - 48 000 so'm", 28000, 48000, "Ofis", "Middle", "Ta'lim",
+      '["Fizika", "Teaching", "Olympiad"]',
+      "Maktab o'quvchilariga fizika fanidan dars berish va olimpiadaga tayyorlash.",
+      '["Oliy ta\'lim (Fizika)", "Pedagogika diplomi"]',
+      '["Yillik ta\'til 30 kun", "Bonuslar"]',
+      7, 4.6, 37],
+    ["Informatika o'qituvchisi", "IT Academy", "", "Farg'ona", "27 000 - 47 000 so'm", 27000, 47000, "Ofis", "Junior", "Ta'lim",
+      '["Informatika", "Dasturlash", "Teaching"]',
+      "O'quvchilarga dasturlash asoslari va informatika fanidan dars berish.",
+      '["Dasturlash bilimi (Python/Scratch)", "Pedagogik tajriba"]',
+      '["Bepul ovqat", "Bonuslar"]',
+      7, 4.5, 22],
   ];
 
   const insertApp = db.prepare(`INSERT INTO applications (vacancy_id, user_id, status, match_percent) VALUES (?, ?, ?, ?)`);
@@ -243,21 +279,30 @@ function seed() {
 
 function ensureAdmin() {
   const existing = db.prepare("SELECT id, password FROM users WHERE email = ?").get("admin@talenthub.uz");
-  const adminPw = process.env.ADMIN_PASSWORD || "Admin123!";
 
   if (existing) {
-    if (bcrypt.compareSync(adminPw, existing.password)) return;
-    db.prepare("UPDATE users SET password = ?, role = 'admin' WHERE id = ?").run(bcrypt.hashSync(adminPw, 10), existing.id);
-    console.log("Admin password reset: admin@talenthub.uz / " + adminPw);
+    // Only touch the password if the operator explicitly set ADMIN_PASSWORD
+    // and it differs from what's stored — never overwrite a real admin's
+    // password with a guessable default on every restart.
+    if (process.env.ADMIN_PASSWORD && !bcrypt.compareSync(process.env.ADMIN_PASSWORD, existing.password)) {
+      db.prepare("UPDATE users SET password = ?, role = 'admin' WHERE id = ?").run(bcrypt.hashSync(process.env.ADMIN_PASSWORD, 10), existing.id);
+      console.log("Admin password reset from ADMIN_PASSWORD env var: admin@talenthub.uz");
+    }
     return;
   }
 
+  const adminPw = process.env.ADMIN_PASSWORD || crypto.randomBytes(12).toString("base64url");
   const hash = bcrypt.hashSync(adminPw, 10);
   db.prepare(`
     INSERT INTO users (name, email, password, role, verified, city, phone)
     VALUES (?, ?, ?, 'admin', 1, 'Toshkent', '+998 90 000 00 00')
   `).run("Administrator", "admin@talenthub.uz", hash);
-  console.log("Admin account created: admin@talenthub.uz / " + adminPw);
+
+  if (process.env.ADMIN_PASSWORD) {
+    console.log("Admin account created: admin@talenthub.uz (password from ADMIN_PASSWORD env var)");
+  } else {
+    console.log(`Admin account created: admin@talenthub.uz / ${adminPw}  (save this now — it will not be shown again)`);
+  }
 }
 
 module.exports = seed;

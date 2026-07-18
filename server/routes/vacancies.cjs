@@ -44,6 +44,7 @@ router.get("/", (req, res) => {
       tags: JSON.parse(v.tags),
       requirements: JSON.parse(v.requirements),
       conditions: JSON.parse(v.conditions),
+      responsibilities: JSON.parse(v.responsibilities || "[]"),
     }));
 
     res.json({ vacancies, total: vacancies.length });
@@ -65,6 +66,7 @@ router.get("/mine", authMiddleware, (req, res) => {
       tags: JSON.parse(v.tags),
       requirements: JSON.parse(v.requirements),
       conditions: JSON.parse(v.conditions),
+      responsibilities: JSON.parse(v.responsibilities || "[]"),
     }));
 
     res.json({ vacancies });
@@ -88,6 +90,7 @@ router.get("/:id", (req, res) => {
     vacancy.tags = JSON.parse(vacancy.tags);
     vacancy.requirements = JSON.parse(vacancy.requirements);
     vacancy.conditions = JSON.parse(vacancy.conditions);
+    vacancy.responsibilities = JSON.parse(vacancy.responsibilities || "[]");
 
     res.json({ vacancy });
   } catch (err) {
@@ -103,7 +106,10 @@ router.post("/", authMiddleware, (req, res) => {
       return res.status(403).json({ error: "Faqat ish beruvchilar vakansiya joylashi mumkin" });
     }
 
-    const { title, company, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions } = req.body;
+    const {
+      title, company, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions,
+      employment_type, schedule, gender, responsibilities, salary_details, day_off,
+    } = req.body;
 
     if (!title || !company) {
       return res.status(400).json({ error: "Sarlavha va kompaniya majburiy" });
@@ -113,8 +119,11 @@ router.post("/", authMiddleware, (req, res) => {
     const initialStatus = modeRow?.value === "pre" ? "Kutilmoqda" : "Faol";
 
     const stmt = db.prepare(`
-      INSERT INTO vacancies (title, company, company_logo, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions, employer_id, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO vacancies (
+        title, company, company_logo, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions, employer_id, status,
+        employment_type, schedule, gender, responsibilities, salary_details, day_off
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -128,13 +137,20 @@ router.post("/", authMiddleware, (req, res) => {
       JSON.stringify(requirements || []),
       JSON.stringify(conditions || []),
       req.userId,
-      initialStatus
+      initialStatus,
+      employment_type || "To'liq stavka",
+      schedule || "",
+      gender || "Farqi yo'q",
+      JSON.stringify(responsibilities || []),
+      salary_details || "",
+      day_off || ""
     );
 
     const vacancy = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(result.lastInsertRowid);
     vacancy.tags = JSON.parse(vacancy.tags);
     vacancy.requirements = JSON.parse(vacancy.requirements);
     vacancy.conditions = JSON.parse(vacancy.conditions);
+    vacancy.responsibilities = JSON.parse(vacancy.responsibilities || "[]");
 
     res.json({ vacancy });
   } catch (err) {
@@ -165,7 +181,10 @@ router.patch("/:id", authMiddleware, (req, res) => {
     if (!vacancy) return res.status(404).json({ error: "Vakansiya topilmadi" });
     if (vacancy.employer_id !== req.userId) return res.status(403).json({ error: "Ruxsat yo'q" });
 
-    const { title, company, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions, status } = req.body;
+    const {
+      title, company, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions, status,
+      employment_type, schedule, gender, responsibilities, salary_details, day_off,
+    } = req.body;
 
     db.prepare(`
       UPDATE vacancies SET
@@ -182,7 +201,13 @@ router.patch("/:id", authMiddleware, (req, res) => {
         description = COALESCE(?, description),
         requirements = COALESCE(?, requirements),
         conditions = COALESCE(?, conditions),
-        status = COALESCE(?, status)
+        status = COALESCE(?, status),
+        employment_type = COALESCE(?, employment_type),
+        schedule = COALESCE(?, schedule),
+        gender = COALESCE(?, gender),
+        responsibilities = COALESCE(?, responsibilities),
+        salary_details = COALESCE(?, salary_details),
+        day_off = COALESCE(?, day_off)
       WHERE id = ?
     `).run(
       title || null, company || null, location || null, salary || null,
@@ -192,6 +217,12 @@ router.patch("/:id", authMiddleware, (req, res) => {
       requirements ? JSON.stringify(requirements) : null,
       conditions ? JSON.stringify(conditions) : null,
       status || null,
+      employment_type || null,
+      schedule || null,
+      gender || null,
+      responsibilities ? JSON.stringify(responsibilities) : null,
+      salary_details || null,
+      day_off || null,
       req.params.id
     );
 
@@ -199,6 +230,7 @@ router.patch("/:id", authMiddleware, (req, res) => {
     updated.tags = JSON.parse(updated.tags);
     updated.requirements = JSON.parse(updated.requirements);
     updated.conditions = JSON.parse(updated.conditions);
+    updated.responsibilities = JSON.parse(updated.responsibilities || "[]");
 
     res.json({ vacancy: updated });
   } catch (err) {
