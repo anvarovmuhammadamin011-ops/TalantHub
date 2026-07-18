@@ -217,7 +217,7 @@ export default function EmployerDashboard() {
                 {["", ...new Set(vacancies.map((v) => v.status || "Faol"))].map((s) => (
                   <button key={s || "all"} onClick={() => setVacTab(s)}
                     className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                      vacTab === s ? "bg-ink text-white" : "bg-surface text-ink-2 hover:bg-border-soft"
+                      vacTab === s ? "bg-accent text-white" : "bg-surface text-ink-2 hover:bg-border-soft"
                     }`}>{s || "Barchasi"}</button>
                 ))}
               </div>
@@ -242,6 +242,11 @@ export default function EmployerDashboard() {
                       )}
                     </Link>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Link to={`/vacancies/${v.id}/applicants`}
+                        className="w-7 h-7 flex items-center justify-center rounded-md text-ink-3 hover:bg-surface transition-colors"
+                        title="Arizalar">
+                        <Users className="w-3.5 h-3.5" />
+                      </Link>
                       <Link to={`/vacancies/${v.id}/edit`}
                         className="w-7 h-7 flex items-center justify-center rounded-md text-ink-3 hover:bg-surface transition-colors"
                         title="Tahrirlash">

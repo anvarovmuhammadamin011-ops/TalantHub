@@ -52,9 +52,43 @@ router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), (req
       GROUP BY city ORDER BY count DESC LIMIT 5
     `).all();
 
+    const vacanciesByDay = db.prepare(`
+      SELECT date(created_at) as date, COUNT(*) as count
+      FROM vacancies
+      WHERE created_at >= datetime('now','-29 days')
+      GROUP BY date(created_at)
+      ORDER BY date(created_at) ASC
+    `).all();
+    const vacanciesByDayMap = Object.fromEntries(vacanciesByDay.map((r) => [r.date, r.count]));
+    const vacancies_30d_series = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+      vacancies_30d_series.push({ date: d, count: vacanciesByDayMap[d] || 0 });
+    }
+
+    const vacancies_pending = db.prepare("SELECT COUNT(*) as c FROM vacancies WHERE status='Kutilmoqda'").get().c;
+    const vacancies_needs_fix = db.prepare("SELECT COUNT(*) as c FROM vacancies WHERE status='Tuzatish kerak'").get().c;
+
+    const directionCounts = {};
+    for (const row of db.prepare("SELECT category, directions FROM vacancies").all()) {
+      let dirs = [];
+      try { dirs = JSON.parse(row.directions || "[]"); } catch { dirs = []; }
+      const keys = dirs.length ? dirs : [row.category];
+      for (const key of keys) {
+        if (!key) continue;
+        directionCounts[key] = (directionCounts[key] || 0) + 1;
+      }
+    }
+    const top_directions = Object.entries(directionCounts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+
     res.json({
-      users_total, specialists, employers, admins, vacancies_total, vacancies_active, orders_total, orders_active, orders_completed,
+      users_total, specialists, employers, admins, vacancies_total, vacancies_active, vacancies_pending, vacancies_needs_fix,
+      orders_total, orders_active, orders_completed,
       applications_total, messages_total, new_users_7d, verified_users, blocked_users, featured_users, signups_series, users_by_city,
+      vacancies_30d_series, top_directions,
     });
   } catch (err) {
     console.error("Admin stats error:", err);
@@ -195,6 +229,7 @@ router.get("/vacancies", authMiddleware, requireAdmin, requireSection("vacancies
     sql += ` ORDER BY v.created_at DESC`;
     const vacancies = db.prepare(sql).all(...params).map((v) => ({
       ...v, tags: JSON.parse(v.tags), requirements: JSON.parse(v.requirements), conditions: JSON.parse(v.conditions),
+      directions: JSON.parse(v.directions || "[]"),
     }));
 
     res.json({ vacancies });

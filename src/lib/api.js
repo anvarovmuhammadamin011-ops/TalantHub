@@ -30,3 +30,24 @@ export async function api(path, { method = "GET", body } = {}) {
 
   return data;
 }
+
+export async function apiUpload(path, file) {
+  const headers = {};
+  const token = getToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch(`${BASE_URL}${path}`, { method: "POST", headers, body: formData });
+
+  const text = await res.text();
+  let data;
+  try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
+
+  if (!res.ok) {
+    throw { status: res.status, message: data.error || "Xatolik yuz berdi" };
+  }
+
+  return data;
+}

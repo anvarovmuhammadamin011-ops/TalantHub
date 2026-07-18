@@ -38,6 +38,7 @@ router.get("/employer", authMiddleware, (req, res) => {
       SELECT a.*, v.title as vacancy_title, v.id as vacancy_id_ref,
              u.name as specialist_name, u.category as specialist_category, u.avatar as specialist_avatar,
              u.rating as specialist_rating, u.reviews_count as specialist_reviews, u.experience as specialist_experience,
+             u.experience_level as specialist_experience_level,
              u.orders_count as specialist_orders, u.phone as specialist_phone,
              u.social_telegram as specialist_telegram, u.email as specialist_email
       FROM applications a
@@ -53,6 +54,34 @@ router.get("/employer", authMiddleware, (req, res) => {
     res.json({ applications });
   } catch (err) {
     console.error("Employer applications error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.get("/vacancy/:vacancyId", authMiddleware, (req, res) => {
+  try {
+    const vacancy = db.prepare("SELECT id, title, employer_id FROM vacancies WHERE id = ?").get(req.params.vacancyId);
+    if (!vacancy) return res.status(404).json({ error: "Vakansiya topilmadi" });
+    if (vacancy.employer_id !== req.userId) return res.status(403).json({ error: "Ruxsat yo'q" });
+
+    const applications = db.prepare(`
+      SELECT a.*, u.name as specialist_name, u.category as specialist_category, u.avatar as specialist_avatar,
+             u.rating as specialist_rating, u.reviews_count as specialist_reviews, u.experience as specialist_experience,
+             u.experience_level as specialist_experience_level,
+             u.orders_count as specialist_orders, u.phone as specialist_phone,
+             u.social_telegram as specialist_telegram, u.email as specialist_email
+      FROM applications a
+      JOIN users u ON a.user_id = u.id
+      WHERE a.vacancy_id = ?
+      ORDER BY a.created_at DESC
+    `).all(vacancy.id).map((a) => {
+      try { a.screening_answers = JSON.parse(a.screening_answers || "[]"); } catch { a.screening_answers = []; }
+      return a;
+    });
+
+    res.json({ vacancy, applications });
+  } catch (err) {
+    console.error("Vacancy applications error:", err);
     res.status(500).json({ error: "Server xatoligi" });
   }
 });

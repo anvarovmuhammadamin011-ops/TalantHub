@@ -1,18 +1,40 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MapPin, Briefcase, Users, Package, Edit3, LogOut, Save, Lock, Mail, Phone, Calendar, ArrowRight } from "lucide-react";
+import { MapPin, Briefcase, Users, Package, LogOut, Save, Lock, Mail, Phone, Calendar, ArrowRight, Check } from "lucide-react";
 import { api } from "../lib/api";
 import VerifiedBadge from "../components/ui/VerifiedBadge";
 import VerificationPanel from "../components/ui/VerificationPanel";
+import ImageUploadField from "../components/ui/ImageUploadField";
+import LanguageSwitcher from "../components/ui/LanguageSwitcher";
 import { useAuth } from "../context/AuthContext";
 
+const industries = [
+  "IT / Dasturiy ta'minot", "Ta'lim", "Moliya / Bank", "Sog'liqni saqlash",
+  "Savdo / Chakana savdo", "Ishlab chiqarish", "Qurilish", "Logistika / Transport",
+  "Turizm / Mehmonxona", "Media / Reklama", "Boshqa",
+];
+const employeeCounts = ["1-10", "11-50", "51-200", "200+"];
+
+const inputClass = "w-full px-3.5 py-2.5 rounded-lg border border-border text-sm focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-colors";
+const labelClass = "block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5";
+
+const TABS = ["Profil", "Kompaniya", "Sozlamalar"];
+
 export default function EmployerProfile() {
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout, updateProfile, changePassword } = useAuth();
   const navigate = useNavigate();
-  const [editing, setEditing] = useState(false);
+  const [tab, setTab] = useState("Profil");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
-  const [form, setForm] = useState({});
+  const [savedTab, setSavedTab] = useState("");
+  const [profileForm, setProfileForm] = useState({});
+  const [companyForm, setCompanyForm] = useState({});
+  const [notifPrefs, setNotifPrefs] = useState({});
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordSaved, setPasswordSaved] = useState(false);
   const [vacancies, setVacancies] = useState([]);
   const [applications, setApplications] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -26,14 +48,19 @@ export default function EmployerProfile() {
     : 0;
 
   useEffect(() => {
-    if (user) {
-      setForm({
-        bio: user.bio || "",
-        city: user.city || "",
-        phone: user.phone || "",
-        avatar: user.avatar || "",
-      });
-    }
+    if (!user) return;
+    setProfileForm({ name: user.name || "", phone: user.phone || "", city: user.city || "", avatar: user.avatar || "" });
+    setCompanyForm({
+      company_name: user.company_name || "", company_logo: user.company_logo || "",
+      industry: user.industry || "", employee_count: user.employee_count || "",
+      company_description: user.company_description || user.bio || "", website: user.website || "",
+      social_telegram: user.social_telegram || "", social_linkedin: user.social_linkedin || "",
+      social_instagram: user.social_instagram || "", address: user.address || "",
+    });
+    setNotifPrefs({
+      new_application: true, vacancy_status: true, messages: true,
+      ...(user.notification_prefs || {}),
+    });
   }, [user]);
 
   useEffect(() => {
@@ -61,20 +88,48 @@ export default function EmployerProfile() {
   const initials = user.name.split(" ").map((n) => n[0]).join("").slice(0, 2);
   const handleLogout = () => { logout(); navigate("/login"); };
 
-  const startEditing = () => {
-    if (cooldownActive) return;
-    setEditing(true);
-  };
-
-  const saveForm = async () => {
+  const saveProfile = async () => {
     setSaving(true);
     setSaveError("");
-    const result = await updateProfile(form);
+    const result = await updateProfile(profileForm);
     setSaving(false);
+    if (result.success) { setSavedTab("Profil"); setTimeout(() => setSavedTab(""), 2500); }
+    else setSaveError(result.error);
+  };
+
+  const saveCompany = async () => {
+    setSaving(true);
+    setSaveError("");
+    const result = await updateProfile(companyForm);
+    setSaving(false);
+    if (result.success) { setSavedTab("Kompaniya"); setTimeout(() => setSavedTab(""), 2500); }
+    else setSaveError(result.error);
+  };
+
+  const saveNotifPrefs = async () => {
+    setSaving(true);
+    setSaveError("");
+    const result = await updateProfile({ notification_prefs: notifPrefs });
+    setSaving(false);
+    if (result.success) { setSavedTab("Sozlamalar"); setTimeout(() => setSavedTab(""), 2500); }
+    else setSaveError(result.error);
+  };
+
+  const submitPasswordChange = async () => {
+    setPasswordError("");
+    if (newPassword.length < 8) {
+      setPasswordError("Yangi parol kamida 8 belgidan iborat bo'lishi kerak");
+      return;
+    }
+    setPasswordSaving(true);
+    const result = await changePassword(oldPassword, newPassword);
+    setPasswordSaving(false);
     if (result.success) {
-      setEditing(false);
+      setOldPassword(""); setNewPassword("");
+      setPasswordSaved(true);
+      setTimeout(() => setPasswordSaved(false), 2500);
     } else {
-      setSaveError(result.error);
+      setPasswordError(result.error);
     }
   };
 
@@ -106,7 +161,7 @@ export default function EmployerProfile() {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-lg sm:text-xl font-semibold text-ink tracking-tight">{user.name}</h1>
+                  <h1 className="text-lg sm:text-xl font-semibold text-ink tracking-tight">{user.company_name || user.name}</h1>
                   {!!user.verified && <VerifiedBadge />}
                 </div>
                 <p className="text-ink-2 font-medium mt-0.5 text-xs sm:text-sm">Ish beruvchi</p>
@@ -121,22 +176,13 @@ export default function EmployerProfile() {
                   <span className="flex items-center gap-1 text-[10px] sm:text-xs text-ink-3"><Phone className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {user.phone || "+998 XX XXX XX XX"}</span>
                 </div>
               </div>
-              <div className="flex gap-1.5 sm:gap-2 flex-shrink-0">
-                <button onClick={startEditing} disabled={cooldownActive}
-                  className={`h-8 sm:h-9 px-2 sm:px-3 flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg border text-xs sm:text-sm font-medium transition-colors ${
-                    cooldownActive ? "border-gray-200 text-gray-400 cursor-not-allowed" : "border-border text-ink-2 hover:border-ink/30"
-                  }`}>
-                  {cooldownActive ? <Lock className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : <Edit3 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
-                  <span className="hidden sm:inline">{cooldownActive ? `${Math.floor(cooldownRemaining / 60)}s` : editing ? "Bekor" : "Tahrirlash"}</span>
-                </button>
-                <button onClick={handleLogout} className="h-8 sm:h-9 px-2 sm:px-3 flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 text-xs sm:text-sm font-medium transition-colors">
-                  <LogOut className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> <span className="hidden sm:inline">Chiqish</span>
-                </button>
-              </div>
+              <button onClick={handleLogout} className="h-8 sm:h-9 px-2 sm:px-3 flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 text-xs sm:text-sm font-medium transition-colors flex-shrink-0">
+                <LogOut className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> <span className="hidden sm:inline">Chiqish</span>
+              </button>
             </div>
             {cooldownActive && (
               <p className="text-[10px] sm:text-xs text-amber-600 mt-2 flex items-center gap-1">
-                <Lock className="w-3 h-3" /> Profilni tahrirlash mumkin: {Math.floor(cooldownRemaining / 60)} soat {cooldownRemaining % 60} daqiqa
+                <Lock className="w-3 h-3" /> Profil/kompaniya ma'lumotlarini tahrirlash mumkin: {Math.floor(cooldownRemaining / 60)} soat {cooldownRemaining % 60} daqiqa
               </p>
             )}
           </div>
@@ -145,46 +191,160 @@ export default function EmployerProfile() {
 
       <div className="grid md:grid-cols-3 gap-4">
         <div className="md:col-span-2 space-y-4">
-          {/* Company bio */}
           <div className="bg-white rounded-xl border border-border p-5">
-            <h2 className="font-semibold text-ink text-sm mb-3">Kompaniya haqida</h2>
-            {editing ? (
-              <div className="space-y-3">
-                <textarea
-                  value={form.bio}
-                  onChange={(e) => setForm({ ...form, bio: e.target.value })}
-                  rows={4}
-                  placeholder="Kompaniyangiz haqida qisqacha ma'lumot yozing..."
-                  className="w-full px-3 py-2.5 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors text-sm resize-none"
-                />
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    value={form.city}
-                    onChange={(e) => setForm({ ...form, city: e.target.value })}
-                    placeholder="Shahar"
-                    className="px-3 py-2.5 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors text-sm"
-                  />
-                  <input
-                    value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    placeholder="Telefon"
-                    className="px-3 py-2.5 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors text-sm"
-                  />
+            <div className="flex gap-1 mb-5 border-b border-border-soft -mx-5 px-5">
+              {TABS.map((t) => (
+                <button key={t} onClick={() => setTab(t)}
+                  className={`px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                    tab === t ? "border-accent text-ink" : "border-transparent text-ink-3 hover:text-ink"
+                  }`}>{t}</button>
+              ))}
+            </div>
+
+            {saveError && <p className="text-xs text-red-500 mb-3">{saveError}</p>}
+
+            {tab === "Profil" && (
+              <fieldset disabled={cooldownActive} className="space-y-4 disabled:opacity-60">
+                <div>
+                  <label className={labelClass}>Avatar</label>
+                  <ImageUploadField value={profileForm.avatar} onChange={(url) => setProfileForm({ ...profileForm, avatar: url })} shape="round" size="w-16 h-16" />
                 </div>
-                {saveError && <p className="text-xs text-red-500">{saveError}</p>}
-                <button onClick={saveForm} disabled={saving}
-                  className="flex items-center gap-2 bg-ink text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors disabled:opacity-60">
-                  <Save className="w-4 h-4" /> {saving ? "Saqlanmoqda..." : "Saqlash"}
+                <div>
+                  <label className={labelClass}>Ism</label>
+                  <input value={profileForm.name} onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })} className={inputClass} />
+                </div>
+                <div>
+                  <label className={labelClass}>Email</label>
+                  <input value={user.email} disabled className={inputClass + " bg-surface text-ink-3 cursor-not-allowed"} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Telefon</label>
+                    <input value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Shahar</label>
+                    <input value={profileForm.city} onChange={(e) => setProfileForm({ ...profileForm, city: e.target.value })} className={inputClass} />
+                  </div>
+                </div>
+                <button onClick={saveProfile} disabled={saving}
+                  className="flex items-center gap-2 bg-accent text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent-hover transition-colors disabled:opacity-60">
+                  {savedTab === "Profil" ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                  {saving ? "Saqlanmoqda..." : savedTab === "Profil" ? "Saqlandi" : "Saqlash"}
                 </button>
+              </fieldset>
+            )}
+
+            {tab === "Kompaniya" && (
+              <fieldset disabled={cooldownActive} className="space-y-4 disabled:opacity-60">
+                <div>
+                  <label className={labelClass}>Logotip</label>
+                  <ImageUploadField value={companyForm.company_logo} onChange={(url) => setCompanyForm({ ...companyForm, company_logo: url })} />
+                </div>
+                <div>
+                  <label className={labelClass}>Kompaniya nomi</label>
+                  <input value={companyForm.company_name} onChange={(e) => setCompanyForm({ ...companyForm, company_name: e.target.value })} className={inputClass} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Faoliyat sohasi</label>
+                    <select value={companyForm.industry} onChange={(e) => setCompanyForm({ ...companyForm, industry: e.target.value })} className={inputClass + " bg-white"}>
+                      <option value="">Tanlang</option>
+                      {industries.map((i) => <option key={i} value={i}>{i}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Xodimlar soni</label>
+                    <select value={companyForm.employee_count} onChange={(e) => setCompanyForm({ ...companyForm, employee_count: e.target.value })} className={inputClass + " bg-white"}>
+                      <option value="">Tanlang</option>
+                      {employeeCounts.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Kompaniya haqida</label>
+                  <textarea rows={4} value={companyForm.company_description} onChange={(e) => setCompanyForm({ ...companyForm, company_description: e.target.value })}
+                    placeholder="Kompaniyangiz haqida qisqacha ma'lumot..." className={inputClass + " resize-none"} />
+                </div>
+                <div>
+                  <label className={labelClass}>Veb-sayt</label>
+                  <input value={companyForm.website} onChange={(e) => setCompanyForm({ ...companyForm, website: e.target.value })} placeholder="https://" className={inputClass} />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className={labelClass}>Telegram</label>
+                    <input value={companyForm.social_telegram} onChange={(e) => setCompanyForm({ ...companyForm, social_telegram: e.target.value })} placeholder="@kanal" className={inputClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>LinkedIn</label>
+                    <input value={companyForm.social_linkedin} onChange={(e) => setCompanyForm({ ...companyForm, social_linkedin: e.target.value })} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Instagram</label>
+                    <input value={companyForm.social_instagram} onChange={(e) => setCompanyForm({ ...companyForm, social_instagram: e.target.value })} className={inputClass} />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Manzil</label>
+                  <input value={companyForm.address} onChange={(e) => setCompanyForm({ ...companyForm, address: e.target.value })} className={inputClass} />
+                </div>
+                <button onClick={saveCompany} disabled={saving}
+                  className="flex items-center gap-2 bg-accent text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent-hover transition-colors disabled:opacity-60">
+                  {savedTab === "Kompaniya" ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                  {saving ? "Saqlanmoqda..." : savedTab === "Kompaniya" ? "Saqlandi" : "Saqlash"}
+                </button>
+              </fieldset>
+            )}
+
+            {tab === "Sozlamalar" && (
+              <div className="space-y-6">
+                <div>
+                  <label className={labelClass}>Interfeys tili</label>
+                  <LanguageSwitcher />
+                </div>
+
+                <div>
+                  <label className={labelClass}>Bildirishnomalar</label>
+                  <div className="space-y-2">
+                    {[
+                      ["new_application", "Yangi ariza kelganda"],
+                      ["vacancy_status", "Vakansiya holati o'zgarganda"],
+                      ["messages", "Yangi xabar kelganda"],
+                    ].map(([key, label]) => (
+                      <label key={key} className="flex items-center gap-2.5 text-sm text-ink-2 cursor-pointer">
+                        <input type="checkbox" checked={!!notifPrefs[key]}
+                          onChange={(e) => setNotifPrefs({ ...notifPrefs, [key]: e.target.checked })}
+                          className="w-4 h-4 rounded border-border text-accent focus:ring-accent/20" />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                  <button onClick={saveNotifPrefs} disabled={saving}
+                    className="flex items-center gap-2 bg-accent text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent-hover transition-colors disabled:opacity-60 mt-3">
+                    {savedTab === "Sozlamalar" ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                    {saving ? "Saqlanmoqda..." : savedTab === "Sozlamalar" ? "Saqlandi" : "Saqlash"}
+                  </button>
+                </div>
+
+                <div className="pt-5 border-t border-border-soft">
+                  <label className={labelClass}>Parolni o'zgartirish</label>
+                  <div className="space-y-3 max-w-sm">
+                    <input type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)}
+                      placeholder="Eski parol" className={inputClass} />
+                    <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Yangi parol (kamida 8 belgi)" className={inputClass} />
+                    {passwordError && <p className="text-xs text-red-500">{passwordError}</p>}
+                    <button onClick={submitPasswordChange} disabled={passwordSaving || !oldPassword || !newPassword}
+                      className="flex items-center gap-2 bg-white border border-border text-ink-2 px-4 py-2 rounded-lg text-sm font-medium hover:bg-surface transition-colors disabled:opacity-60">
+                      {passwordSaved ? <Check className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                      {passwordSaving ? "Yangilanmoqda..." : passwordSaved ? "Yangilandi" : "Parolni yangilash"}
+                    </button>
+                  </div>
+                </div>
               </div>
-            ) : (
-              <p className="text-sm text-ink-2 leading-relaxed">
-                {user.bio || "Hali kompaniya haqida ma'lumot kiritilmagan. \"Tahrirlash\" tugmasini bosib qo'shing."}
-              </p>
             )}
           </div>
 
-          {/* Recent vacancies */}
           <div className="bg-white rounded-xl border border-border p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-ink text-sm">Faol vakansiyalar</h2>

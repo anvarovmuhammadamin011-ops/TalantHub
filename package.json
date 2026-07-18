@@ -26,6 +26,7 @@
     "jsonwebtoken": "^9.0.3",
     "libphonenumber-js": "^1.13.8",
     "lucide-react": "^1.24.0",
+    "multer": "^2.2.0",
     "openai": "^6.47.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",

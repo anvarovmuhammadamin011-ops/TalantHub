@@ -66,4 +66,25 @@ router.post("/subscribe", authMiddleware, (req, res) => {
   }
 });
 
+const DEMO_TOPUP_PRESETS = [50000, 100000, 300000, 500000, 1000000];
+
+// Self-service demo balance top-up — no real payment gateway (Payme/Click) is wired up here
+// on purpose; this just records a transaction so the wallet UI has something to demo.
+router.post("/demo-topup", authMiddleware, (req, res) => {
+  try {
+    const amount = Number(req.body.amount);
+    if (!DEMO_TOPUP_PRESETS.includes(amount)) {
+      return res.status(400).json({ error: "Noto'g'ri summa" });
+    }
+
+    db.prepare(`INSERT INTO transactions (user_id, amount, method, status, type, description) VALUES (?, ?, 'Demo', 'Tasdiqlangan', 'demo_topup', 'Demo balans to''ldirish')`)
+      .run(req.userId, amount);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Wallet demo top-up error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
 module.exports = router;

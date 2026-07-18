@@ -21,8 +21,14 @@ import AiChat from "./pages/AiChat";
 import Statistics from "./pages/Statistics";
 import VacancyCreate from "./pages/VacancyCreate";
 import Wallet from "./pages/Wallet";
+import VacancyApplicants from "./pages/VacancyApplicants";
+import NotificationsPage from "./pages/NotificationsPage";
 import Admin from "./pages/Admin";
 import AdminUserDetail from "./pages/AdminUserDetail";
+import AdminModeration from "./pages/AdminModeration";
+import AdminUsersPage from "./pages/AdminUsersPage";
+import AdminStats from "./pages/AdminStats";
+import AdminLayout from "./components/layout/AdminLayout";
 import AdminRoute from "./components/AdminRoute";
 import ScrollToTop from "./components/ScrollToTop";
 import AuthCallback from "./pages/AuthCallback";
@@ -60,6 +66,7 @@ export default function App() {
               <Route path="/vacancies" element={<Vacancies />} />
               <Route path="/vacancies/new" element={<VacancyCreate />} />
               <Route path="/vacancies/:id/edit" element={<VacancyCreate />} />
+              <Route path="/vacancies/:id/applicants" element={<VacancyApplicants />} />
               <Route path="/vacancies/:id" element={<VacancyDetail />} />
               <Route path="/specialists" element={<Specialists />} />
               <Route path="/specialists/:id" element={<SpecialistDetail />} />
@@ -68,12 +75,22 @@ export default function App() {
               <Route path="/orders" element={<Orders />} />
               <Route path="/dashboard" element={<EmployerDashboard />} />
               <Route path="/wallet" element={<Wallet />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/ai-chat" element={<AiChat />} />
               <Route path="/statistics" element={<Statistics />} />
               <Route element={<AdminRoute />}>
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/admin/users/:id" element={<AdminUserDetail />} />
+              </Route>
+            </Route>
+          </Route>
+          <Route element={<ProtectedRoute />}>
+            <Route element={<AdminRoute />}>
+              <Route element={<AdminLayout />}>
+                <Route path="/admin/moderation" element={<AdminModeration />} />
+                <Route path="/admin/users" element={<AdminUsersPage />} />
+                <Route path="/admin/stats" element={<AdminStats />} />
               </Route>
             </Route>
           </Route>

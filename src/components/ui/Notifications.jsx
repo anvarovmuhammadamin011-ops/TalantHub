@@ -1,34 +1,10 @@
 import { useState, useEffect } from "react";
-import { Bell, CheckCircle, Clock, MessageSquare, Package, Star, Eye } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Bell } from "lucide-react";
 import { api } from "../../lib/api";
 import { useSocket } from "../../context/SocketContext";
-
-const typeIcons = {
-  order: Package,
-  message: MessageSquare,
-  application: Eye,
-  interview: Clock,
-  rating: Star,
-  info: CheckCircle,
-};
-
-const typeColors = {
-  order: "text-blue-600 bg-blue-50",
-  message: "text-accent bg-emerald-50",
-  application: "text-purple-600 bg-purple-50",
-  interview: "text-amber-600 bg-amber-50",
-  rating: "text-ink bg-surface",
-  info: "text-ink-3 bg-surface",
-};
-
-function timeAgo(dateStr) {
-  if (!dateStr) return "";
-  const diff = (Date.now() - new Date(dateStr + "Z").getTime()) / 1000;
-  if (diff < 60) return "Hozirgina";
-  if (diff < 3600) return `${Math.floor(diff / 60)} daqiqa oldin`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} soat oldin`;
-  return `${Math.floor(diff / 86400)} kun oldin`;
-}
+import { getNotificationIcon, getNotificationColor } from "../../lib/notificationTypes";
+import { timeAgo } from "../../lib/format";
 
 export default function Notifications() {
   const [open, setOpen] = useState(false);
@@ -103,8 +79,8 @@ export default function Notifications() {
                 <div className="p-6 text-center text-sm text-ink-3">Bildirishnomalar yo'q</div>
               )}
               {notifs.map((n) => {
-                const Icon = typeIcons[n.type] || Bell;
-                const colorClass = typeColors[n.type] || typeColors.info;
+                const Icon = getNotificationIcon(n.type);
+                const colorClass = getNotificationColor(n.type);
                 const isUnread = !n.read;
                 return (
                   <button key={n.id} onClick={() => markRead(n.id)}
@@ -125,9 +101,9 @@ export default function Notifications() {
               })}
             </div>
             <div className="border-t border-border px-4 py-2.5 text-center">
-              <button onClick={() => setOpen(false)} className="text-xs font-medium text-ink-2 hover:text-ink transition-colors">
-                Yopish
-              </button>
+              <Link to="/notifications" onClick={() => setOpen(false)} className="text-xs font-medium text-ink-2 hover:text-ink transition-colors">
+                Barchasini ko'rish
+              </Link>
             </div>
           </div>
         </>

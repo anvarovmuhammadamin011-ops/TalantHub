@@ -84,8 +84,18 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const changePassword = async (oldPassword, newPassword) => {
+    try {
+      const { token } = await api("/auth/change-password", { method: "POST", body: { old_password: oldPassword, new_password: newPassword } });
+      setToken(token);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message || "Xatolik yuz berdi" };
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, register, login, logout, updateProfile, unlockRole, switchRole, isLoggedIn: !!user, loading }}>
+    <AuthContext.Provider value={{ user, register, login, logout, updateProfile, unlockRole, switchRole, changePassword, isLoggedIn: !!user, loading }}>
       {children}
     </AuthContext.Provider>
   );

@@ -400,6 +400,36 @@ try {
 try {
   db.exec(`ALTER TABLE applications ADD COLUMN screening_answers TEXT DEFAULT '[]'`);
 } catch (e) {}
+try {
+  db.exec(`ALTER TABLE vacancies ADD COLUMN directions TEXT DEFAULT '[]'`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN company_name TEXT DEFAULT ''`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN company_logo TEXT DEFAULT ''`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN industry TEXT DEFAULT ''`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN employee_count TEXT DEFAULT ''`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN company_description TEXT DEFAULT ''`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN website TEXT DEFAULT ''`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN social_linkedin TEXT DEFAULT ''`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN address TEXT DEFAULT ''`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN notification_prefs TEXT DEFAULT '{"new_application":true,"vacancy_status":true,"messages":true}'`);
+} catch (e) {}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS verification_requests (
@@ -429,6 +459,22 @@ db.exec(`
 
 const insertSetting = db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)");
 insertSetting.run("vacancy_moderation_mode", "pre");
+
+// Migrate from the old generic subscription-tier tariffs to the per-listing promotion
+// tariffs (Standart/TOP/Premium e'lon) used by the Cloz.uz-style wallet page. Demo
+// promo_codes referencing the old tariffs are unused by any UI — just unlink them so the
+// FK constraint (foreign_keys = ON, above) doesn't block the delete.
+const oldTariffNames = ["Boshlang'ich", "Professional", "Korporativ"];
+const oldTariffPlaceholders = oldTariffNames.map(() => "?").join(",");
+db.prepare(`UPDATE promo_codes SET tariff_id = NULL WHERE tariff_id IN (SELECT id FROM tariffs WHERE name IN (${oldTariffPlaceholders}))`).run(...oldTariffNames);
+db.prepare(`DELETE FROM tariffs_users WHERE tariff_id IN (SELECT id FROM tariffs WHERE name IN (${oldTariffPlaceholders}))`).run(...oldTariffNames);
+db.prepare(`DELETE FROM tariffs WHERE name IN (${oldTariffPlaceholders})`).run(...oldTariffNames);
+if (db.prepare("SELECT COUNT(*) as c FROM tariffs").get().c === 0) {
+  const insertTariff = db.prepare("INSERT INTO tariffs (name, price, duration_days, max_vacancies, max_contacts, features) VALUES (?, ?, ?, ?, ?, ?)");
+  insertTariff.run("Standart e'lon", 0, 30, 999, 999, JSON.stringify(["Oddiy joylashtirish", "Standart ko'rinishda ro'yxatda"]));
+  insertTariff.run("TOP e'lon", 149000, 14, 999, 999, JSON.stringify(["Vakansiyalar ro'yxati boshida chiqadi", "14 kun davomida"]));
+  insertTariff.run("Premium e'lon", 299000, 30, 999, 999, JSON.stringify(["Maxsus belgi va rang bilan ajratiladi", "TOP + alohida dizayn", "30 kun davomida"]));
+}
 
 const defaultSkills = [
   "Ingliz tili", "Matematika", "Fizika", "Kimyo", "Biologiya",

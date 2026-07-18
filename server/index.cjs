@@ -27,6 +27,7 @@ const verificationRoutes = require("./routes/verification.cjs");
 const categoryRoutes = require("./routes/categories.cjs");
 const aiRoutes = require("./routes/ai.cjs");
 const walletRoutes = require("./routes/wallet.cjs");
+const uploadRoutes = require("./routes/upload.cjs");
 
 const allowedOrigins = [
   process.env.FRONTEND_URL || "http://localhost:5173",
@@ -73,6 +74,8 @@ app.use("/api/verification", verificationRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/wallet", walletRoutes);
+app.use("/api/upload", uploadRoutes);
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 io.on("connection", (socket) => {
   const token = socket.handshake.auth?.token;
@@ -120,6 +123,14 @@ io.on("connection", (socket) => {
         const otherUserId = chat.user1_id === userId ? chat.user2_id : chat.user1_id;
         io.to(`user_${otherUserId}`).emit("new_message_notification", {
           chatId, message, from: userId
+        });
+
+        const senderName = message.sender_name || "Foydalanuvchi";
+        const preview = text.length > 60 ? `${text.slice(0, 60)}...` : text;
+        db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'message', ?, ?, '/chat')`)
+          .run(otherUserId, `${senderName} xabar yozdi`, preview);
+        io.to(`user_${otherUserId}`).emit("notification", {
+          type: "message", title: `${senderName} xabar yozdi`, description: preview
         });
       }
     });

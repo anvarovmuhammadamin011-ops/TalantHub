@@ -19,6 +19,7 @@ function parseVacancy(v) {
     conditions: JSON.parse(v.conditions),
     responsibilities: JSON.parse(v.responsibilities || "[]"),
     screening_questions: JSON.parse(v.screening_questions || "[]"),
+    directions: JSON.parse(v.directions || "[]"),
   };
 }
 
@@ -112,7 +113,7 @@ router.post("/", authMiddleware, (req, res) => {
     const {
       title, company, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions,
       employment_type, schedule, gender, responsibilities, salary_details, day_off,
-      english_level, openings_count, contact_method, screening_questions, salary_type, save_as,
+      english_level, openings_count, contact_method, screening_questions, salary_type, save_as, directions,
     } = req.body;
 
     if (!title || !company) {
@@ -125,9 +126,9 @@ router.post("/", authMiddleware, (req, res) => {
       INSERT INTO vacancies (
         title, company, company_logo, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions, employer_id, status,
         employment_type, schedule, gender, responsibilities, salary_details, day_off,
-        english_level, openings_count, contact_method, screening_questions, salary_type
+        english_level, openings_count, contact_method, screening_questions, salary_type, directions
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -152,7 +153,8 @@ router.post("/", authMiddleware, (req, res) => {
       openings_count || 1,
       contact_method || "Platforma orqali",
       JSON.stringify(screening_questions || []),
-      salary_type || "Kelishiladi"
+      salary_type || "Kelishiladi",
+      JSON.stringify(directions || [])
     );
 
     const vacancy = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(result.lastInsertRowid);
@@ -174,9 +176,9 @@ router.post("/:id/duplicate", authMiddleware, (req, res) => {
       INSERT INTO vacancies (
         title, company, company_logo, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions, employer_id, status,
         employment_type, schedule, gender, responsibilities, salary_details, day_off,
-        english_level, openings_count, contact_method, screening_questions, salary_type
+        english_level, openings_count, contact_method, screening_questions, salary_type, directions
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Qoralama', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Qoralama', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       `${source.title} (nusxa)`, source.company, source.company_logo,
       source.location, source.salary, source.salary_min, source.salary_max,
@@ -185,7 +187,7 @@ router.post("/:id/duplicate", authMiddleware, (req, res) => {
       source.employment_type, source.schedule, source.gender, source.responsibilities,
       source.salary_details, source.day_off,
       source.english_level, source.openings_count, source.contact_method,
-      source.screening_questions, source.salary_type
+      source.screening_questions, source.salary_type, source.directions
     );
 
     const vacancy = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(result.lastInsertRowid);
@@ -221,7 +223,7 @@ router.patch("/:id", authMiddleware, (req, res) => {
     const {
       title, company, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions, status,
       employment_type, schedule, gender, responsibilities, salary_details, day_off,
-      english_level, openings_count, contact_method, screening_questions, salary_type, save_as,
+      english_level, openings_count, contact_method, screening_questions, salary_type, save_as, directions,
     } = req.body;
 
     // Employers may only ever pause/resume/archive an already-moderated vacancy directly —
@@ -270,7 +272,8 @@ router.patch("/:id", authMiddleware, (req, res) => {
         openings_count = COALESCE(?, openings_count),
         contact_method = COALESCE(?, contact_method),
         screening_questions = COALESCE(?, screening_questions),
-        salary_type = COALESCE(?, salary_type)
+        salary_type = COALESCE(?, salary_type),
+        directions = COALESCE(?, directions)
       WHERE id = ?
     `).run(
       title || null, company || null, location || null, salary || null,
@@ -292,6 +295,7 @@ router.patch("/:id", authMiddleware, (req, res) => {
       contact_method || null,
       screening_questions ? JSON.stringify(screening_questions) : null,
       salary_type || null,
+      directions ? JSON.stringify(directions) : null,
       req.params.id
     );
 

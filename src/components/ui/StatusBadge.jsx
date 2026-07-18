@@ -14,7 +14,7 @@ const statusTone = {
   "Rad etildi": "danger",
   Yangi: "accent",
   Faol: "success",
-  Kutilmoqda: "accent",
+  Kutilmoqda: "warning",
   "Tuzatish kerak": "danger",
   Nofaol: "neutral",
   Qoralama: "neutral",
@@ -26,6 +26,7 @@ const toneClasses = {
   accent: { badge: "bg-accent-soft text-accent border border-accent/10", dot: "bg-accent" },
   success: { badge: "bg-success-soft text-success border border-success/10", dot: "bg-success" },
   danger: { badge: "bg-danger-soft text-danger border border-danger/10", dot: "bg-danger" },
+  warning: { badge: "bg-[#FEF3C7] text-[#B45309] border border-[#B45309]/10", dot: "bg-[#B45309]" },
 };
 
 export default function StatusBadge({ status }) {

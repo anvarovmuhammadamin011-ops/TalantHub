@@ -18,6 +18,7 @@ function toSafeUser(row) {
   safe.certificates = JSON.parse(safe.certificates || "[]");
   safe.timeline = JSON.parse(safe.timeline || "[]");
   try { safe.roles = JSON.parse(safe.roles || "[]"); } catch { safe.roles = [safe.role]; }
+  try { safe.notification_prefs = JSON.parse(safe.notification_prefs || "{}"); } catch { safe.notification_prefs = {}; }
   return safe;
 }
 
@@ -178,14 +179,20 @@ router.post("/logout", authMiddleware, (req, res) => {
 });
 
 const EDITABLE_FIELDS = [
-  "bio", "phone", "city", "avatar", "experience", "experience_level",
+  "name", "bio", "phone", "city", "avatar", "experience", "experience_level",
   "salary", "hourly_price", "social_telegram", "social_instagram", "social_github",
+  "company_name", "company_logo", "industry", "employee_count", "company_description",
+  "website", "social_linkedin", "address",
 ];
-const EDITABLE_JSON_FIELDS = ["skills", "certificates", "timeline"];
+const EDITABLE_JSON_FIELDS = ["skills", "certificates", "timeline", "notification_prefs"];
 const PROFILE_EDIT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 router.patch("/me", authMiddleware, (req, res) => {
   try {
+    if (req.body.name !== undefined && !req.body.name.trim()) {
+      return res.status(400).json({ error: "Ism bo'sh bo'lishi mumkin emas" });
+    }
+
     const touchesProfileFields = EDITABLE_FIELDS.some((key) => req.body[key] !== undefined);
 
     if (touchesProfileFields) {
@@ -230,6 +237,36 @@ router.patch("/me", authMiddleware, (req, res) => {
     res.json({ user: toSafeUser(user) });
   } catch (err) {
     console.error("Update profile error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.post("/change-password", authMiddleware, (req, res) => {
+  try {
+    const { old_password, new_password } = req.body;
+    if (!old_password || !new_password) {
+      return res.status(400).json({ error: "Eski va yangi parol majburiy" });
+    }
+    if (new_password.length < 8) {
+      return res.status(400).json({ error: "Yangi parol kamida 8 belgidan iborat bo'lishi kerak" });
+    }
+
+    const user = db.prepare("SELECT password FROM users WHERE id = ?").get(req.userId);
+    if (!user || !bcrypt.compareSync(old_password, user.password)) {
+      return res.status(401).json({ error: "Eski parol noto'g'ri" });
+    }
+
+    const hashed = bcrypt.hashSync(new_password, 10);
+    db.prepare("UPDATE users SET password = ?, token_version = token_version + 1 WHERE id = ?").run(hashed, req.userId);
+
+    // Bumping token_version invalidates the token that authenticated this very request, so
+    // issue a fresh one (matching the new version) in the response — otherwise the client
+    // would be logged out by its own password-change request.
+    const updated = db.prepare("SELECT email, token_version FROM users WHERE id = ?").get(req.userId);
+    const token = jwt.sign({ id: req.userId, email: updated.email, tokenVersion: updated.token_version }, JWT_SECRET, { expiresIn: "7d" });
+    res.json({ success: true, token });
+  } catch (err) {
+    console.error("Change password error:", err);
     res.status(500).json({ error: "Server xatoligi" });
   }
 });
