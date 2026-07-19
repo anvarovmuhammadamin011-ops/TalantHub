@@ -1,6 +1,7 @@
 const express = require("express");
 const db = require("../db.cjs");
 const { authMiddleware, optionalAuthMiddleware } = require("../middleware/auth.cjs");
+const { notifySavedSearches } = require("../lib/savedSearchAgent.cjs");
 
 const router = express.Router();
 
@@ -207,6 +208,10 @@ router.post("/", authMiddleware, (req, res) => {
     );
 
     const vacancy = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(result.lastInsertRowid);
+
+    if (vacancy.status === "Faol") {
+      notifySavedSearches(vacancy, req.app.get("io"));
+    }
 
     res.json({ vacancy: parseVacancy(vacancy) });
   } catch (err) {

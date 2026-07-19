@@ -486,6 +486,29 @@ db.exec(`
     FOREIGN KEY (vacancy_id) REFERENCES vacancies(id),
     UNIQUE (user_id, vacancy_id)
   );
+
+  CREATE TABLE IF NOT EXISTS saved_searches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    name TEXT DEFAULT '',
+    query TEXT DEFAULT '',
+    category TEXT DEFAULT '',
+    location TEXT DEFAULT '',
+    format TEXT DEFAULT '',
+    experience TEXT DEFAULT '',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS saved_search_matches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    saved_search_id INTEGER NOT NULL,
+    vacancy_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (saved_search_id) REFERENCES saved_searches(id),
+    FOREIGN KEY (vacancy_id) REFERENCES vacancies(id),
+    UNIQUE (saved_search_id, vacancy_id)
+  );
 `);
 
 const insertSetting = db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)");

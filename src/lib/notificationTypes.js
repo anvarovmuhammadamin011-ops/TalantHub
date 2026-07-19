@@ -9,6 +9,7 @@ export const notificationTypeIcons = {
   vacancy: Briefcase,
   verification: ShieldCheck,
   info: CheckCircle,
+  search_agent: Bell,
 };
 
 export const notificationTypeColors = {
@@ -20,6 +21,7 @@ export const notificationTypeColors = {
   vacancy: "text-accent bg-accent-soft",
   verification: "text-success bg-success-soft",
   info: "text-ink-3 bg-surface",
+  search_agent: "text-accent bg-accent-soft",
 };
 
 export function getNotificationIcon(type) {

@@ -2,6 +2,7 @@ const express = require("express");
 const db = require("../db.cjs");
 const { authMiddleware } = require("../middleware/auth.cjs");
 const { requireAdmin, requireSection, DEFAULT_SECTION_ROLES, RBAC_SETTINGS_KEY, getSectionRoles } = require("../middleware/requireAdmin.cjs");
+const { notifySavedSearches } = require("../lib/savedSearchAgent.cjs");
 
 const router = express.Router();
 
@@ -311,6 +312,10 @@ router.patch("/vacancies/:id/status", authMiddleware, requireAdmin, requireSecti
     `).run(status, status === "Tuzatish kerak" ? (reject_reason || "") : "", req.userId, req.params.id);
 
     logAdmin(req.userId, "vacancy_status", "vacancy", req.params.id, `status=${status}`);
+
+    if (status === "Faol" && vacancy.status !== "Faol") {
+      notifySavedSearches({ ...vacancy, status }, req.app.get("io"));
+    }
 
     if (vacancy.employer_id) {
       const title = status === "Faol" ? "Vakansiya tasdiqlandi"

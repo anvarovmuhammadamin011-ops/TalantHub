@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Search, SlidersHorizontal, MapPin, Heart, Clock, X, Code2, Server, Smartphone, Sparkles, Languages, Calculator, GraduationCap, LayoutGrid } from "lucide-react";
+import { Search, SlidersHorizontal, MapPin, Heart, Clock, X, Code2, Server, Smartphone, Sparkles, Languages, Calculator, GraduationCap, LayoutGrid, Bell, BellRing } from "lucide-react";
 import { api } from "../lib/api";
 import { timeAgo, computeMatch } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
@@ -35,6 +35,7 @@ export default function Vacancies() {
   const [vacancies, setVacancies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savedIds, setSavedIds] = useState(new Set());
+  const [alertState, setAlertState] = useState("idle"); // idle | saving | saved
 
   const cities = ["Toshkent", "Samarqand", "Buxoro", "Farg'ona", "Namangan", "Xiva", "Qo'qon"];
 
@@ -98,6 +99,31 @@ export default function Vacancies() {
         isSaved ? next.add(vacancyId) : next.delete(vacancyId);
         return next;
       });
+    }
+  };
+
+  const hasActiveSearch = !!(search || filters.category || filters.city || filters.format[0] || filters.experience[0]);
+
+  const createAlert = async () => {
+    if (alertState === "saving" || !hasActiveSearch) return;
+    setAlertState("saving");
+    try {
+      await api("/saved-searches", {
+        method: "POST",
+        body: {
+          name: search || filters.subcategory || "Qidiruv",
+          query: search,
+          category: filters.category,
+          location: filters.city,
+          format: filters.format[0] || "",
+          experience: filters.experience[0] || "",
+        },
+      });
+      setAlertState("saved");
+      setTimeout(() => setAlertState("idle"), 2500);
+    } catch (err) {
+      console.error(err);
+      setAlertState("idle");
     }
   };
 
@@ -267,6 +293,19 @@ export default function Vacancies() {
           <SlidersHorizontal className="w-4 h-4" />
           <span className="hidden sm:inline">Filtrlar</span>
         </button>
+        {user?.role === "specialist" && hasActiveSearch && (
+          <button
+            onClick={createAlert}
+            disabled={alertState === "saving"}
+            title="Ushbu qidiruv bo'yicha yangi vakansiyalar chiqqanda xabar berish"
+            className={`flex items-center gap-2 px-4 py-3 rounded-lg border font-medium text-sm transition-colors flex-shrink-0 ${
+              alertState === "saved" ? "bg-success-soft text-success border-success/10" : "bg-white border-border text-ink-2 hover:border-ink/30"
+            }`}
+          >
+            {alertState === "saved" ? <BellRing className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+            <span className="hidden sm:inline">{alertState === "saved" ? "Ogohlantirish yaratildi" : "Ogohlantirish yarat"}</span>
+          </button>
+        )}
       </div>
 
       {/* Popular categories */}
