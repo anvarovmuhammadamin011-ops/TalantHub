@@ -432,6 +432,18 @@ try {
 try {
   db.exec(`ALTER TABLE users ADD COLUMN notification_prefs TEXT DEFAULT '{"new_application":true,"vacancy_status":true,"messages":true}'`);
 } catch (e) {}
+// verification_requests predates these columns on some existing databases (the table was
+// created before institution/specialty/year were added to the schema, so CREATE TABLE IF NOT
+// EXISTS silently skipped them) — backfill explicitly, the same way every other migration here does.
+try {
+  db.exec(`ALTER TABLE verification_requests ADD COLUMN institution TEXT DEFAULT ''`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE verification_requests ADD COLUMN specialty TEXT DEFAULT ''`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE verification_requests ADD COLUMN year INTEGER DEFAULT 0`);
+} catch (e) {}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS verification_requests (

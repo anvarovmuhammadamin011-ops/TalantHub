@@ -15,10 +15,7 @@ export default function Navbar() {
   const isAdmin = user?.role === "admin";
 
   const navLinks = isAdmin
-    ? [
-        { to: "/admin", label: "Admin panel", icon: Shield },
-        { to: "/chat", label: t("nav.chat"), icon: MessageSquare },
-      ]
+    ? [{ to: "/admin", label: "Admin panel", icon: Shield }]
     : [
         { to: "/vacancies", label: t("nav.vacancies"), icon: Briefcase },
         { to: "/specialists", label: "Mutaxassislar", icon: Users },
