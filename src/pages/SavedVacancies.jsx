@@ -6,6 +6,7 @@ import { timeAgo, computeMatch } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
 import MatchIndicator from "../components/ui/MatchIndicator";
 import StatusBadge from "../components/ui/StatusBadge";
+import { VacancyCardSkeletonList } from "../components/ui/Skeleton";
 
 function describeSearch(s) {
   const parts = [s.query, s.category, s.location, s.format, s.experience].filter(Boolean);
@@ -87,9 +88,7 @@ export default function SavedVacancies() {
         </button>
       </div>
 
-      {loading && (
-        <div className="text-center py-20 text-ink-3 text-sm">Yuklanmoqda...</div>
-      )}
+      {loading && <VacancyCardSkeletonList count={3} />}
 
       {!loading && tab === "jobs" && vacancies.length === 0 && (
         <div className="text-center py-20">

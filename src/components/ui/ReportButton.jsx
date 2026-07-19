@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Flag } from "lucide-react";
 import { api } from "../../lib/api";
+import { useToast } from "../../context/ToastContext";
 
 export default function ReportButton({ targetType, targetId, className, label = "Shikoyat qilish" }) {
   const [sending, setSending] = useState(false);
+  const showToast = useToast();
 
   const submitReport = async () => {
     const reason = prompt("Shikoyat sababini kiriting:");
@@ -11,9 +13,9 @@ export default function ReportButton({ targetType, targetId, className, label = 
     setSending(true);
     try {
       await api("/reports", { method: "POST", body: { target_type: targetType, target_id: targetId, reason: reason.trim() } });
-      alert("Shikoyatingiz qabul qilindi. Administrator tez orada ko'rib chiqadi.");
+      showToast("Shikoyatingiz qabul qilindi. Administrator tez orada ko'rib chiqadi.", "success");
     } catch (err) {
-      alert(err.message || "Xatolik yuz berdi");
+      showToast(err.message || "Xatolik yuz berdi", "error");
     } finally {
       setSending(false);
     }

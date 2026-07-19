@@ -4,6 +4,7 @@ import { ArrowLeft, MapPin, Clock, Star, CheckCircle, XCircle, Building, Briefca
 import { api } from "../lib/api";
 import { timeAgo, computeMatch, formatSalary } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import MatchIndicator from "../components/ui/MatchIndicator";
 import StatusBadge from "../components/ui/StatusBadge";
 import ReportButton from "../components/ui/ReportButton";
@@ -12,6 +13,7 @@ export default function VacancyDetail() {
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const showToast = useToast();
   const [vacancy, setVacancy] = useState(null);
   const [similar, setSimilar] = useState([]);
   const [marketSalary, setMarketSalary] = useState(null);
@@ -74,6 +76,7 @@ export default function VacancyDetail() {
       await api(`/vacancies/${id}/save`, { method: next ? "POST" : "DELETE" });
     } catch (err) {
       console.error(err);
+      showToast("Saqlashda xatolik yuz berdi", "error");
       setSaved(!next);
     }
   };

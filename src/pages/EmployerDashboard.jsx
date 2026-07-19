@@ -1,25 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Briefcase, Users, Package, TrendingUp, Plus, Clock, MessageSquare, Trash2, Edit3, Eye, EyeOff, Copy, Archive } from "lucide-react";
+import { Briefcase, Users, Package, TrendingUp, Plus, Trash2, Edit3, Eye, EyeOff, Copy, Archive } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import StatusBadge from "../components/ui/StatusBadge";
 import MatchIndicator from "../components/ui/MatchIndicator";
-import VerificationPanel from "../components/ui/VerificationPanel";
-
-const weekdays = ["Yak", "Dush", "Sesh", "Chor", "Pay", "Jum", "Shan"];
-
-function groupByWeekday(items) {
-  const counts = new Array(7).fill(0);
-  const now = Date.now();
-  for (const item of items) {
-    const t = new Date(item.created_at + "Z").getTime();
-    if (now - t > 7 * 86400000) continue;
-    counts[new Date(item.created_at + "Z").getDay()] += 1;
-  }
-  return weekdays.map((day, i) => ({ day, count: counts[i] }));
-}
 
 export default function EmployerDashboard() {
   const { user } = useAuth();
@@ -106,7 +91,6 @@ export default function EmployerDashboard() {
     { label: "Intervyular", value: interviewCount, icon: TrendingUp, color: "text-amber-600", bg: "bg-amber-100" },
   ];
 
-  const applicationsChartData = groupByWeekday(applications);
   const recentApplications = applications.slice(0, 6);
 
   return (
@@ -121,10 +105,6 @@ export default function EmployerDashboard() {
         </Link>
       </div>
 
-      <div className="max-w-md mb-6">
-        <VerificationPanel />
-      </div>
-
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {statsCards.map((stat) => (
           <div key={stat.label} className="bg-white rounded-xl border border-border p-5 hover:shadow-sm transition-shadow">
@@ -137,40 +117,6 @@ export default function EmployerDashboard() {
             <div className="text-sm text-ink-3 mt-1">{stat.label}</div>
           </div>
         ))}
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-4 mb-6">
-        <div className="lg:col-span-2 bg-white rounded-xl border border-border p-5">
-          <h3 className="font-semibold text-ink text-sm mb-4">Arizalar (so'nggi 7 kun)</h3>
-          <div className="h-44">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={applicationsChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#94A3B8" }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#94A3B8" }} allowDecimals={false} />
-                <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #E2E8F0", fontSize: 12 }} />
-                <Bar dataKey="count" fill="#10B981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-border p-5">
-          <h3 className="font-semibold text-ink text-sm mb-4">Tezkor harakatlar</h3>
-          <div className="space-y-2">
-            <Link to="/applications" className="flex items-center gap-3 p-3 rounded-lg bg-surface hover:bg-border/50 transition-colors">
-              <MessageSquare className="w-4 h-4 text-primary" strokeWidth={1.75} />
-              <span className="text-sm text-ink-2">{applications.length} ta ariza</span>
-            </Link>
-            <Link to="/applications" className="flex items-center gap-3 p-3 rounded-lg bg-surface hover:bg-border/50 transition-colors">
-              <Clock className="w-4 h-4 text-amber-600" strokeWidth={1.75} />
-              <span className="text-sm text-ink-2">{interviewCount} ta intervyu</span>
-            </Link>
-            <Link to="/orders" className="flex items-center gap-3 p-3 rounded-lg bg-surface hover:bg-border/50 transition-colors">
-              <Package className="w-4 h-4 text-accent" strokeWidth={1.75} />
-              <span className="text-sm text-ink-2">{activeOrders} ta faol buyurtma</span>
-            </Link>
-          </div>
-        </div>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">

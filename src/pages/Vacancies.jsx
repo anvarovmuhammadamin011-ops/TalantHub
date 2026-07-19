@@ -4,8 +4,10 @@ import { Search, SlidersHorizontal, MapPin, Heart, Clock, X, Code2, Server, Smar
 import { api } from "../lib/api";
 import { timeAgo, computeMatch } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import MatchIndicator from "../components/ui/MatchIndicator";
 import StatusBadge from "../components/ui/StatusBadge";
+import { VacancyCardSkeletonList } from "../components/ui/Skeleton";
 
 const SALARY_MIN = 0;
 const SALARY_MAX = 20_000_000;
@@ -19,6 +21,7 @@ function formatSalaryShort(n) {
 
 export default function Vacancies() {
   const { user } = useAuth();
+  const showToast = useToast();
   const [searchParams] = useSearchParams();
   const isTeacher = user?.role === "specialist" && (user?.category === "Ta'lim" || (user?.fields || []).includes("Ta'lim"));
   const [search, setSearch] = useState(searchParams.get("search") || "");
@@ -94,6 +97,7 @@ export default function Vacancies() {
       await api(`/vacancies/${vacancyId}/save`, { method: isSaved ? "DELETE" : "POST" });
     } catch (err) {
       console.error(err);
+      showToast("Saqlashda xatolik yuz berdi", "error");
       setSavedIds((prev) => {
         const next = new Set(prev);
         isSaved ? next.add(vacancyId) : next.delete(vacancyId);
@@ -120,9 +124,11 @@ export default function Vacancies() {
         },
       });
       setAlertState("saved");
+      showToast("Qidiruv agenti yaratildi — mos vakansiya chiqqanda xabar beramiz", "success");
       setTimeout(() => setAlertState("idle"), 2500);
     } catch (err) {
       console.error(err);
+      showToast(err.message || "Ogohlantirish yaratishda xatolik", "error");
       setAlertState("idle");
     }
   };
@@ -355,9 +361,7 @@ export default function Vacancies() {
 
         {/* Vacancy cards */}
         <div className="flex-1 space-y-3">
-          {loading && (
-            <div className="text-center py-20 text-ink-3 text-sm">Yuklanmoqda...</div>
-          )}
+          {loading && <VacancyCardSkeletonList count={4} />}
 
           {!loading && filtered.map((v) => (
             <div key={v.id} className="bg-white rounded-xl border border-border p-6 hover:border-ink/20 transition-colors">
