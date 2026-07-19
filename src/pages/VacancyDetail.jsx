@@ -22,7 +22,12 @@ export default function VacancyDetail() {
   const [error, setError] = useState("");
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [resumeUrl, setResumeUrl] = useState("");
+  const [coverLetter, setCoverLetter] = useState("");
   const [answers, setAnswers] = useState({});
+  const [appliedVacancyIds, setAppliedVacancyIds] = useState(new Set());
+  const [selectedSimilar, setSelectedSimilar] = useState(new Set());
+  const [bulkApplying, setBulkApplying] = useState(false);
+  const [bulkResult, setBulkResult] = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -35,6 +40,7 @@ export default function VacancyDetail() {
         setVacancy(vacancy);
         setSaved(!!vacancy.is_saved);
         setApplied(applications.some((a) => String(a.vacancy_id) === String(id)));
+        setAppliedVacancyIds(new Set(applications.map((a) => Number(a.vacancy_id))));
 
         if (vacancy?.category) {
           const { vacancies: sameCategory } = await api(`/vacancies?category=${encodeURIComponent(vacancy.category)}`).catch(() => ({ vacancies: [] }));
@@ -90,8 +96,9 @@ export default function VacancyDetail() {
       const screening_answers = (vacancy.screening_questions || []).map((question) => ({
         question, answer: (answers[question] || "").trim(),
       }));
-      await api("/applications", { method: "POST", body: { vacancy_id: Number(id), resume_url: resumeUrl.trim(), screening_answers } });
+      await api("/applications", { method: "POST", body: { vacancy_id: Number(id), resume_url: resumeUrl.trim(), cover_letter: coverLetter.trim(), screening_answers } });
       setApplied(true);
+      setAppliedVacancyIds((prev) => new Set(prev).add(Number(id)));
       setShowApplyModal(false);
     } catch (err) {
       if (err.status === 401) {
@@ -100,6 +107,7 @@ export default function VacancyDetail() {
       }
       if (err.status === 409) {
         setApplied(true);
+        setAppliedVacancyIds((prev) => new Set(prev).add(Number(id)));
         setShowApplyModal(false);
       } else {
         setError(err.message || "Xatolik yuz berdi");
@@ -107,6 +115,32 @@ export default function VacancyDetail() {
     } finally {
       setApplying(false);
     }
+  };
+
+  const toggleSimilarSelection = (vacancyId) => {
+    setSelectedSimilar((prev) => {
+      const next = new Set(prev);
+      next.has(vacancyId) ? next.delete(vacancyId) : next.add(vacancyId);
+      return next;
+    });
+  };
+
+  const bulkApply = async () => {
+    if (bulkApplying || selectedSimilar.size === 0) return;
+    setBulkApplying(true);
+    let successCount = 0;
+    for (const vacancyId of selectedSimilar) {
+      try {
+        await api("/applications", { method: "POST", body: { vacancy_id: vacancyId, resume_url: resumeUrl.trim(), cover_letter: coverLetter.trim(), screening_answers: [] } });
+        successCount++;
+      } catch (err) {
+        if (err.status === 409) successCount++;
+      }
+    }
+    setAppliedVacancyIds((prev) => new Set([...prev, ...selectedSimilar]));
+    setSelectedSimilar(new Set());
+    setBulkResult(successCount);
+    setBulkApplying(false);
   };
 
   if (loading) {
@@ -265,21 +299,51 @@ export default function VacancyDetail() {
           {/* Similar vacancies */}
           {similar.length > 0 && (
             <div className="bg-white rounded-xl border border-border p-6">
-              <h2 className="text-base font-semibold text-ink mb-4">O'xshash vakansiyalar</h2>
+              <h2 className="text-base font-semibold text-ink mb-1">O'xshash vakansiyalar</h2>
+              {applied && (
+                <p className="text-xs text-ink-3 mb-3">
+                  {bulkResult !== null
+                    ? `${bulkResult} ta vakansiyaga shu CV bilan ariza yuborildi.`
+                    : "Xohlasangiz, shu CV bilan quyidagilarga ham tezkor ariza yuboring."}
+                </p>
+              )}
               <div className="space-y-1">
-                {similar.map((v) => (
-                  <Link key={v.id} to={`/vacancies/${v.id}`} className="flex items-center gap-3 p-3 -mx-3 rounded-lg hover:bg-surface transition-colors">
-                    <div className="w-10 h-10 bg-surface rounded-lg flex items-center justify-center text-lg flex-shrink-0">
-                      {v.company_logo || "🏢"}
+                {similar.map((v) => {
+                  const alreadyApplied = appliedVacancyIds.has(v.id);
+                  return (
+                    <div key={v.id} className="flex items-center gap-3 p-3 -mx-3 rounded-lg hover:bg-surface transition-colors">
+                      {applied && !alreadyApplied && (
+                        <input
+                          type="checkbox"
+                          checked={selectedSimilar.has(v.id)}
+                          onChange={() => toggleSimilarSelection(v.id)}
+                          className="w-4 h-4 rounded border-border accent-ink cursor-pointer flex-shrink-0"
+                        />
+                      )}
+                      <Link to={`/vacancies/${v.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-10 h-10 bg-surface rounded-lg flex items-center justify-center text-lg flex-shrink-0">
+                          {v.company_logo || "🏢"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-ink text-sm truncate">{v.title}</div>
+                          <div className="text-xs text-ink-3">{v.company} · {v.location}</div>
+                        </div>
+                        <div className="text-xs font-semibold text-ink whitespace-nowrap">{v.salary}</div>
+                      </Link>
+                      {alreadyApplied && <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-ink text-sm truncate">{v.title}</div>
-                      <div className="text-xs text-ink-3">{v.company} · {v.location}</div>
-                    </div>
-                    <div className="text-xs font-semibold text-ink whitespace-nowrap">{v.salary}</div>
-                  </Link>
-                ))}
+                  );
+                })}
               </div>
+              {applied && selectedSimilar.size > 0 && (
+                <button
+                  onClick={bulkApply}
+                  disabled={bulkApplying}
+                  className="w-full mt-4 py-2.5 bg-ink text-white rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  <Send className="w-4 h-4" /> {bulkApplying ? "Yuborilmoqda..." : `Tanlangan ${selectedSimilar.size} taga ariza yuborish`}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -431,6 +495,17 @@ export default function VacancyDetail() {
               />
             </div>
             <p className="text-xs text-ink-3 mb-5">Havola qo'shsangiz, ish beruvchi CV'ingizni to'g'ridan-to'g'ri ko'ra oladi.</p>
+
+            <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-2">
+              Xat (ixtiyoriy)
+            </label>
+            <textarea
+              rows={3}
+              placeholder="Nega aynan siz bu lavozimga mos ekanligingizni qisqacha yozing..."
+              value={coverLetter}
+              onChange={(e) => setCoverLetter(e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors bg-white text-sm resize-none mb-5"
+            />
 
             {(vacancy.screening_questions || []).length > 0 && (
               <div className="space-y-3 mb-5">

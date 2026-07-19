@@ -137,6 +137,10 @@ export default function VacancyApplicants() {
                       </select>
                     </div>
 
+                    {!!app.cover_letter && (
+                      <p className="mt-2 text-sm text-ink-2 bg-surface rounded-lg p-3 leading-relaxed">{app.cover_letter}</p>
+                    )}
+
                     {hasAnswers && (
                       <div className="mt-2">
                         <button onClick={() => setExpandedId(expandedId === app.id ? null : app.id)}

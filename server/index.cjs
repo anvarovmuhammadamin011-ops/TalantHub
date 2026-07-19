@@ -3,6 +3,7 @@ require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 const passport = require("passport");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -11,6 +12,7 @@ const jwt = require("jsonwebtoken");
 const db = require("./db.cjs");
 const seed = require("./seed.cjs");
 const { JWT_SECRET } = require("./middleware/auth.cjs");
+const { rateLimit } = require("./middleware/rateLimit.cjs");
 
 const authRoutes = require("./routes/auth.cjs");
 const vacancyRoutes = require("./routes/vacancies.cjs");
@@ -50,16 +52,20 @@ const io = new Server(server, { cors: { origin: allowedOrigins } });
 
 app.set("io", io);
 
+app.use(helmet({
+  // This server also serves the built SPA (see the static/fallback block below) and the
+  // frontend can be hosted on a different origin (Vercel) that needs to load /uploads
+  // images — a default CSP or same-origin resource policy would break both.
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  frameguard: { action: "deny" },
+  referrerPolicy: { policy: "no-referrer" },
+}));
 app.use(cors({ origin: corsOriginCheck }));
 app.use(express.json({ limit: "1mb" }));
 app.use(passport.initialize());
 
-app.use((req, res, next) => {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("Referrer-Policy", "no-referrer");
-  next();
-});
+app.use("/api", rateLimit({ windowMs: 15 * 60 * 1000, max: 300 }));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/vacancies", vacancyRoutes);

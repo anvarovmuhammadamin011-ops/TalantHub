@@ -333,6 +333,9 @@ try {
 try {
   db.exec(`ALTER TABLE vacancies ADD COLUMN start_date TEXT DEFAULT ''`);
 } catch (e) {}
+try {
+  db.exec(`ALTER TABLE applications ADD COLUMN cover_letter TEXT DEFAULT ''`);
+} catch (e) {}
 
 try {
   db.exec(`ALTER TABLE content_flags ADD COLUMN reporter_id INTEGER`);

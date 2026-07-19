@@ -2,7 +2,10 @@ const buckets = new Map();
 
 function rateLimit({ windowMs, max }) {
   return (req, res, next) => {
-    const key = req.ip + ":" + req.path;
+    // Collapse numeric path segments (/vacancies/123, /vacancies/456, ...) into one bucket per
+    // route shape — otherwise a request hitting many different ids never gets rate-limited.
+    const normalizedPath = req.path.replace(/\/\d+(?=\/|$)/g, "/:id");
+    const key = req.ip + ":" + normalizedPath;
     const now = Date.now();
     const bucket = buckets.get(key);
 

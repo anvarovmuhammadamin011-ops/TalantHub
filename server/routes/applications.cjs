@@ -1,6 +1,8 @@
 const express = require("express");
 const db = require("../db.cjs");
 const { authMiddleware } = require("../middleware/auth.cjs");
+const { validateBody } = require("../middleware/validate.cjs");
+const { applicationCreateSchema } = require("../schemas.cjs");
 
 const router = express.Router();
 
@@ -95,14 +97,14 @@ router.get("/vacancy/:vacancyId", authMiddleware, (req, res) => {
   }
 });
 
-router.post("/", authMiddleware, (req, res) => {
+router.post("/", authMiddleware, validateBody(applicationCreateSchema), (req, res) => {
   try {
     const requester = db.prepare("SELECT role FROM users WHERE id = ?").get(req.userId);
     if (!requester || requester.role !== "specialist") {
       return res.status(403).json({ error: "Faqat mutaxassislar ariza yubora oladi" });
     }
 
-    const { vacancy_id, resume_url, screening_answers } = req.body;
+    const { vacancy_id, resume_url, screening_answers, cover_letter } = req.body;
     if (!vacancy_id) return res.status(400).json({ error: "Vakansiya ID kerak" });
 
     const existing = db.prepare("SELECT id FROM applications WHERE vacancy_id = ? AND user_id = ?").get(vacancy_id, req.userId);
@@ -116,8 +118,8 @@ router.post("/", authMiddleware, (req, res) => {
     try { vacancyTags = JSON.parse(vacancy?.tags || "[]"); } catch { vacancyTags = []; }
     const matchPercent = computeMatch(specialistSkills, vacancyTags);
 
-    const result = db.prepare("INSERT INTO applications (vacancy_id, user_id, status, match_percent, resume_url, screening_answers) VALUES (?, ?, ?, ?, ?, ?)").run(
-      vacancy_id, req.userId, "Yuborildi", matchPercent, resume_url || "", JSON.stringify(screening_answers || [])
+    const result = db.prepare("INSERT INTO applications (vacancy_id, user_id, status, match_percent, resume_url, screening_answers, cover_letter) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+      vacancy_id, req.userId, "Yuborildi", matchPercent, resume_url || "", JSON.stringify(screening_answers || []), cover_letter || ""
     );
 
     const application = db.prepare(`

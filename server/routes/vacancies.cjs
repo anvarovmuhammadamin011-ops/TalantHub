@@ -2,6 +2,8 @@ const express = require("express");
 const db = require("../db.cjs");
 const { authMiddleware, optionalAuthMiddleware } = require("../middleware/auth.cjs");
 const { notifySavedSearches } = require("../lib/savedSearchAgent.cjs");
+const { validateBody } = require("../middleware/validate.cjs");
+const { vacancyCreateSchema } = require("../schemas.cjs");
 
 const router = express.Router();
 
@@ -153,7 +155,7 @@ router.get("/:id", optionalAuthMiddleware, (req, res) => {
   }
 });
 
-router.post("/", authMiddleware, (req, res) => {
+router.post("/", authMiddleware, validateBody(vacancyCreateSchema), (req, res) => {
   try {
     const requester = db.prepare("SELECT role FROM users WHERE id = ?").get(req.userId);
     if (!requester || requester.role !== "employer") {

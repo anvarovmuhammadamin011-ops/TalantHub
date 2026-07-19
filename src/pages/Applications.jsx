@@ -200,17 +200,23 @@ export default function Applications() {
                           </button>
                           {app.specialist_phone && <span className="text-[11px] text-ink-3">{app.specialist_phone}</span>}
                           {app.specialist_telegram && <span className="text-[11px] text-ink-3">@{app.specialist_telegram.replace(/^@/, "")}</span>}
-                          {app.screening_answers?.length > 0 && (
+                          {(app.screening_answers?.length > 0 || app.cover_letter) && (
                             <button onClick={() => setExpandedId(expandedId === app.id ? null : app.id)}
                               className="inline-flex items-center gap-1 text-[11px] text-ink-2 hover:text-ink font-medium">
-                              <ChevronDown className={`w-3 h-3 transition-transform ${expandedId === app.id ? "rotate-180" : ""}`} /> Javoblar
+                              <ChevronDown className={`w-3 h-3 transition-transform ${expandedId === app.id ? "rotate-180" : ""}`} /> Batafsil
                             </button>
                           )}
                         </div>
                       )}
-                      {isEmployer && expandedId === app.id && app.screening_answers?.length > 0 && (
+                      {isEmployer && expandedId === app.id && (app.screening_answers?.length > 0 || app.cover_letter) && (
                         <div className="space-y-2 mb-3 bg-surface rounded-lg p-3">
-                          {app.screening_answers.map((qa, i) => (
+                          {!!app.cover_letter && (
+                            <div>
+                              <div className="text-[11px] font-medium text-ink-3">Xat</div>
+                              <div className="text-xs text-ink-2 mt-0.5">{app.cover_letter}</div>
+                            </div>
+                          )}
+                          {app.screening_answers?.map((qa, i) => (
                             <div key={i}>
                               <div className="text-[11px] font-medium text-ink-3">{qa.question}</div>
                               <div className="text-xs text-ink-2 mt-0.5">{qa.answer || "Javob berilmagan"}</div>
