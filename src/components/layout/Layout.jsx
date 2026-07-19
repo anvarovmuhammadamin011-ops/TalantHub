@@ -4,6 +4,7 @@ import MobileNav from "./MobileNav";
 import Navbar from "./Navbar";
 import RoleSwitcher from "../ui/RoleSwitcher";
 import LanguageSwitcher from "../ui/LanguageSwitcher";
+import OnboardingWizard from "../ui/OnboardingWizard";
 import { useAuth } from "../../context/AuthContext";
 import { useT } from "../../context/I18nContext";
 
@@ -27,6 +28,7 @@ export default function Layout() {
         <Outlet />
       </main>
       <MobileNav />
+      <OnboardingWizard />
     </div>
   );
 }

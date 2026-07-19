@@ -241,6 +241,20 @@ router.patch("/me", authMiddleware, (req, res) => {
   }
 });
 
+// Marks the post-registration onboarding wizard as done. Deliberately separate from PATCH /me —
+// it doesn't touch profile_updated_at, so finishing onboarding never eats into the 24h profile
+// edit cooldown the wizard itself just used to save skills/bio/etc.
+router.post("/onboarding/complete", authMiddleware, (req, res) => {
+  try {
+    db.prepare("UPDATE users SET onboarding_completed = 1 WHERE id = ?").run(req.userId);
+    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
+    res.json({ user: toSafeUser(user) });
+  } catch (err) {
+    console.error("Onboarding complete error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
 router.post("/change-password", authMiddleware, (req, res) => {
   try {
     const { old_password, new_password } = req.body;

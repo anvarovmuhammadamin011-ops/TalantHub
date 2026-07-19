@@ -325,6 +325,13 @@ db.prepare("UPDATE orders SET priority = 'O''rta' WHERE priority = 'Orta'").run(
 db.prepare("UPDATE content_flags SET severity = 'O''rta' WHERE severity = 'Orta'").run();
 
 try {
+  db.exec(`ALTER TABLE users ADD COLUMN onboarding_completed INTEGER DEFAULT 0`);
+  // The post-registration onboarding wizard is a new flow — retroactively marking every
+  // pre-existing account as completed keeps it from popping up for already-active users.
+  db.exec(`UPDATE users SET onboarding_completed = 1`);
+} catch (e) {}
+
+try {
   db.exec(`ALTER TABLE content_flags ADD COLUMN reporter_id INTEGER`);
 } catch (e) {}
 try {

@@ -62,12 +62,17 @@ export default function SpecialistProfile() {
   const certificates = user.certificates || [];
   const timeline = user.timeline || [];
 
-  const filledFlags = [
-    !!user.bio, timeline.length > 0, skills.length > 0, certificates.length > 0,
-    !!user.hourly_price, !!user.salary, !!(user.social_telegram || user.social_instagram || user.social_github),
-    !!user.avatar,
+  const completionChecklist = [
+    { done: !!user.avatar, label: "Profil rasmi qo'shing", tab: "about" },
+    { done: !!user.bio, label: "O'zingiz haqingizda yozing", tab: "about" },
+    { done: skills.length > 0, label: "Ko'nikmalar qo'shing", tab: "skills" },
+    { done: timeline.length > 0, label: "Ish tajribangizni qo'shing", tab: "experience" },
+    { done: certificates.length > 0, label: "Sertifikat qo'shing", tab: "about" },
+    { done: !!(user.hourly_price || user.salary), label: "Maosh kutilmalarini kiriting", tab: "about" },
+    { done: !!(user.social_telegram || user.social_instagram || user.social_github), label: "Ijtimoiy tarmoq havolasi qo'shing", tab: "about" },
   ];
-  const profileCompletion = Math.round((filledFlags.filter(Boolean).length / filledFlags.length) * 100);
+  const profileCompletion = Math.round((completionChecklist.filter((c) => c.done).length / completionChecklist.length) * 100);
+  const missingItems = completionChecklist.filter((c) => !c.done);
 
   const initials = user.name.split(" ").map((n) => n[0]).join("").slice(0, 2);
 
@@ -438,9 +443,26 @@ export default function SpecialistProfile() {
               <h3 className="font-semibold text-ink text-xs sm:text-sm">Profil to'ldirilganligi</h3>
               <span className="text-xs sm:text-sm font-bold text-ink flex-shrink-0">{profileCompletion}%</span>
             </div>
-            <div className="w-full h-2 bg-surface rounded-full overflow-hidden">
+            <div className="w-full h-2 bg-surface rounded-full overflow-hidden mb-1">
               <div className="h-full bg-gradient-to-r from-ink to-accent rounded-full transition-all" style={{ width: `${profileCompletion}%` }} />
             </div>
+            {missingItems.length > 0 ? (
+              <div className="mt-3 space-y-1.5">
+                <p className="text-[11px] text-ink-3 mb-2">Moslik foizini oshirish uchun to'ldiring:</p>
+                {missingItems.slice(0, 4).map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => setActiveTab(item.tab)}
+                    className="w-full flex items-center gap-2 text-left text-xs text-ink-2 hover:text-ink py-1 transition-colors"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-border flex-shrink-0" />
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-success mt-3 flex items-center gap-1"><Award className="w-3 h-3" /> Profilingiz to'liq!</p>
+            )}
           </div>
 
           <VerificationPanel />
