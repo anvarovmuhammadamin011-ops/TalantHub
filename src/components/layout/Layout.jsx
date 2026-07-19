@@ -5,6 +5,7 @@ import Navbar from "./Navbar";
 import RoleSwitcher from "../ui/RoleSwitcher";
 import LanguageSwitcher from "../ui/LanguageSwitcher";
 import OnboardingWizard from "../ui/OnboardingWizard";
+import InstallPrompt from "../ui/InstallPrompt";
 import { useAuth } from "../../context/AuthContext";
 import { useT } from "../../context/I18nContext";
 
@@ -29,6 +30,7 @@ export default function Layout() {
       </main>
       <MobileNav />
       <OnboardingWizard />
+      <InstallPrompt />
     </div>
   );
 }
