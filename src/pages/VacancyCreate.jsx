@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Plus, X, Save, Briefcase, Eye } from "lucide-react";
 import { api } from "../lib/api";
 import VacancyPreviewModal from "../components/ui/VacancyPreviewModal";
+import { REGIONS, REGION_NAMES } from "../lib/uzbekistanRegions";
 
 const categories = ["IT", "Ta'lim"];
 const itDirections = [
@@ -22,7 +23,7 @@ const techStackGroups = {
 };
 const formats = ["Ofis", "Masofaviy", "Gibrid"];
 const experienceLevels = ["Junior", "Middle", "Senior", "Expert"];
-const employmentTypes = ["To'liq stavka", "Yarim stavka", "Amaliyot", "Loyihaviy"];
+const employmentTypes = ["To'liq stavka", "Yarim stavka", "Soatbay", "Amaliyot", "Loyihaviy"];
 const genderOptions = ["Farqi yo'q", "Erkaklar", "Ayollar"];
 const scheduleOptions = ["5/2", "6/1", "2/2", "Erkin grafik"];
 const weekdays = ["Yakshanba", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"];
@@ -50,6 +51,7 @@ const emptyForm = {
   english_level: "",
   openings_count: "1",
   contact_method: "Platforma orqali",
+  start_date: "",
 };
 
 const inputClass = "w-full px-4 py-2.5 rounded-lg border border-border text-sm focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-colors";
@@ -80,6 +82,8 @@ export default function VacancyCreate() {
   const [newCond, setNewCond] = useState("");
   const [screeningQuestions, setScreeningQuestions] = useState([]);
   const [newQuestion, setNewQuestion] = useState("");
+  const [region, setRegion] = useState("Toshkent shahri");
+  const [district, setDistrict] = useState("");
 
   useEffect(() => {
     api("/categories?type=skill").then((d) => setTeacherSubjects(d.categories.map((c) => c.name))).catch(() => {});
@@ -97,7 +101,15 @@ export default function VacancyCreate() {
         schedule: v.schedule, gender: v.gender, salary_details: v.salary_details,
         day_off: v.day_off, english_level: v.english_level || "",
         openings_count: String(v.openings_count || 1), contact_method: v.contact_method || "Platforma orqali",
+        start_date: v.start_date || "",
       });
+      const [maybeDistrict, maybeRegion] = (v.location || "").split(",").map((s) => s.trim());
+      if (maybeRegion && REGION_NAMES.includes(maybeRegion)) {
+        setRegion(maybeRegion);
+        if (REGIONS[maybeRegion]?.includes(maybeDistrict)) setDistrict(maybeDistrict);
+      } else if (maybeDistrict && REGION_NAMES.includes(maybeDistrict)) {
+        setRegion(maybeDistrict);
+      }
       setDirections(v.directions || []);
       setTags(v.tags || []);
       setRequirements(v.requirements || []);
@@ -256,11 +268,28 @@ export default function VacancyCreate() {
               </div>
             </div>
             <div>
-              <label className={labelClass}>Shahar</label>
-              <input value={form.location} onChange={(e) => update("location", e.target.value)}
-                placeholder="Toshkent"
-                className={inputClass} />
+              <label className={labelClass}>Viloyat</label>
+              <select value={region} onChange={(e) => {
+                const nextRegion = e.target.value;
+                setRegion(nextRegion);
+                setDistrict("");
+                update("location", nextRegion);
+              }} className={inputClass + " bg-white"}>
+                {REGION_NAMES.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
             </div>
+          </div>
+
+          <div>
+            <label className={labelClass}>Tuman / shahar</label>
+            <select value={district} onChange={(e) => {
+              const nextDistrict = e.target.value;
+              setDistrict(nextDistrict);
+              update("location", nextDistrict ? `${nextDistrict}, ${region}` : region);
+            }} className={inputClass + " bg-white"}>
+              <option value="">Tanlanmagan</option>
+              {(REGIONS[region] || []).map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
           </div>
 
           <div>
@@ -406,6 +435,11 @@ export default function VacancyCreate() {
                 className={inputClass + " bg-white"}>
                 {weekdays.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
+            </div>
+            <div>
+              <label className={labelClass}>Ish boshlanish sanasi</label>
+              <input type="date" value={form.start_date} onChange={(e) => update("start_date", e.target.value)}
+                className={inputClass} />
             </div>
           </div>
         </div>

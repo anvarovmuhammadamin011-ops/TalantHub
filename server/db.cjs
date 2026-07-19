@@ -330,6 +330,9 @@ try {
   // pre-existing account as completed keeps it from popping up for already-active users.
   db.exec(`UPDATE users SET onboarding_completed = 1`);
 } catch (e) {}
+try {
+  db.exec(`ALTER TABLE vacancies ADD COLUMN start_date TEXT DEFAULT ''`);
+} catch (e) {}
 
 try {
   db.exec(`ALTER TABLE content_flags ADD COLUMN reporter_id INTEGER`);

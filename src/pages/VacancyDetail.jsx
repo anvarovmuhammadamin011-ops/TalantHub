@@ -200,8 +200,11 @@ export default function VacancyDetail() {
           </div>
         </div>
 
-        {!!vacancy.day_off && (
-          <div className="mt-3 text-xs text-ink-3">Dam olish kuni: <span className="text-ink-2 font-medium">{vacancy.day_off}</span></div>
+        {(!!vacancy.day_off || !!vacancy.start_date) && (
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-3">
+            {!!vacancy.day_off && <span>Dam olish kuni: <span className="text-ink-2 font-medium">{vacancy.day_off}</span></span>}
+            {!!vacancy.start_date && <span>Ish boshlanishi: <span className="text-ink-2 font-medium">{new Date(vacancy.start_date).toLocaleDateString("uz-UZ")}</span></span>}
+          </div>
         )}
       </div>
 

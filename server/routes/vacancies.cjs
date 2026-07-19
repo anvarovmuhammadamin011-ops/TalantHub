@@ -163,7 +163,7 @@ router.post("/", authMiddleware, (req, res) => {
     const {
       title, company, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions,
       employment_type, schedule, gender, responsibilities, salary_details, day_off,
-      english_level, openings_count, contact_method, screening_questions, salary_type, save_as, directions,
+      english_level, openings_count, contact_method, screening_questions, salary_type, save_as, directions, start_date,
     } = req.body;
 
     if (!title || !company) {
@@ -176,9 +176,9 @@ router.post("/", authMiddleware, (req, res) => {
       INSERT INTO vacancies (
         title, company, company_logo, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions, employer_id, status,
         employment_type, schedule, gender, responsibilities, salary_details, day_off,
-        english_level, openings_count, contact_method, screening_questions, salary_type, directions
+        english_level, openings_count, contact_method, screening_questions, salary_type, directions, start_date
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -204,7 +204,8 @@ router.post("/", authMiddleware, (req, res) => {
       contact_method || "Platforma orqali",
       JSON.stringify(screening_questions || []),
       salary_type || "Kelishiladi",
-      JSON.stringify(directions || [])
+      JSON.stringify(directions || []),
+      start_date || ""
     );
 
     const vacancy = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(result.lastInsertRowid);
@@ -230,9 +231,9 @@ router.post("/:id/duplicate", authMiddleware, (req, res) => {
       INSERT INTO vacancies (
         title, company, company_logo, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions, employer_id, status,
         employment_type, schedule, gender, responsibilities, salary_details, day_off,
-        english_level, openings_count, contact_method, screening_questions, salary_type, directions
+        english_level, openings_count, contact_method, screening_questions, salary_type, directions, start_date
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Qoralama', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Qoralama', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       `${source.title} (nusxa)`, source.company, source.company_logo,
       source.location, source.salary, source.salary_min, source.salary_max,
@@ -241,7 +242,7 @@ router.post("/:id/duplicate", authMiddleware, (req, res) => {
       source.employment_type, source.schedule, source.gender, source.responsibilities,
       source.salary_details, source.day_off,
       source.english_level, source.openings_count, source.contact_method,
-      source.screening_questions, source.salary_type, source.directions
+      source.screening_questions, source.salary_type, source.directions, source.start_date
     );
 
     const vacancy = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(result.lastInsertRowid);
@@ -277,7 +278,7 @@ router.patch("/:id", authMiddleware, (req, res) => {
     const {
       title, company, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions, status,
       employment_type, schedule, gender, responsibilities, salary_details, day_off,
-      english_level, openings_count, contact_method, screening_questions, salary_type, save_as, directions,
+      english_level, openings_count, contact_method, screening_questions, salary_type, save_as, directions, start_date,
     } = req.body;
 
     // Employers may only ever pause/resume/archive an already-moderated vacancy directly —
@@ -327,7 +328,8 @@ router.patch("/:id", authMiddleware, (req, res) => {
         contact_method = COALESCE(?, contact_method),
         screening_questions = COALESCE(?, screening_questions),
         salary_type = COALESCE(?, salary_type),
-        directions = COALESCE(?, directions)
+        directions = COALESCE(?, directions),
+        start_date = COALESCE(?, start_date)
       WHERE id = ?
     `).run(
       title || null, company || null, location || null, salary || null,
@@ -350,6 +352,7 @@ router.patch("/:id", authMiddleware, (req, res) => {
       screening_questions ? JSON.stringify(screening_questions) : null,
       salary_type || null,
       directions ? JSON.stringify(directions) : null,
+      start_date !== undefined ? start_date : null,
       req.params.id
     );
 
