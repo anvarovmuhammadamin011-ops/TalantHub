@@ -522,7 +522,24 @@ db.exec(`
     FOREIGN KEY (vacancy_id) REFERENCES vacancies(id),
     UNIQUE (saved_search_id, vacancy_id)
   );
+
+  -- Minimal self-hosted pageview analytics — no third-party tracker, no cookies.
+  -- Registrations/applications/vacancy-views already have first-class counts
+  -- elsewhere (users, applications, vacancies.views); this only fills the gap:
+  -- overall traffic and which pages get visited.
+  CREATE TABLE IF NOT EXISTS analytics_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    path TEXT NOT NULL,
+    user_id INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_analytics_events_created_at ON analytics_events(created_at);
 `);
+
+// Raw pageview rows aren't kept forever — the aggregates that matter (signups, applications,
+// vacancy views) already live in their own tables, so this is disposable, high-volume data.
+db.prepare("DELETE FROM analytics_events WHERE created_at < datetime('now','-90 days')").run();
 
 const insertSetting = db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)");
 insertSetting.run("vacancy_moderation_mode", "pre");

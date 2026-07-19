@@ -111,11 +111,20 @@ router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), (req
       rate: applications_total > 0 ? Math.round((hired / applications_total) * 1000) / 10 : 0,
     };
 
+    const pageviews_7d = db.prepare("SELECT COUNT(*) as c FROM analytics_events WHERE created_at >= datetime('now','-7 days')").get().c;
+    const applications_7d = db.prepare("SELECT COUNT(*) as c FROM applications WHERE created_at >= datetime('now','-7 days')").get().c;
+    const top_pages = db.prepare(`
+      SELECT path, COUNT(*) as count FROM analytics_events
+      WHERE created_at >= datetime('now','-7 days')
+      GROUP BY path ORDER BY count DESC LIMIT 8
+    `).all();
+    const analytics = { pageviews_7d, applications_7d, new_users_7d, top_pages };
+
     res.json({
       users_total, specialists, employers, admins, vacancies_total, vacancies_active, vacancies_pending, vacancies_needs_fix,
       orders_total, orders_active, orders_completed,
       applications_total, messages_total, new_users_7d, verified_users, blocked_users, featured_users, signups_series, users_by_city,
-      vacancies_30d_series, top_directions, conversion,
+      vacancies_30d_series, top_directions, conversion, analytics,
     });
   } catch (err) {
     console.error("Admin stats error:", err);

@@ -141,6 +141,43 @@ export default function AdminStats() {
         </div>
       </div>
 
+      <div className="grid md:grid-cols-2 gap-4 mt-6">
+        <div className="bg-white rounded-xl border border-border shadow-sm p-5">
+          <h2 className="font-semibold text-ink text-sm mb-1">Trafik va konversiya (7 kun)</h2>
+          <p className="text-xs text-ink-3 mb-4">O'z serveringizda yozilgan, tashqi tracker ishlatilmagan</p>
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div>
+              <div className="text-xl font-semibold text-ink">{stats.analytics?.pageviews_7d ?? 0}</div>
+              <div className="text-[11px] text-ink-3 mt-0.5">sahifa ko'rish</div>
+            </div>
+            <div>
+              <div className="text-xl font-semibold text-ink">{stats.analytics?.new_users_7d ?? 0}</div>
+              <div className="text-[11px] text-ink-3 mt-0.5">ro'yxatdan o'tish</div>
+            </div>
+            <div>
+              <div className="text-xl font-semibold text-ink">{stats.analytics?.applications_7d ?? 0}</div>
+              <div className="text-[11px] text-ink-3 mt-0.5">ariza</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-border shadow-sm p-5">
+          <h2 className="font-semibold text-ink text-sm mb-4">Eng ko'p ko'rilgan sahifalar</h2>
+          {(stats.analytics?.top_pages || []).length === 0 ? (
+            <p className="text-sm text-ink-3">Ma'lumot yo'q</p>
+          ) : (
+            <div className="space-y-2">
+              {stats.analytics.top_pages.map((p) => (
+                <div key={p.path} className="flex items-center justify-between text-xs">
+                  <span className="text-ink-2 font-medium truncate">{p.path}</span>
+                  <span className="text-ink-3 flex-shrink-0 ml-2">{p.count}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="bg-white rounded-xl border border-border shadow-sm p-5 mt-6">
         <h2 className="font-semibold text-ink text-sm mb-1">Eksport</h2>
         <p className="text-xs text-ink-3 mb-4">Ma'lumotlarni CSV formatida yuklab oling (Excel'da ochish mumkin).</p>

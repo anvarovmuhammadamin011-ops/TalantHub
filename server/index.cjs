@@ -1,6 +1,13 @@
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
+// Must be initialized before other imports so Sentry's auto-instrumentation can hook in.
+// No-ops entirely (no network calls, no overhead) when SENTRY_DSN isn't set.
+const Sentry = require("@sentry/node");
+if (process.env.SENTRY_DSN) {
+  Sentry.init({ dsn: process.env.SENTRY_DSN, tracesSampleRate: 0.1 });
+}
+
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -32,6 +39,7 @@ const walletRoutes = require("./routes/wallet.cjs");
 const uploadRoutes = require("./routes/upload.cjs");
 const savedSearchRoutes = require("./routes/savedSearches.cjs");
 const companyRoutes = require("./routes/companies.cjs");
+const analyticsRoutes = require("./routes/analytics.cjs");
 
 const allowedOrigins = [
   process.env.FRONTEND_URL || "http://localhost:5173",
@@ -85,6 +93,12 @@ app.use("/api/wallet", walletRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/saved-searches", savedSearchRoutes);
 app.use("/api/companies", companyRoutes);
+app.use("/api/analytics", analyticsRoutes);
+
+if (process.env.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app);
+}
+
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 io.on("connection", (socket) => {
