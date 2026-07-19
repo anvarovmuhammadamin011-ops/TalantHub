@@ -277,7 +277,7 @@ export default function Home() {
                           <StatusBadge status={o.status} />
                           {o.priority && (
                             <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                              o.priority === "Yuqori" ? "bg-red-50 text-red-500" : o.priority === "Orta" ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"
+                              o.priority === "Yuqori" ? "bg-red-50 text-red-500" : o.priority === "O'rta" ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"
                             }`}>{o.priority}</span>
                           )}
                         </div>
@@ -346,7 +346,7 @@ export default function Home() {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-base font-semibold text-ink">Sizga mos ishlar</h2>
+                  <h2 className="text-base font-semibold text-ink">Sizga eng mos ishlar</h2>
                   {aiUsed && (
                     <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-accent/10 text-accent">
                       <Bot className="w-3 h-3" /> AI

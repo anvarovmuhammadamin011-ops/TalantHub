@@ -1,7 +1,7 @@
 export default function MatchIndicator({ percent, size = "md" }) {
   const getColor = (p) => {
-    if (p >= 80) return { stroke: "#6366F1", text: "text-accent" };
-    if (p >= 60) return { stroke: "#1F2430", text: "text-ink" };
+    if (p >= 80) return { stroke: "#15803D", text: "text-success" };
+    if (p >= 50) return { stroke: "#B45309", text: "text-[#B45309]" };
     return { stroke: "#9CA3AF", text: "text-ink-3" };
   };
 

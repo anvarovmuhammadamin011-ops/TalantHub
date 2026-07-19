@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Clock, Star, CheckCircle, XCircle, Building, Briefcase, Send, TrendingUp, Paperclip, X } from "lucide-react";
+import { ArrowLeft, MapPin, Clock, Star, CheckCircle, XCircle, Building, Briefcase, Send, TrendingUp, Paperclip, X, Heart } from "lucide-react";
 import { api } from "../lib/api";
 import { timeAgo, computeMatch, formatSalary } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
@@ -18,6 +18,7 @@ export default function VacancyDetail() {
   const [loading, setLoading] = useState(true);
   const [applied, setApplied] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [resumeUrl, setResumeUrl] = useState("");
@@ -32,6 +33,7 @@ export default function VacancyDetail() {
           api("/applications").catch(() => ({ applications: [] })),
         ]);
         setVacancy(vacancy);
+        setSaved(!!vacancy.is_saved);
         setApplied(applications.some((a) => String(a.vacancy_id) === String(id)));
 
         if (vacancy?.category) {
@@ -57,6 +59,18 @@ export default function VacancyDetail() {
     }
     load();
   }, [id]);
+
+  const toggleSave = async () => {
+    if (!user) { navigate("/login"); return; }
+    const next = !saved;
+    setSaved(next);
+    try {
+      await api(`/vacancies/${id}/save`, { method: next ? "POST" : "DELETE" });
+    } catch (err) {
+      console.error(err);
+      setSaved(!next);
+    }
+  };
 
   const openApplyModal = () => {
     if (applied || applying) return;
@@ -129,8 +143,19 @@ export default function VacancyDetail() {
                   <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {timeAgo(vacancy.created_at)}</span>
                 </div>
               </div>
-              <div className="hidden sm:block">
+              <div className="hidden sm:flex items-center gap-2">
                 <MatchIndicator percent={matchPercent} size="lg" />
+                {user?.role === "specialist" && (
+                  <button
+                    onClick={toggleSave}
+                    className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-colors ${
+                      saved ? "text-danger bg-danger-soft border-danger/10" : "text-ink-3 border-border hover:text-ink hover:bg-surface"
+                    }`}
+                    title={saved ? "Saqlangandan olib tashlash" : "Saqlash"}
+                  >
+                    <Heart className="w-[18px] h-[18px]" fill={saved ? "currentColor" : "none"} />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -149,8 +174,19 @@ export default function VacancyDetail() {
           </div>
         </div>
 
-        <div className="sm:hidden flex justify-center mt-6">
+        <div className="sm:hidden flex justify-center items-center gap-2 mt-6">
           <MatchIndicator percent={matchPercent} size="lg" />
+          {user?.role === "specialist" && (
+            <button
+              onClick={toggleSave}
+              className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-colors ${
+                saved ? "text-danger bg-danger-soft border-danger/10" : "text-ink-3 border-border hover:text-ink hover:bg-surface"
+              }`}
+              title={saved ? "Saqlangandan olib tashlash" : "Saqlash"}
+            >
+              <Heart className="w-[18px] h-[18px]" fill={saved ? "currentColor" : "none"} />
+            </button>
+          )}
         </div>
 
         <div className="mt-6 pt-6 border-t border-border-soft flex items-center justify-between">

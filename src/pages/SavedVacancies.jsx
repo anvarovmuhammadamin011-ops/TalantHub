@@ -1,0 +1,123 @@
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { MapPin, Clock, Heart } from "lucide-react";
+import { api } from "../lib/api";
+import { timeAgo, computeMatch } from "../lib/format";
+import { useAuth } from "../context/AuthContext";
+import MatchIndicator from "../components/ui/MatchIndicator";
+import StatusBadge from "../components/ui/StatusBadge";
+
+export default function SavedVacancies() {
+  const { user } = useAuth();
+  const [vacancies, setVacancies] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const data = await api("/vacancies/saved");
+      setVacancies(data.vacancies);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const unsave = async (e, vacancyId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setVacancies((prev) => prev.filter((v) => v.id !== vacancyId));
+    try {
+      await api(`/vacancies/${vacancyId}/save`, { method: "DELETE" });
+    } catch (err) {
+      console.error(err);
+      load();
+    }
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div className="mb-8">
+        <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight mb-1.5">Saqlangan ishlar</h1>
+        <p className="text-ink-3 text-sm">{vacancies.length} ta vakansiya saqlangan</p>
+      </div>
+
+      {loading && (
+        <div className="text-center py-20 text-ink-3 text-sm">Yuklanmoqda...</div>
+      )}
+
+      {!loading && vacancies.length === 0 && (
+        <div className="text-center py-20">
+          <div className="w-14 h-14 mx-auto flex items-center justify-center rounded-full bg-surface border border-border text-2xl mb-5">
+            <Heart className="w-6 h-6 text-ink-3" />
+          </div>
+          <h3 className="text-base font-semibold text-ink mb-1.5">Hali hech narsa saqlanmagan</h3>
+          <p className="text-ink-3 text-sm mb-5">Yoqqan vakansiyalarni yurak belgisi orqali saqlab qo'ying</p>
+          <Link to="/vacancies" className="inline-flex px-4 py-2.5 bg-ink text-white rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors">
+            Vakansiyalarni ko'rish
+          </Link>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {!loading && vacancies.map((v) => {
+          const matchPercent = computeMatch(user?.skills, v.tags);
+          return (
+            <Link key={v.id} to={`/vacancies/${v.id}`} className="block bg-white rounded-xl border border-border p-6 hover:border-ink/20 transition-colors">
+              <div className="flex items-start gap-4">
+                <div className="w-11 h-11 bg-surface rounded-lg flex items-center justify-center text-xl flex-shrink-0">
+                  {v.company_logo || "🏢"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-base font-semibold text-ink">{v.title}</div>
+                      <div className="flex items-center gap-1.5 mt-1 text-sm text-ink-3">
+                        <span>{v.company}</span>
+                        <span>·</span>
+                        <MapPin className="w-3.5 h-3.5" />
+                        <span>{v.location}</span>
+                      </div>
+                    </div>
+                    <MatchIndicator percent={matchPercent} />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+                    <StatusBadge status={v.experience} />
+                    <StatusBadge status={v.format} />
+                    {v.tags.slice(0, 3).map((tag) => (
+                      <span key={tag} className="px-2 py-1 bg-surface text-ink-2 rounded-full text-xs font-medium">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-border-soft">
+                    <div className="flex items-center gap-4">
+                      <span className="font-semibold text-ink text-sm">{v.salary}</span>
+                      <span className="text-xs text-ink-3 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" /> {timeAgo(v.created_at)}
+                      </span>
+                    </div>
+                    <button
+                      onClick={(e) => unsave(e, v.id)}
+                      className="w-9 h-9 flex items-center justify-center rounded-lg text-danger hover:bg-danger-soft transition-colors"
+                      title="Saqlangandan olib tashlash"
+                    >
+                      <Heart className="w-[18px] h-[18px]" fill="currentColor" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

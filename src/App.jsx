@@ -9,6 +9,7 @@ import Home from "./pages/Home";
 import EmployerHome from "./pages/EmployerHome";
 import Vacancies from "./pages/Vacancies";
 import VacancyDetail from "./pages/VacancyDetail";
+import SavedVacancies from "./pages/SavedVacancies";
 import SpecialistProfile from "./pages/SpecialistProfile";
 import EmployerProfile from "./pages/EmployerProfile";
 import SpecialistDetail from "./pages/SpecialistDetail";
@@ -70,6 +71,7 @@ export default function App() {
               <Route path="/vacancies/:id/edit" element={<VacancyCreate />} />
               <Route path="/vacancies/:id/applicants" element={<VacancyApplicants />} />
               <Route path="/vacancies/:id" element={<VacancyDetail />} />
+              <Route path="/saved" element={<SavedVacancies />} />
               <Route path="/specialists" element={<Specialists />} />
               <Route path="/specialists/:id" element={<SpecialistDetail />} />
               <Route path="/profile" element={<ProfileRoute />} />

@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Briefcase, Users, MessageSquare, BarChart3, LogOut, Package, LayoutDashboard, TrendingUp, Shield, Wallet as WalletIcon } from "lucide-react";
+import { Briefcase, Users, MessageSquare, BarChart3, LogOut, Package, LayoutDashboard, TrendingUp, Shield, Wallet as WalletIcon, Heart } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useT } from "../../context/I18nContext";
 import Notifications from "../ui/Notifications";
@@ -13,6 +13,7 @@ export default function Navbar() {
   const { t } = useT();
   const isEmployer = user?.role === "employer";
   const isAdmin = user?.role === "admin";
+  const isSpecialist = user?.role === "specialist";
 
   const navLinks = isAdmin
     ? [{ to: "/admin", label: "Admin panel", icon: Shield }]
@@ -56,6 +57,11 @@ export default function Navbar() {
             {isEmployer && (
               <Link to="/wallet" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-surface text-ink-2 border border-border hover:text-ink">
                 <WalletIcon className="w-3.5 h-3.5" /> {t("nav.wallet")}
+              </Link>
+            )}
+            {isSpecialist && (
+              <Link to="/saved" title="Saqlangan ishlar" className={`w-9 h-9 rounded-md flex items-center justify-center transition-colors ${location.pathname === "/saved" ? "text-ink bg-surface" : "text-ink-2 hover:bg-surface hover:text-ink"}`}>
+                <Heart className="w-[18px] h-[18px]" />
               </Link>
             )}
             <RoleSwitcher />

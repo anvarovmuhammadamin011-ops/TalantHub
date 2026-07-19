@@ -21,6 +21,12 @@ const statusTone = {
   Arxivlangan: "neutral",
 };
 
+// Display-only overrides — the underlying value (used in every status comparison across the
+// app) stays untouched; only what's shown to the user changes.
+const statusLabel = {
+  Interview: "Intervyu",
+};
+
 const toneClasses = {
   neutral: { badge: "bg-surface text-ink-2 border border-border", dot: "bg-ink-3" },
   accent: { badge: "bg-accent-soft text-accent border border-accent/10", dot: "bg-accent" },
@@ -35,7 +41,7 @@ export default function StatusBadge({ status }) {
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${tone.badge}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${tone.dot}`} />
-      {status}
+      {statusLabel[status] || status}
     </span>
   );
 }

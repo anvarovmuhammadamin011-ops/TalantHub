@@ -39,4 +39,19 @@ function authMiddleware(req, res, next) {
   }
 }
 
-module.exports = { authMiddleware, JWT_SECRET };
+function optionalAuthMiddleware(req, res, next) {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith("Bearer ")) return next();
+
+  const token = header.split(" ")[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = db.prepare("SELECT token_version FROM users WHERE id = ?").get(decoded.id);
+    if (user && (decoded.tokenVersion || 0) === (user.token_version || 0)) {
+      req.userId = decoded.id;
+    }
+  } catch {}
+  next();
+}
+
+module.exports = { authMiddleware, optionalAuthMiddleware, JWT_SECRET };

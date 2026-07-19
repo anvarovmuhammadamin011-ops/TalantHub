@@ -83,7 +83,7 @@ db.exec(`
     price TEXT DEFAULT '',
     deadline TEXT DEFAULT '',
     status TEXT DEFAULT 'Yangi',
-    priority TEXT DEFAULT 'Orta',
+    priority TEXT DEFAULT 'O''rta',
     rating INTEGER DEFAULT 0,
     review TEXT DEFAULT '',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -232,7 +232,7 @@ db.exec(`
     target_type TEXT NOT NULL,
     target_id INTEGER NOT NULL,
     reason TEXT DEFAULT '',
-    severity TEXT DEFAULT 'Orta',
+    severity TEXT DEFAULT 'O''rta',
     status TEXT DEFAULT 'Korib chiqilmoqda',
     auto_detected INTEGER DEFAULT 0,
     reviewed_by INTEGER,
@@ -316,6 +316,13 @@ defaultCategories.forEach(([group, name], i) => insertCategory.run(group, name, 
 
 // Retired joke placeholder category — remove any row already inserted by an older seed run.
 db.prepare("DELETE FROM categories WHERE group_name = 'IT' AND name = 'Vibecoder'").run();
+
+// The DEFAULT for these two columns used to be the misspelled "Orta" (missing the apostrophe
+// that's part of correct Uzbek spelling), while every actual form in the app always inserted
+// the correctly-spelled "O'rta" — so rows created via the default (no explicit value passed)
+// ended up with a different spelling than everything else. Backfill existing rows.
+db.prepare("UPDATE orders SET priority = 'O''rta' WHERE priority = 'Orta'").run();
+db.prepare("UPDATE content_flags SET severity = 'O''rta' WHERE severity = 'Orta'").run();
 
 try {
   db.exec(`ALTER TABLE content_flags ADD COLUMN reporter_id INTEGER`);
@@ -468,6 +475,16 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT DEFAULT ''
+  );
+
+  CREATE TABLE IF NOT EXISTS saved_vacancies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    vacancy_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (vacancy_id) REFERENCES vacancies(id),
+    UNIQUE (user_id, vacancy_id)
   );
 `);
 

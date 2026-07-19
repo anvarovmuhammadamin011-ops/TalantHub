@@ -180,8 +180,8 @@ function seed() {
     insertApp.run(5, 2, "Ko'rib chiqilmoqda", 82);
 
     insertOrder.run(7, 1, "TexnoLabs veb-sayti qayta ishlash", "React asosida yangi veb-sayt yaratish. 10 sahifa, responsive dizayn.", "3 500 000 so'm", "2026-08-01", "Jarayonda", "Yuqori");
-    insertOrder.run(7, 3, "CRM tizimi backend qismi", "Node.js + PostgreSQL asosida CRM tizimi API yaratish.", "5 000 000 so'm", "2026-08-15", "Qabul qilindi", "Orta");
-    insertOrder.run(7, 2, "Ingliz tili kursi — IELTS tayyorlov", "10 talabaga 3 oylik IELTS tayyorlov kursi o'tkazish.", "4 000 000 so'm", "2026-09-01", "Yangi", "Orta");
+    insertOrder.run(7, 3, "CRM tizimi backend qismi", "Node.js + PostgreSQL asosida CRM tizimi API yaratish.", "5 000 000 so'm", "2026-08-15", "Qabul qilindi", "O'rta");
+    insertOrder.run(7, 2, "Ingliz tili kursi — IELTS tayyorlov", "10 talabaga 3 oylik IELTS tayyorlov kursi o'tkazish.", "4 000 000 so'm", "2026-09-01", "Yangi", "O'rta");
     insertOrder.run(7, 5, "Mobil ilova UI/UX loyihasi", "Figma da mobil ilova uchun 20+ ekran loyihasi.", "2 800 000 so'm", "2026-07-25", "Tugatildi", "Past");
     insertOrder.run(7, 4, "Python skriptlar yozish", "Ma'lumotlar tahlili uchun Python skriptlar yaratish.", "1 500 000 so'm", "2026-07-20", "Jarayonda", "Yuqori");
 
@@ -268,7 +268,7 @@ function seed() {
     insertTrans.run("common.loading", "ru", "Загрузка...");
     insertTrans.run("common.loading", "en", "Loading...");
 
-    insertFlag.run("profile", 1, "Shubhali bio matni — spam kalit so'zlar", "Orta", "Ko'rib chiqilmoqda", 1);
+    insertFlag.run("profile", 1, "Shubhali bio matni — spam kalit so'zlar", "O'rta", "Ko'rib chiqilmoqda", 1);
     insertFlag.run("chat", 3, "Potentsial firibgarlik — shaxsiy ma'lumot so'rash", "Yuqori", "Ko'rib chiqilmoqda", 1);
     insertFlag.run("vacancy", 2, "Noto'g'ri narx — bozor ortiqcha", "Past", "Tasdiqlangan", 0);
   });

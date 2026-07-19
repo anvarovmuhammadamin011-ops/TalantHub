@@ -234,8 +234,7 @@ export default function EmployerDashboard() {
                         <span className="text-xs text-ink-3">{v.location}</span>
                         <span className="text-xs text-ink-3">·</span>
                         <span className="text-xs text-ink-3">{v.applications_count} ta ariza</span>
-                        <span className="text-xs text-ink-3">·</span>
-                        <span className="text-xs text-ink-3">{v.views || 0} ko'rish</span>
+                        {v.views > 0 && <><span className="text-xs text-ink-3">·</span><span className="text-xs text-ink-3">{v.views} ko'rish</span></>}
                       </div>
                       {v.status === "Tuzatish kerak" && v.reject_reason && (
                         <div className="text-xs text-red-500 mt-1">Sabab: {v.reject_reason}</div>

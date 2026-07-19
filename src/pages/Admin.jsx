@@ -561,7 +561,8 @@ export default function Admin() {
                         <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${v.status === "Faol" ? "bg-emerald-50 text-emerald-600" : v.status === "Kutilmoqda" ? "bg-amber-50 text-amber-600" : v.status === "Tuzatish kerak" ? "bg-red-50 text-red-600" : "bg-gray-100 text-gray-500"}`}>{v.status || "Faol"}</span>
                       </div>
                       <div className="flex items-center gap-3 mt-1 text-xs text-ink-3">
-                        <span>{v.company}</span><span>·</span><span>{v.author_name}</span><span>·</span><span>{v.applications_count} ta ariza</span><span>·</span><span>{v.views || 0} ko'rish</span>
+                        <span>{v.company}</span><span>·</span><span>{v.author_name}</span><span>·</span><span>{v.applications_count} ta ariza</span>
+                        {v.views > 0 && <><span>·</span><span>{v.views} ko'rish</span></>}
                       </div>
                       {v.status === "Tuzatish kerak" && v.reject_reason && (
                         <div className="text-xs text-red-500 mt-1">Sabab: {v.reject_reason}</div>
@@ -646,7 +647,7 @@ export default function Admin() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${f.severity === "Yuqori" ? "bg-red-50 text-red-600" : f.severity === "Orta" ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-blue-600"}`}>{f.severity}</span>
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${f.severity === "Yuqori" ? "bg-red-50 text-red-600" : f.severity === "O'rta" ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-blue-600"}`}>{f.severity}</span>
                         <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-ink/5 text-ink-2">{f.target_type} #{f.target_id}</span>
                         <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${f.status === "Tasdiqlangan" ? "bg-emerald-50 text-emerald-600" : f.status === "Rad etilgan" ? "bg-red-50 text-red-500" : "bg-amber-50 text-amber-600"}`}>{f.status}</span>
                         {f.auto_detected ? <span className="text-[10px] text-accent font-medium">AI aniqlagan</span> : null}

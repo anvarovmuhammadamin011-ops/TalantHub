@@ -34,6 +34,7 @@ export default function Vacancies() {
   });
   const [vacancies, setVacancies] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [savedIds, setSavedIds] = useState(new Set());
 
   const cities = ["Toshkent", "Samarqand", "Buxoro", "Farg'ona", "Namangan", "Xiva", "Qo'qon"];
 
@@ -70,10 +71,33 @@ export default function Vacancies() {
 
       const data = await api(`/vacancies?${params.toString()}`);
       setVacancies(data.vacancies);
+      setSavedIds(new Set(data.vacancies.filter((v) => v.is_saved).map((v) => v.id)));
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleSave = async (e, vacancyId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) return;
+    const isSaved = savedIds.has(vacancyId);
+    setSavedIds((prev) => {
+      const next = new Set(prev);
+      isSaved ? next.delete(vacancyId) : next.add(vacancyId);
+      return next;
+    });
+    try {
+      await api(`/vacancies/${vacancyId}/save`, { method: isSaved ? "DELETE" : "POST" });
+    } catch (err) {
+      console.error(err);
+      setSavedIds((prev) => {
+        const next = new Set(prev);
+        isSaved ? next.add(vacancyId) : next.delete(vacancyId);
+        return next;
+      });
     }
   };
 
@@ -203,16 +227,23 @@ export default function Vacancies() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="mb-8">
-        <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight mb-1.5">
-          {isTeacher ? "O'qituvchilar uchun ishlar" : "Vakansiyalar"}
-        </h1>
-        <p className="text-ink-3 text-sm">
-          {isTeacher
-            ? `${filtered.length} ta o'qituvchilik vakansiyasi topildi`
-            : `${filtered.length} ta vakansiya topildi`
-          }
-        </p>
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight mb-1.5">
+            {isTeacher ? "O'qituvchilar uchun ishlar" : "Vakansiyalar"}
+          </h1>
+          <p className="text-ink-3 text-sm">
+            {isTeacher
+              ? `${filtered.length} ta o'qituvchilik vakansiyasi topildi`
+              : `${filtered.length} ta vakansiya topildi`
+            }
+          </p>
+        </div>
+        {user?.role === "specialist" && (
+          <Link to="/saved" className="md:hidden flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-ink-2 text-xs font-medium hover:border-ink/30 hover:text-ink transition-colors">
+            <Heart className="w-3.5 h-3.5" /> Saqlangan
+          </Link>
+        )}
       </div>
 
       {/* Search */}
@@ -334,9 +365,17 @@ export default function Vacancies() {
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <button className="w-9 h-9 flex items-center justify-center rounded-lg text-ink-3 hover:text-ink hover:bg-surface transition-colors">
-                        <Heart className="w-[18px] h-[18px]" />
-                      </button>
+                      {user?.role === "specialist" && (
+                        <button
+                          onClick={(e) => toggleSave(e, v.id)}
+                          className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors ${
+                            savedIds.has(v.id) ? "text-danger hover:bg-danger-soft" : "text-ink-3 hover:text-ink hover:bg-surface"
+                          }`}
+                          title={savedIds.has(v.id) ? "Saqlangandan olib tashlash" : "Saqlash"}
+                        >
+                          <Heart className="w-[18px] h-[18px]" fill={savedIds.has(v.id) ? "currentColor" : "none"} />
+                        </button>
+                      )}
                       <Link
                         to={`/vacancies/${v.id}`}
                         className="px-4 py-2 bg-ink text-white rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors"

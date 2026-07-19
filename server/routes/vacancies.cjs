@@ -1,6 +1,6 @@
 const express = require("express");
 const db = require("../db.cjs");
-const { authMiddleware } = require("../middleware/auth.cjs");
+const { authMiddleware, optionalAuthMiddleware } = require("../middleware/auth.cjs");
 
 const router = express.Router();
 
@@ -23,7 +23,7 @@ function parseVacancy(v) {
   };
 }
 
-router.get("/", (req, res) => {
+router.get("/", optionalAuthMiddleware, (req, res) => {
   try {
     const { search, location, format, experience, category } = req.query;
 
@@ -59,10 +59,55 @@ router.get("/", (req, res) => {
     sql += ` ORDER BY v.created_at DESC`;
 
     const vacancies = db.prepare(sql).all(...params).map(parseVacancy);
+    const savedIds = req.userId
+      ? new Set(db.prepare("SELECT vacancy_id FROM saved_vacancies WHERE user_id = ?").all(req.userId).map((r) => r.vacancy_id))
+      : new Set();
+    vacancies.forEach((v) => { v.is_saved = savedIds.has(v.id); });
 
     res.json({ vacancies, total: vacancies.length });
   } catch (err) {
     console.error("Vacancies list error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.get("/saved", authMiddleware, (req, res) => {
+  try {
+    const vacancies = db.prepare(`
+      SELECT v.*, u.name as author_name, s.created_at as saved_at
+      FROM saved_vacancies s
+      JOIN vacancies v ON v.id = s.vacancy_id
+      LEFT JOIN users u ON v.employer_id = u.id
+      WHERE s.user_id = ?
+      ORDER BY s.created_at DESC
+    `).all(req.userId).map((v) => ({ ...parseVacancy(v), is_saved: true }));
+
+    res.json({ vacancies });
+  } catch (err) {
+    console.error("Saved vacancies error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.post("/:id/save", authMiddleware, (req, res) => {
+  try {
+    const vacancy = db.prepare("SELECT id FROM vacancies WHERE id = ?").get(req.params.id);
+    if (!vacancy) return res.status(404).json({ error: "Vakansiya topilmadi" });
+
+    db.prepare("INSERT OR IGNORE INTO saved_vacancies (user_id, vacancy_id) VALUES (?, ?)").run(req.userId, req.params.id);
+    res.json({ success: true, is_saved: true });
+  } catch (err) {
+    console.error("Vacancy save error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.delete("/:id/save", authMiddleware, (req, res) => {
+  try {
+    db.prepare("DELETE FROM saved_vacancies WHERE user_id = ? AND vacancy_id = ?").run(req.userId, req.params.id);
+    res.json({ success: true, is_saved: false });
+  } catch (err) {
+    console.error("Vacancy unsave error:", err);
     res.status(500).json({ error: "Server xatoligi" });
   }
 });
@@ -83,7 +128,7 @@ router.get("/mine", authMiddleware, (req, res) => {
   }
 });
 
-router.get("/:id", (req, res) => {
+router.get("/:id", optionalAuthMiddleware, (req, res) => {
   try {
     db.prepare("UPDATE vacancies SET views = views + 1 WHERE id = ?").run(req.params.id);
 
@@ -96,7 +141,11 @@ router.get("/:id", (req, res) => {
 
     if (!vacancy) return res.status(404).json({ error: "Vakansiya topilmadi" });
 
-    res.json({ vacancy: parseVacancy(vacancy) });
+    const isSaved = req.userId
+      ? !!db.prepare("SELECT 1 FROM saved_vacancies WHERE user_id = ? AND vacancy_id = ?").get(req.userId, req.params.id)
+      : false;
+
+    res.json({ vacancy: { ...parseVacancy(vacancy), is_saved: isSaved } });
   } catch (err) {
     console.error("Vacancy detail error:", err);
     res.status(500).json({ error: "Server xatoligi" });
