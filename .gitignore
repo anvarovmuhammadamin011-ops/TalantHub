@@ -21,6 +21,11 @@ server/.env
 server/.tg-*
 server/uploads/
 
+# Playwright E2E test output (npx playwright test)
+/test-results/
+/playwright-report/
+/blob-report/
+
 # Capacitor copies the web build in here on every sync — regenerate with
 # `npm run android:sync` instead of committing it
 android/app/src/main/assets/public
