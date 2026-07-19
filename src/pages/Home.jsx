@@ -163,7 +163,7 @@ export default function Home() {
 
       {/* Hero banner */}
       <Link
-        to="/ai-chat"
+        to="/chat?ai=1"
         className="block bg-gradient-to-br from-ink via-ink to-ink/80 rounded-2xl p-6 text-white relative overflow-hidden mb-6 hover:shadow-lg transition-shadow"
       >
         <div className="absolute right-0 top-0 w-40 h-40 bg-white/5 rounded-full -mr-16 -mt-16" />

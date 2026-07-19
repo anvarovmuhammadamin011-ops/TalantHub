@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Send, Sparkles, Bot, MapPin, Star, Briefcase } from "lucide-react";
-import { generateGreeting } from "../lib/aiSearch";
-import { api } from "../lib/api";
-import VerifiedBadge from "../components/ui/VerifiedBadge";
-import StatusBadge from "../components/ui/StatusBadge";
+import { Send, Bot, MapPin, Star, Briefcase } from "lucide-react";
+import { generateGreeting } from "../../lib/aiSearch";
+import { api } from "../../lib/api";
+import VerifiedBadge from "../ui/VerifiedBadge";
+import StatusBadge from "../ui/StatusBadge";
 
 const suggestions = [
   "React dasturchi kerak",
@@ -13,7 +13,7 @@ const suggestions = [
   "Senior Python developer, masofaviy",
 ];
 
-export default function AiChat() {
+export default function AiChatPanel() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -44,18 +44,8 @@ export default function AiChat() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col h-[calc(100dvh-128px)] md:h-[calc(100dvh-96px)]">
-      <div className="flex items-center gap-3 mb-4 pb-4 border-b border-border">
-        <div className="w-10 h-10 bg-ink rounded-xl flex items-center justify-center">
-          <Sparkles className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <h1 className="font-semibold text-ink text-sm">AI Kadrlar yordamchisi</h1>
-          <p className="text-xs text-ink-3">Qanday mutaxassis kerakligini yozing — men topib beraman</p>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto space-y-5 pb-4">
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex-1 overflow-y-auto space-y-5 p-4">
         {messages.map((msg) => (
           <div key={msg.id}>
             {msg.role === "user" ? (
@@ -64,17 +54,17 @@ export default function AiChat() {
               </div>
             ) : (
               <div className="flex gap-3">
-                <div className="w-8 h-8 bg-ink/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Bot className="w-4 h-4 text-ink" />
+                <div className="w-8 h-8 bg-accent-soft rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Bot className="w-4 h-4 text-accent" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-ink leading-relaxed whitespace-pre-line">{msg.text}</div>
                   {msg.specialists && msg.specialists.length > 0 && (
                     <div className="mt-4 space-y-3">
                       {msg.specialists.map((s) => (
-                        <Link key={s.id} to={`/specialists/${s.id}`} className="block bg-white rounded-xl border border-border p-4 hover:border-ink/20 hover:shadow-sm transition-all">
+                        <Link key={s.id} to={`/specialists/${s.id}`} className="block bg-white rounded-xl border border-border p-4 hover:border-accent/30 hover:shadow-sm transition-all">
                           <div className="flex items-start gap-3">
-                            <div className="w-12 h-12 bg-ink rounded-xl flex items-center justify-center flex-shrink-0">
+                            <div className="w-12 h-12 bg-accent rounded-xl flex items-center justify-center flex-shrink-0">
                               <span className="text-white font-semibold text-sm">{s.name.split(" ").map((n) => n[0]).join("")}</span>
                             </div>
                             <div className="flex-1 min-w-0">
@@ -110,7 +100,7 @@ export default function AiChat() {
         ))}
         {isTyping && (
           <div className="flex gap-3">
-            <div className="w-8 h-8 bg-ink/10 rounded-lg flex items-center justify-center flex-shrink-0"><Bot className="w-4 h-4 text-ink" /></div>
+            <div className="w-8 h-8 bg-accent-soft rounded-lg flex items-center justify-center flex-shrink-0"><Bot className="w-4 h-4 text-accent" /></div>
             <div className="bg-surface rounded-2xl rounded-bl-md px-4 py-3">
               <div className="flex gap-1.5">
                 <div className="w-2 h-2 bg-ink-3 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
@@ -124,21 +114,21 @@ export default function AiChat() {
       </div>
 
       {messages.length <= 1 && (
-        <div className="flex flex-wrap gap-2 mb-3">
+        <div className="flex flex-wrap gap-2 px-4 pb-3">
           {suggestions.map((s) => (
             <button key={s} onClick={() => handleSend(s)}
-              className="px-3 py-1.5 bg-surface border border-border rounded-full text-xs text-ink-2 hover:border-ink/30 hover:text-ink transition-colors">{s}</button>
+              className="px-3 py-1.5 bg-surface border border-border rounded-full text-xs text-ink-2 hover:border-accent/40 hover:text-ink transition-colors">{s}</button>
           ))}
         </div>
       )}
 
-      <div className="border-t border-border pt-4">
+      <div className="border-t border-border p-4">
         <div className="flex items-center gap-2">
           <input type="text" placeholder="Qanday mutaxassis kerak?" value={input} onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-            className="flex-1 px-4 py-3 bg-surface rounded-xl border border-border focus:border-ink/30 outline-none transition-colors text-sm" />
+            className="flex-1 px-4 py-2.5 bg-surface rounded-xl border border-border focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-colors text-sm" />
           <button onClick={() => handleSend()} disabled={!input.trim() || isTyping}
-            className="w-11 h-11 flex items-center justify-center rounded-xl bg-ink text-white hover:bg-ink/90 transition-colors disabled:opacity-40">
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-accent text-white hover:bg-accent-hover transition-colors disabled:opacity-40 flex-shrink-0">
             <Send className="w-[18px] h-[18px]" />
           </button>
         </div>

@@ -111,7 +111,10 @@ export default function Wallet() {
 
       {error && <div className="text-sm text-red-500 mb-4">{error}</div>}
 
-      <h2 className="font-semibold text-ink text-sm mb-4">Tariflar</h2>
+      <div className="mb-4">
+        <h2 className="font-semibold text-ink text-sm">Tariflar</h2>
+        <p className="text-xs text-ink-3 mt-0.5">Standart joylashtirish har doim bepul. Balans faqat vakansiyangizni ro'yxat boshida chiqarish (TOP) yoki alohida ajratib ko'rsatish (Premium) uchun kerak bo'ladi.</p>
+      </div>
       <div className="grid sm:grid-cols-3 gap-4 mb-10">
         {tariffs.map((t) => {
           const isActive = data.active_tariff?.tariff_id === t.id || data.active_tariff?.name === t.name;

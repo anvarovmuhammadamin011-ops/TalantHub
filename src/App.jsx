@@ -17,7 +17,6 @@ import Applications from "./pages/Applications";
 import Orders from "./pages/Orders";
 import EmployerDashboard from "./pages/EmployerDashboard";
 import Chat from "./pages/Chat";
-import AiChat from "./pages/AiChat";
 import Statistics from "./pages/Statistics";
 import VacancyCreate from "./pages/VacancyCreate";
 import Wallet from "./pages/Wallet";
@@ -77,7 +76,7 @@ export default function App() {
               <Route path="/wallet" element={<Wallet />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/chat" element={<Chat />} />
-              <Route path="/ai-chat" element={<AiChat />} />
+              <Route path="/ai-chat" element={<Navigate to="/chat?ai=1" replace />} />
               <Route path="/statistics" element={<Statistics />} />
               <Route element={<AdminRoute />}>
                 <Route path="/admin" element={<Admin />} />

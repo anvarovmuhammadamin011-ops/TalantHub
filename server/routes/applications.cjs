@@ -6,6 +6,15 @@ const router = express.Router();
 
 const APPLICATION_STATUSES = ["Yuborildi", "Ko'rib chiqilmoqda", "Interview", "Qabul qilindi", "Rad etildi"];
 
+// Mirrors src/lib/format.js's computeMatch — real skill/tag overlap, not a random or flat number.
+// Returns null (not a fake default) when there isn't enough data on either side to compare.
+function computeMatch(skills, tags) {
+  if (!skills?.length || !tags?.length) return null;
+  const lowerSkills = skills.map((s) => s.toLowerCase());
+  const overlap = tags.filter((t) => lowerSkills.some((s) => s.includes(t.toLowerCase()) || t.toLowerCase().includes(s)));
+  return Math.min(98, 55 + Math.round((overlap.length / tags.length) * 45));
+}
+
 router.get("/", authMiddleware, (req, res) => {
   try {
     const applications = db.prepare(`
@@ -99,7 +108,13 @@ router.post("/", authMiddleware, (req, res) => {
     const existing = db.prepare("SELECT id FROM applications WHERE vacancy_id = ? AND user_id = ?").get(vacancy_id, req.userId);
     if (existing) return res.status(409).json({ error: "Siz allaqachon ariza yuborgansiz" });
 
-    const matchPercent = Math.floor(60 + Math.random() * 35);
+    const specialist = db.prepare("SELECT skills FROM users WHERE id = ?").get(req.userId);
+    const vacancy = db.prepare("SELECT tags FROM vacancies WHERE id = ?").get(vacancy_id);
+    let specialistSkills = [];
+    let vacancyTags = [];
+    try { specialistSkills = JSON.parse(specialist?.skills || "[]"); } catch { specialistSkills = []; }
+    try { vacancyTags = JSON.parse(vacancy?.tags || "[]"); } catch { vacancyTags = []; }
+    const matchPercent = computeMatch(specialistSkills, vacancyTags);
 
     const result = db.prepare("INSERT INTO applications (vacancy_id, user_id, status, match_percent, resume_url, screening_answers) VALUES (?, ?, ?, ?, ?, ?)").run(
       vacancy_id, req.userId, "Yuborildi", matchPercent, resume_url || "", JSON.stringify(screening_answers || [])

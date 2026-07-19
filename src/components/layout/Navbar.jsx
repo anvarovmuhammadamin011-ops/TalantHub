@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Briefcase, Users, MessageSquare, BarChart3, LogOut, Sparkles, Package, LayoutDashboard, TrendingUp, Shield, Wallet as WalletIcon } from "lucide-react";
+import { Briefcase, Users, MessageSquare, BarChart3, LogOut, Package, LayoutDashboard, TrendingUp, Shield, Wallet as WalletIcon } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useT } from "../../context/I18nContext";
 import Notifications from "../ui/Notifications";
@@ -23,12 +23,8 @@ export default function Navbar() {
         { to: "/vacancies", label: t("nav.vacancies"), icon: Briefcase },
         { to: "/specialists", label: "Mutaxassislar", icon: Users },
         ...(isEmployer
-          ? [
-              { to: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard },
-              { to: "/ai-chat", label: "AI Chat", icon: Sparkles },
-            ]
+          ? [{ to: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard }]
           : [
-              { to: "/ai-chat", label: "AI Chat", icon: Sparkles },
               { to: "/applications", label: t("nav.applications"), icon: BarChart3 },
               { to: "/statistics", label: "Statistika", icon: TrendingUp },
             ]),

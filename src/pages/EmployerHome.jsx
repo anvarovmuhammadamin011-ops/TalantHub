@@ -271,7 +271,7 @@ export default function EmployerHome() {
           </div>
 
           {/* 7. AI Assistant Banner */}
-          <Link to="/ai-chat"
+          <Link to="/chat?ai=1"
             className="bg-gradient-to-br from-ink to-ink/70 rounded-xl p-5 text-white block hover:shadow-lg transition-shadow relative overflow-hidden">
             <div className="absolute right-0 top-0 w-24 h-24 bg-white/5 rounded-full -mr-8 -mt-8" />
             <div className="relative">

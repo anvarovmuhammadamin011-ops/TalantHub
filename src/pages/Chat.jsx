@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, Calendar, Search, MoreVertical, Phone, Video, ArrowLeft, CheckCheck, Flag } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { Send, Calendar, Search, MoreVertical, Phone, Video, ArrowLeft, CheckCheck, Flag, Sparkles } from "lucide-react";
 import { api } from "../lib/api";
 import { useSocket } from "../context/SocketContext";
 import { useAuth } from "../context/AuthContext";
+import AiChatPanel from "../components/chat/AiChatPanel";
 
 async function reportMessage(messageId) {
   const reason = prompt("Shikoyat sababini kiriting:");
@@ -18,9 +20,11 @@ async function reportMessage(messageId) {
 export default function Chat() {
   const { user } = useAuth();
   const { sendMessage, joinChat, leaveChat, startTyping, stopTyping, onlineUsers, typingUsers } = useSocket();
+  const [searchParams] = useSearchParams();
   const [chats, setChats] = useState([]);
   const [allChats, setAllChats] = useState([]);
   const [activeChat, setActiveChat] = useState(null);
+  const [aiActive, setAiActive] = useState(searchParams.get("ai") === "1");
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [chatSearch, setChatSearch] = useState("");
@@ -127,6 +131,12 @@ export default function Chat() {
 
   const selectChat = (chat) => {
     setActiveChat(chat);
+    setAiActive(false);
+    setShowMobileChat(true);
+  };
+
+  const selectAI = () => {
+    setAiActive(true);
     setShowMobileChat(true);
   };
 
@@ -146,6 +156,18 @@ export default function Chat() {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto">
+              <button onClick={selectAI}
+                className={`w-full flex items-center gap-3 p-4 text-left hover:bg-accent-soft/60 transition-colors border-b border-border-soft ${
+                  aiActive ? "bg-accent-soft/60 border-l-2 border-l-accent" : ""
+                }`}>
+                <div className="w-11 h-11 bg-accent rounded-full flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium text-ink text-sm">AI yordamchi</span>
+                  <p className="text-xs text-ink-3 truncate mt-0.5">Kerakli mutaxassisni qidiring</p>
+                </div>
+              </button>
               {loading && <div className="p-4 text-sm text-ink-3">Yuklanmoqda...</div>}
               {!loading && chats.length === 0 && (
                 <div className="p-6 text-center">
@@ -184,8 +206,24 @@ export default function Chat() {
           </div>
 
           {/* Chat window */}
-          <div className={`flex flex-col flex-1 ${!showMobileChat ? "hidden md:flex" : "flex"}`}>
-            {activeChat ? (
+          <div className={`flex flex-col flex-1 min-h-0 ${!showMobileChat ? "hidden md:flex" : "flex"}`}>
+            {aiActive ? (
+              <>
+                <div className="flex items-center gap-3 p-4 border-b border-border">
+                  <button onClick={() => setShowMobileChat(false)} className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg text-ink-3 hover:bg-surface">
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+                  <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-ink text-sm">AI yordamchi</div>
+                    <div className="text-xs text-ink-3">Kadrlar bo'yicha yordamchi</div>
+                  </div>
+                </div>
+                <AiChatPanel />
+              </>
+            ) : activeChat ? (
               <>
                 <div className="flex items-center justify-between p-4 border-b border-border">
                   <div className="flex items-center gap-3">

@@ -88,9 +88,10 @@ export default function Applications() {
     return acc;
   }, {});
 
-  const avgMatch = applications.length > 0
-    ? Math.round(applications.reduce((sum, a) => sum + (a.match_percent || 0), 0) / applications.length)
-    : 0;
+  const ratedApplications = applications.filter((a) => a.match_percent !== null && a.match_percent !== undefined);
+  const avgMatch = ratedApplications.length > 0
+    ? Math.round(ratedApplications.reduce((sum, a) => sum + a.match_percent, 0) / ratedApplications.length)
+    : null;
 
   if (loading) {
     return <div className="max-w-6xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">Yuklanmoqda...</div>;
@@ -110,7 +111,7 @@ export default function Applications() {
           { label: "Jami arizalar", value: stats.total || applications.length, icon: Briefcase, color: "bg-blue-50 text-blue-600" },
           { label: "Intervyu", value: stats.interview || grouped["Interview"]?.length || 0, icon: Clock, color: "bg-amber-50 text-amber-600" },
           { label: "Qabul qilindi", value: stats.accepted || grouped["Qabul qilindi"]?.length || 0, icon: Award, color: "bg-green-50 text-green-600" },
-          { label: "O'rtacha moslik", value: `${avgMatch}%`, icon: TrendingUp, color: "bg-purple-50 text-purple-600" },
+          { label: "O'rtacha moslik", value: avgMatch === null ? "—" : `${avgMatch}%`, icon: TrendingUp, color: "bg-purple-50 text-purple-600" },
         ].map((stat) => (
           <div key={stat.label} className="bg-white rounded-xl border border-border p-4">
             <div className="flex items-center gap-3">

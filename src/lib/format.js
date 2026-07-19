@@ -8,8 +8,10 @@ export function timeAgo(dateStr) {
   return `${Math.floor(diff / 86400)} kun oldin`;
 }
 
+// Returns null when there isn't enough data (on either side) to compute a real match —
+// callers should treat null as "unknown", not as a 0% or default match.
 export function computeMatch(userSkills, tags) {
-  if (!userSkills || userSkills.length === 0 || !tags || tags.length === 0) return 70;
+  if (!userSkills || userSkills.length === 0 || !tags || tags.length === 0) return null;
   const lowerSkills = userSkills.map((s) => s.toLowerCase());
   const overlap = tags.filter((t) => lowerSkills.some((s) => s.includes(t.toLowerCase()) || t.toLowerCase().includes(s)));
   return Math.min(98, 55 + Math.round((overlap.length / tags.length) * 45));
