@@ -306,7 +306,6 @@ const defaultCategories = [
   ["IT", "Frontend Developer"], ["IT", "Backend Developer"], ["IT", "Mobile Developer"],
   ["IT", "UI/UX Designer"], ["IT", "DevOps Engineer"], ["IT", "Data Scientist"],
   ["IT", "QA Engineer"], ["IT", "Project Manager"], ["IT", "AI/ML Engineer"], ["IT", "Cyber Security"],
-  ["IT", "Vibecoder"],
   ["Ta'lim", "Ingliz tili o'qituvchisi"], ["Ta'lim", "Matematika o'qituvchisi"], ["Ta'lim", "Fizika o'qituvchisi"],
   ["Ta'lim", "Informatika o'qituvchisi"], ["Ta'lim", "Biologiya o'qituvchisi"], ["Ta'lim", "Tarix o'qituvchisi"],
   ["Ta'lim", "Kimyo o'qituvchisi"], ["Ta'lim", "Geografiya o'qituvchisi"], ["Ta'lim", "Adabiyot o'qituvchisi"],
@@ -314,6 +313,9 @@ const defaultCategories = [
 ];
 const insertCategory = db.prepare("INSERT OR IGNORE INTO categories (group_name, name, sort_order) VALUES (?, ?, ?)");
 defaultCategories.forEach(([group, name], i) => insertCategory.run(group, name, i));
+
+// Retired joke placeholder category — remove any row already inserted by an older seed run.
+db.prepare("DELETE FROM categories WHERE group_name = 'IT' AND name = 'Vibecoder'").run();
 
 try {
   db.exec(`ALTER TABLE content_flags ADD COLUMN reporter_id INTEGER`);

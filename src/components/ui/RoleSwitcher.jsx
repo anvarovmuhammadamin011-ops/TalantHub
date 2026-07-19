@@ -37,10 +37,11 @@ export default function RoleSwitcher() {
       <button
         onClick={handleUnlock}
         disabled={busy}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-surface text-ink-2 border border-border hover:text-ink disabled:opacity-50"
+        title={t("role.unlock", { role: otherRoleLabel })}
+        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-surface text-ink-2 border border-border hover:text-ink disabled:opacity-50 whitespace-nowrap"
       >
-        <Plus className="w-3.5 h-3.5" strokeWidth={2} />
-        {t("role.unlock", { role: otherRoleLabel })}
+        <Plus className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2} />
+        {otherRoleLabel}
       </button>
     );
   }
@@ -49,10 +50,11 @@ export default function RoleSwitcher() {
     <button
       onClick={handleSwitch}
       disabled={busy}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-accent-soft text-accent border border-accent/10 hover:opacity-80 disabled:opacity-50"
+      title={t("role.switchTo", { role: otherRoleLabel })}
+      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-accent-soft text-accent border border-accent/10 hover:opacity-80 disabled:opacity-50 whitespace-nowrap"
     >
-      <OtherIcon className="w-3.5 h-3.5" strokeWidth={2} />
-      {t("role.switchTo", { role: otherRoleLabel })}
+      <OtherIcon className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2} />
+      {otherRoleLabel}
     </button>
   );
 }

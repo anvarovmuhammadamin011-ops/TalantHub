@@ -41,7 +41,7 @@ export default function Vacancies() {
     { label: "Frontend", query: "Frontend Developer", icon: Code2 },
     { label: "Backend", query: "Backend Developer", icon: Server },
     { label: "Mobile", query: "Mobile Developer", icon: Smartphone },
-    { label: "Vibecoder", query: "Vibecoder", icon: Sparkles },
+    { label: "AI/ML", query: "AI/ML Engineer", icon: Sparkles },
     { label: "Ingliz tili", query: "Ingliz tili o'qituvchisi", icon: Languages },
     { label: "Matematika", query: "Matematika o'qituvchisi", icon: Calculator },
     { label: "SAT", query: "SAT o'qituvchisi", icon: GraduationCap },

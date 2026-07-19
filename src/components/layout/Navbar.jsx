@@ -50,16 +50,16 @@ export default function Navbar() {
             <span className="text-[15px] font-semibold text-ink tracking-tight">TalentHub</span>
           </Link>
 
-          <div className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto">
+          <div className="flex items-center gap-0.5 flex-1 min-w-0 overflow-x-auto scrollbar-hide">
             {navLinks.map((link) => (
               <Link key={link.to} to={link.to}
-                className={`px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${location.pathname === link.to ? "text-ink" : "text-ink-3 hover:text-ink"}`}>
+                className={`px-2.5 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${location.pathname === link.to ? "text-ink" : "text-ink-3 hover:text-ink"}`}>
                 {link.label}
               </Link>
             ))}
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             {isEmployer && (
               <Link to="/wallet" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-surface text-ink-2 border border-border hover:text-ink">
                 <WalletIcon className="w-3.5 h-3.5" /> {t("nav.wallet")}
