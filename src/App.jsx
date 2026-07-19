@@ -28,6 +28,8 @@ import Admin from "./pages/Admin";
 import AdminUserDetail from "./pages/AdminUserDetail";
 import AdminVacancyDetail from "./pages/AdminVacancyDetail";
 import AdminModeration from "./pages/AdminModeration";
+import AdminSupport from "./pages/AdminSupport";
+import AdminDisputes from "./pages/AdminDisputes";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import AdminStats from "./pages/AdminStats";
 import AdminFinance from "./pages/AdminFinance";
@@ -96,6 +98,8 @@ export default function App() {
             <Route element={<AdminRoute />}>
               <Route element={<AdminLayout />}>
                 <Route path="/admin/moderation" element={<AdminModeration />} />
+                <Route path="/admin/support" element={<AdminSupport />} />
+                <Route path="/admin/disputes" element={<AdminDisputes />} />
                 <Route path="/admin/users" element={<AdminUsersPage />} />
                 <Route path="/admin/stats" element={<AdminStats />} />
                 <Route path="/admin/finance" element={<AdminFinance />} />

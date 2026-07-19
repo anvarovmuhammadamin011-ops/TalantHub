@@ -63,8 +63,4 @@ router.get("/:id", (req, res) => {
   }
 });
 
-router.get("/me/profile", (req, res) => {
-  res.json({ ok: true });
-});
-
 module.exports = router;

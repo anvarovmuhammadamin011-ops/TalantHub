@@ -16,6 +16,7 @@ const DEFAULT_SECTION_ROLES = {
   users: ["super_admin", "support"],
   vacancies: ["super_admin", "moderator"],
   orders: ["super_admin"],
+  disputes: ["super_admin"],
   applications: ["super_admin", "moderator"],
   reports: ["super_admin", "moderator"],
   verification: ["super_admin", "moderator"],

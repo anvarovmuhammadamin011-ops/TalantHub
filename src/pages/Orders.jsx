@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Package, Clock, CheckCircle, AlertCircle, Filter, ChevronDown, MessageSquare,
-  Calendar, ArrowUpRight, BarChart3, TrendingUp, Star, Loader2
+  Calendar, ArrowUpRight, BarChart3, TrendingUp, Star, Loader2, Flag, X
 } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 
 const statusConfig = {
   "Yangi": { color: "bg-blue-50 text-blue-600", dot: "bg-blue-500", icon: AlertCircle },
@@ -23,6 +24,7 @@ const priorityConfig = {
 
 export default function Orders() {
   const { user } = useAuth();
+  const showToast = useToast();
   const [orders, setOrders] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
@@ -33,6 +35,9 @@ export default function Orders() {
   const [ratingHover, setRatingHover] = useState(0);
   const [ratingText, setRatingText] = useState("");
   const [submittingRating, setSubmittingRating] = useState(false);
+  const [disputeModal, setDisputeModal] = useState(null);
+  const [disputeReason, setDisputeReason] = useState("");
+  const [submittingDispute, setSubmittingDispute] = useState(false);
 
   useEffect(() => {
     loadOrders();
@@ -78,6 +83,21 @@ export default function Orders() {
       console.error(err);
     } finally {
       setSubmittingRating(false);
+    }
+  };
+
+  const submitDispute = async () => {
+    if (!disputeReason.trim() || !disputeModal) return;
+    setSubmittingDispute(true);
+    try {
+      await api(`/orders/${disputeModal.id}/dispute`, { method: "POST", body: { reason: disputeReason.trim() } });
+      setDisputeModal(null);
+      setDisputeReason("");
+      showToast("Nizo ochildi — administrator tez orada ko'rib chiqadi", "success");
+    } catch (err) {
+      showToast(err.message || "Xatolik yuz berdi", "error");
+    } finally {
+      setSubmittingDispute(false);
     }
   };
 
@@ -216,6 +236,13 @@ export default function Orders() {
                         <Star className="w-4 h-4" /> Ish beruvchini baholang
                       </button>
                     )}
+                    {(order.status === "Qabul qilindi" || order.status === "Jarayonda") && (
+                      <button onClick={() => { setDisputeModal(order); setDisputeReason(""); }}
+                        title="Nizo ochish"
+                        className="w-9 h-9 flex items-center justify-center rounded-lg bg-surface text-ink-2 hover:bg-danger-soft hover:text-danger transition-colors">
+                        <Flag className="w-4 h-4" />
+                      </button>
+                    )}
                     <Link to="/chat" className="w-9 h-9 flex items-center justify-center rounded-lg bg-surface text-ink-2 hover:bg-border-soft transition-colors">
                       <MessageSquare className="w-4 h-4" />
                     </Link>
@@ -254,6 +281,31 @@ export default function Orders() {
               <button onClick={submitRating} disabled={!ratingValue || submittingRating}
                 className="flex-1 px-4 py-2.5 bg-ink text-white rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors disabled:opacity-60">
                 {submittingRating ? "Yuborilmoqda..." : "Yuborish"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {disputeModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setDisputeModal(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-semibold text-ink text-lg">Nizo ochish</h3>
+              <button onClick={() => setDisputeModal(null)} className="text-ink-3 hover:text-ink"><X className="w-5 h-5" /></button>
+            </div>
+            <p className="text-sm text-ink-3 mb-4">"{disputeModal.title}" — muammoni tasvirlab bering, administrator ko'rib chiqadi.</p>
+            <textarea value={disputeReason} onChange={(e) => setDisputeReason(e.target.value)}
+              placeholder="Masalan: ish kelishilgan muddatda topshirilmadi..." rows={4}
+              className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:border-danger/40 outline-none resize-none mb-4" />
+            <div className="flex gap-2">
+              <button onClick={() => setDisputeModal(null)}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-border text-ink-2 text-sm font-medium hover:bg-surface transition-colors">
+                Bekor qilish
+              </button>
+              <button onClick={submitDispute} disabled={!disputeReason.trim() || submittingDispute}
+                className="flex-1 px-4 py-2.5 bg-danger text-white rounded-lg text-sm font-medium hover:opacity-90 transition-colors disabled:opacity-60">
+                {submittingDispute ? "Yuborilmoqda..." : "Nizo ochish"}
               </button>
             </div>
           </div>

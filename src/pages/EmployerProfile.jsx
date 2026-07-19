@@ -4,6 +4,7 @@ import { MapPin, Briefcase, Users, Package, LogOut, Save, Lock, Mail, Phone, Cal
 import { api } from "../lib/api";
 import VerifiedBadge from "../components/ui/VerifiedBadge";
 import VerificationPanel from "../components/ui/VerificationPanel";
+import SupportPanel from "../components/ui/SupportPanel";
 import ImageUploadField from "../components/ui/ImageUploadField";
 import LanguageSwitcher from "../components/ui/LanguageSwitcher";
 import { useAuth } from "../context/AuthContext";
@@ -375,6 +376,8 @@ export default function EmployerProfile() {
 
         <div className="space-y-4">
           <VerificationPanel />
+
+          <SupportPanel />
 
           <div className="bg-white rounded-xl border border-border p-5">
             <h2 className="font-semibold text-ink text-sm mb-4">Statistika</h2>

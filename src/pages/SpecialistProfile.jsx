@@ -4,6 +4,7 @@ import { MapPin, Star, Briefcase, Award, Eye, EyeOff, Edit3, LogOut, Share2, Clo
 import { api } from "../lib/api";
 import VerifiedBadge from "../components/ui/VerifiedBadge";
 import VerificationPanel from "../components/ui/VerificationPanel";
+import SupportPanel from "../components/ui/SupportPanel";
 import { useAuth } from "../context/AuthContext";
 
 export default function SpecialistProfile() {
@@ -466,6 +467,8 @@ export default function SpecialistProfile() {
           </div>
 
           <VerificationPanel />
+
+          <SupportPanel />
 
           <div className="bg-white rounded-xl border border-border p-4 sm:p-5">
             <div className="flex items-center justify-between mb-2 gap-2">

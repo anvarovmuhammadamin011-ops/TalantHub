@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
+import { Navigate } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Send, Award, TrendingUp, Briefcase } from "lucide-react";
 import { api } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
 
 const statusColors = {
   "Yuborildi": "#C7C7CE",
@@ -14,6 +16,7 @@ const statusColors = {
 const monthNames = ["Yan", "Fev", "Mar", "Apr", "May", "Iyun", "Iyul", "Avg", "Sen", "Okt", "Noy", "Dek"];
 
 export default function Statistics() {
+  const { user } = useAuth();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -30,6 +33,13 @@ export default function Statistics() {
     }
     load();
   }, []);
+
+  // This page reads GET /applications, which returns the current user's own submitted
+  // applications — meaningless for an employer (they don't submit applications). There's no
+  // nav link here for employers, but the route itself is reachable directly by URL.
+  if (user?.role === "employer") {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   if (loading) {
     return <div className="max-w-6xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">Yuklanmoqda...</div>;

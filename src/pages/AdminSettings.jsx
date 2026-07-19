@@ -8,7 +8,7 @@ const cardClass = "bg-white rounded-xl border border-border shadow-sm p-6 mb-6";
 
 const SECTION_LABELS = {
   stats: "Statistika", users: "Foydalanuvchilar", vacancies: "Vakansiyalar", orders: "Buyurtmalar",
-  applications: "Arizalar", reports: "Shikoyatlar", verification: "Verifikatsiya", categories: "Kategoriyalar",
+  applications: "Arizalar", reports: "Shikoyatlar", verification: "Verifikatsiya", categories: "Kategoriyalar", disputes: "Nizolar",
   broadcast: "Xabarnoma", support_tickets: "Qo'llab-quvvatlash", logs: "Loglar", finance: "Moliya",
   marketing: "Marketing", system: "Tizim",
 };
