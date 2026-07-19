@@ -348,18 +348,21 @@ export default function VacancyDetail() {
           {/* Company */}
           <div className="bg-white rounded-xl border border-border p-6">
             <h3 className="font-semibold text-ink text-sm mb-4">Kompaniya</h3>
-            <div className="flex items-center gap-3">
+            <Link to={`/companies/${vacancy.author_id}`} className="flex items-center gap-3 group">
               <div className="w-11 h-11 bg-surface rounded-lg flex items-center justify-center text-xl">
                 {vacancy.company_logo || "🏢"}
               </div>
               <div>
-                <div className="font-medium text-ink text-sm">{vacancy.company}</div>
+                <div className="font-medium text-ink text-sm group-hover:text-accent transition-colors">{vacancy.company}</div>
                 <div className="flex items-center gap-1 text-sm text-ink-3">
                   <Star className="w-3.5 h-3.5 text-ink fill-ink" />
                   {vacancy.company_rating} · {vacancy.company_reviews} sharh
                 </div>
               </div>
-            </div>
+            </Link>
+            <Link to={`/companies/${vacancy.author_id}`} className="mt-3 inline-block text-xs font-medium text-accent hover:underline">
+              Kompaniya profilini ko'rish →
+            </Link>
             <div className="mt-4 pt-4 border-t border-border-soft flex justify-end">
               <ReportButton targetType="vacancy" targetId={Number(id)} />
             </div>

@@ -372,7 +372,7 @@ export default function Vacancies() {
                         {v.title}
                       </Link>
                       <div className="flex items-center gap-1.5 mt-1 text-sm text-ink-3">
-                        <span>{v.company}</span>
+                        <Link to={`/companies/${v.employer_id}`} onClick={(e) => e.stopPropagation()} className="hover:text-ink hover:underline">{v.company}</Link>
                         <span>·</span>
                         <MapPin className="w-3.5 h-3.5" />
                         <span>{v.location}</span>

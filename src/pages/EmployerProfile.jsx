@@ -164,7 +164,10 @@ export default function EmployerProfile() {
                   <h1 className="text-lg sm:text-xl font-semibold text-ink tracking-tight">{user.company_name || user.name}</h1>
                   {!!user.verified && <VerifiedBadge />}
                 </div>
-                <p className="text-ink-2 font-medium mt-0.5 text-xs sm:text-sm">Ish beruvchi</p>
+                <p className="text-ink-2 font-medium mt-0.5 text-xs sm:text-sm flex items-center gap-2">
+                  Ish beruvchi
+                  <Link to={`/companies/${user.id}`} className="text-accent text-xs font-medium hover:underline">Ochiq profilni ko'rish →</Link>
+                </p>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 sm:mt-2 text-xs sm:text-sm text-ink-3">
                   <span className="flex items-center gap-1"><MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> {user.city || "Kiritilmagan"}</span>
                   {user.created_at && (

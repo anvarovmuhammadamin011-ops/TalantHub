@@ -29,6 +29,7 @@ const aiRoutes = require("./routes/ai.cjs");
 const walletRoutes = require("./routes/wallet.cjs");
 const uploadRoutes = require("./routes/upload.cjs");
 const savedSearchRoutes = require("./routes/savedSearches.cjs");
+const companyRoutes = require("./routes/companies.cjs");
 
 const allowedOrigins = [
   process.env.FRONTEND_URL || "http://localhost:5173",
@@ -77,6 +78,7 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/wallet", walletRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/saved-searches", savedSearchRoutes);
+app.use("/api/companies", companyRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 io.on("connection", (socket) => {
