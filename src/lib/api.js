@@ -31,6 +31,28 @@ export async function api(path, { method = "GET", body } = {}) {
   return data;
 }
 
+export async function downloadFile(path, filename) {
+  const headers = {};
+  const token = getToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${BASE_URL}${path}`, { headers });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw { status: res.status, message: data.error || "Xatolik yuz berdi" };
+  }
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export async function apiUpload(path, file) {
   const headers = {};
   const token = getToken();

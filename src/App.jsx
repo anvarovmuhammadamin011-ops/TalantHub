@@ -24,9 +24,12 @@ import VacancyApplicants from "./pages/VacancyApplicants";
 import NotificationsPage from "./pages/NotificationsPage";
 import Admin from "./pages/Admin";
 import AdminUserDetail from "./pages/AdminUserDetail";
+import AdminVacancyDetail from "./pages/AdminVacancyDetail";
 import AdminModeration from "./pages/AdminModeration";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import AdminStats from "./pages/AdminStats";
+import AdminFinance from "./pages/AdminFinance";
+import AdminSettings from "./pages/AdminSettings";
 import AdminLayout from "./components/layout/AdminLayout";
 import AdminRoute from "./components/AdminRoute";
 import ScrollToTop from "./components/ScrollToTop";
@@ -81,6 +84,7 @@ export default function App() {
               <Route element={<AdminRoute />}>
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/admin/users/:id" element={<AdminUserDetail />} />
+                <Route path="/admin/vacancies/:id" element={<AdminVacancyDetail />} />
               </Route>
             </Route>
           </Route>
@@ -90,6 +94,8 @@ export default function App() {
                 <Route path="/admin/moderation" element={<AdminModeration />} />
                 <Route path="/admin/users" element={<AdminUsersPage />} />
                 <Route path="/admin/stats" element={<AdminStats />} />
+                <Route path="/admin/finance" element={<AdminFinance />} />
+                <Route path="/admin/settings" element={<AdminSettings />} />
               </Route>
             </Route>
           </Route>

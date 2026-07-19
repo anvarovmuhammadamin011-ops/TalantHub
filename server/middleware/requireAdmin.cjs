@@ -9,9 +9,9 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-// Har bir admin bo'limi qaysi admin_role'larga ochiq ekanini belgilaydi.
-// Ro'yxatda bo'lmagan bo'lim faqat super_admin uchun ochiq bo'ladi.
-const SECTION_ROLES = {
+// Default matrix — used whenever a section has no override stored in `settings`.
+// super_admin always has full access regardless of this map (checked separately below).
+const DEFAULT_SECTION_ROLES = {
   stats: ["super_admin"],
   users: ["super_admin", "support"],
   vacancies: ["super_admin", "moderator"],
@@ -28,12 +28,28 @@ const SECTION_ROLES = {
   system: ["super_admin"],
 };
 
+const RBAC_SETTINGS_KEY = "rbac_permissions";
+
+// Admin-editable overrides live in settings.rbac_permissions as JSON; sections not present
+// there fall back to DEFAULT_SECTION_ROLES. Read fresh each call — this is an admin-only,
+// low-traffic path, so a DB round-trip per request is not worth caching.
+function getSectionRoles() {
+  try {
+    const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(RBAC_SETTINGS_KEY);
+    const overrides = row ? JSON.parse(row.value) : {};
+    return { ...DEFAULT_SECTION_ROLES, ...overrides };
+  } catch {
+    return DEFAULT_SECTION_ROLES;
+  }
+}
+
 function requireSection(section) {
   return (req, res, next) => {
-    const allowed = SECTION_ROLES[section] || ["super_admin"];
+    const roles = getSectionRoles();
+    const allowed = roles[section] || ["super_admin"];
     if (req.adminRole === "super_admin" || allowed.includes(req.adminRole)) return next();
     return res.status(403).json({ error: "Ushbu bo'lim uchun ruxsatingiz yo'q" });
   };
 }
 
-module.exports = { requireAdmin, requireSection, SECTION_ROLES };
+module.exports = { requireAdmin, requireSection, DEFAULT_SECTION_ROLES, RBAC_SETTINGS_KEY, getSectionRoles };

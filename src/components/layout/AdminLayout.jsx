@@ -1,10 +1,12 @@
 import { Outlet, NavLink } from "react-router-dom";
-import { ClipboardCheck, Users, BarChart3, LayoutGrid } from "lucide-react";
+import { ClipboardCheck, Users, BarChart3, LayoutGrid, Wallet, Settings } from "lucide-react";
 
 const links = [
   { to: "/admin/moderation", label: "Moderatsiya", icon: ClipboardCheck },
   { to: "/admin/users", label: "Foydalanuvchilar", icon: Users },
+  { to: "/admin/finance", label: "Moliya", icon: Wallet },
   { to: "/admin/stats", label: "Statistika", icon: BarChart3 },
+  { to: "/admin/settings", label: "Sozlamalar", icon: Settings },
   { to: "/admin", label: "Boshqa bo'limlar", icon: LayoutGrid, end: true },
 ];
 

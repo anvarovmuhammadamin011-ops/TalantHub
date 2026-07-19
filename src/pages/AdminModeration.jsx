@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { ClipboardCheck, CheckCircle2, RotateCcw, Clock, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ClipboardCheck, CheckCircle2, RotateCcw, Clock, X, ScanSearch } from "lucide-react";
 import { api } from "../lib/api";
 
 function truncate(text, n) {
@@ -16,6 +17,8 @@ export default function AdminModeration() {
   const [viewing, setViewing] = useState(null);
   const [rejecting, setRejecting] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState(null);
 
   const load = async () => {
     setError("");
@@ -34,6 +37,19 @@ export default function AdminModeration() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const runScan = async () => {
+    setScanning(true);
+    setScanResult(null);
+    try {
+      const result = await api("/admin/moderation/scan", { method: "POST" });
+      setScanResult(result);
+    } catch (err) {
+      setScanResult({ error: err.message || "Xatolik yuz berdi" });
+    } finally {
+      setScanning(false);
+    }
+  };
 
   const approve = async (id) => {
     setUpdatingId(id);
@@ -95,6 +111,25 @@ export default function AdminModeration() {
         ))}
       </div>
 
+      <div className="bg-white rounded-xl border border-border shadow-sm p-5 mb-8">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-ink">Ommaviy skanerlash</h2>
+            <p className="text-xs text-ink-3 mt-0.5">Barcha profil bio va vakansiya tavsiflarini taqiqlangan so'zlar bo'yicha tekshiradi (ro'yxat Sozlamalarda).</p>
+          </div>
+          <button onClick={runScan} disabled={scanning}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent-hover transition-colors disabled:opacity-60 flex-shrink-0">
+            <ScanSearch className="w-3.5 h-3.5" />
+            {scanning ? "Skanerlanmoqda..." : "Skanerlashni boshlash"}
+          </button>
+        </div>
+        {scanResult && (
+          <div className={`mt-3 text-xs px-3 py-2 rounded-lg ${scanResult.error ? "bg-danger-soft text-danger" : "bg-success-soft text-success"}`}>
+            {scanResult.error || `${scanResult.scannedWords} ta so'z bo'yicha tekshirildi, ${scanResult.flagged} ta yangi shubhali kontent belgilandi. Shikoyatlar bo'limida ko'ring.`}
+          </div>
+        )}
+      </div>
+
       <h2 className="font-semibold text-ink text-sm mb-4">Tekshirilmoqda</h2>
       {vacancies.length === 0 ? (
         <div className="text-center py-16">
@@ -109,7 +144,7 @@ export default function AdminModeration() {
             <div key={v.id} className="bg-white rounded-xl border border-border shadow-sm p-5">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div>
-                  <h3 className="font-medium text-ink text-sm">{v.title}</h3>
+                  <Link to={`/admin/vacancies/${v.id}`} className="font-medium text-ink text-sm hover:underline">{v.title}</Link>
                   <div className="flex items-center gap-2 mt-1 flex-wrap text-xs text-ink-3">
                     <span>{v.author_name}</span>
                     {(v.directions || []).length > 0 && <><span>·</span><span>{v.directions.join(", ")}</span></>}

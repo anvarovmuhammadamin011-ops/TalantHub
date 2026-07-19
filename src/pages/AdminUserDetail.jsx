@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Shield, Star, Globe, Monitor, Flag, ClipboardCheck, Briefcase, Package } from "lucide-react";
+import { ArrowLeft, Shield, Star, Globe, Monitor, Flag, ClipboardCheck, Briefcase, Package, Wallet } from "lucide-react";
 import { api } from "../lib/api";
 import { timeAgo } from "../lib/format";
 import StatusBadge from "../components/ui/StatusBadge";
@@ -41,7 +41,7 @@ export default function AdminUserDetail() {
   if (loading) return <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-center text-ink-3 text-sm">Yuklanmoqda...</div>;
   if (error || !data) return <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10"><EmptyState icon="⚠️" title="Topilmadi" description={error || "Foydalanuvchi topilmadi"} /></div>;
 
-  const { user, applications, orders, vacancies, reportsFiled, reportsReceived, verification, lastLogin, loginHistory } = data;
+  const { user, applications, orders, vacancies, reportsFiled, reportsReceived, verification, lastLogin, loginHistory, transactions, balance } = data;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -73,6 +73,7 @@ export default function AdminUserDetail() {
             <div>Ro'yxatdan o'tgan: {user.created_at ? new Date(user.created_at + "Z").toLocaleDateString("uz-UZ") : "—"}</div>
             <div>Oxirgi kirish: {lastLogin ? timeAgo(lastLogin.created_at) : "—"}</div>
             {lastLogin?.ip && <div className="flex items-center gap-1 justify-end"><Globe className="w-3 h-3" /> {lastLogin.ip}</div>}
+            <div className="font-semibold text-ink text-sm pt-1">{balance.toLocaleString("ru-RU")} so'm</div>
           </div>
         </div>
         {user.bio && <p className="text-sm text-ink-2 mt-4 border-t border-border pt-4">{user.bio}</p>}
@@ -85,7 +86,7 @@ export default function AdminUserDetail() {
               <div className="space-y-2">
                 {applications.map((a) => (
                   <div key={a.id} className="flex items-center justify-between text-sm border-b border-border-soft pb-2 last:border-0 last:pb-0">
-                    <span className="text-ink-2 truncate">{a.vacancy_title}</span>
+                    <Link to={`/admin/vacancies/${a.vacancy_id}`} className="text-ink-2 hover:underline truncate">{a.vacancy_title}</Link>
                     <StatusBadge status={a.status} />
                   </div>
                 ))}
@@ -100,7 +101,7 @@ export default function AdminUserDetail() {
               <div className="space-y-2">
                 {vacancies.map((v) => (
                   <div key={v.id} className="flex items-center justify-between text-sm border-b border-border-soft pb-2 last:border-0 last:pb-0">
-                    <span className="text-ink-2 truncate">{v.title}</span>
+                    <Link to={`/admin/vacancies/${v.id}`} className="text-ink-2 hover:underline truncate">{v.title}</Link>
                     <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${v.status === "Faol" ? "bg-emerald-50 text-emerald-600" : v.status === "Kutilmoqda" ? "bg-amber-50 text-amber-600" : "bg-gray-100 text-gray-500"}`}>{v.status}</span>
                   </div>
                 ))}
@@ -159,6 +160,24 @@ export default function AdminUserDetail() {
               {reportsFiled.map((f) => (
                 <div key={f.id} className="text-sm border-b border-border-soft pb-2 last:border-0 last:pb-0">
                   <span className="text-ink-2">{f.target_type} #{f.target_id} — {f.reason}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Section>
+
+        <Section title="To'lovlar" icon={Wallet} count={transactions.length}>
+          {transactions.length === 0 ? <p className="text-xs text-ink-3">Tranzaksiyalar yo'q</p> : (
+            <div className="space-y-2">
+              {transactions.map((t) => (
+                <div key={t.id} className="flex items-center justify-between text-sm border-b border-border-soft pb-2 last:border-0 last:pb-0">
+                  <div className="min-w-0">
+                    <div className="text-ink-2 truncate">{t.description || t.type}</div>
+                    <div className="text-[10px] text-ink-3">{t.method} · {timeAgo(t.created_at)}</div>
+                  </div>
+                  <span className={`text-xs font-medium flex-shrink-0 ml-2 ${t.amount < 0 ? "text-danger" : "text-success"}`}>
+                    {t.amount > 0 ? "+" : ""}{t.amount.toLocaleString("ru-RU")}
+                  </span>
                 </div>
               ))}
             </div>

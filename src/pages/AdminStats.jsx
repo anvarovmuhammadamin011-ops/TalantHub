@@ -1,12 +1,20 @@
 import { useState, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Users, Briefcase, Eye, ClipboardList } from "lucide-react";
-import { api } from "../lib/api";
+import { Users, Briefcase, Eye, ClipboardList, TrendingUp, Download } from "lucide-react";
+import { api, downloadFile } from "../lib/api";
+
+const EXPORTS = [
+  { path: "/admin/export/users", filename: "users.csv", label: "Foydalanuvchilar" },
+  { path: "/admin/export/vacancies", filename: "vacancies.csv", label: "Vakansiyalar" },
+  { path: "/admin/export/applications", filename: "applications.csv", label: "Arizalar" },
+  { path: "/admin/export/transactions", filename: "transactions.csv", label: "Tranzaksiyalar" },
+];
 
 export default function AdminStats() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [exportingPath, setExportingPath] = useState("");
 
   const load = async () => {
     setError("");
@@ -21,6 +29,17 @@ export default function AdminStats() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const runExport = async (exp) => {
+    setExportingPath(exp.path);
+    try {
+      await downloadFile(exp.path, exp.filename);
+    } catch (err) {
+      alert(err.message || "Xatolik yuz berdi");
+    } finally {
+      setExportingPath("");
+    }
+  };
 
   if (loading) {
     return <div className="max-w-5xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">Yuklanmoqda...</div>;
@@ -40,6 +59,7 @@ export default function AdminStats() {
     { label: "Jami vakansiyalar", value: stats.vacancies_total, icon: Briefcase, color: "bg-surface text-ink" },
     { label: "Faol vakansiyalar", value: stats.vacancies_active, icon: Eye, color: "bg-success-soft text-success" },
     { label: "Jami arizalar", value: stats.applications_total, icon: ClipboardList, color: "bg-[#FEF3C7] text-[#B45309]" },
+    { label: "Konversiya (ariza → yollash)", value: `${stats.conversion?.rate ?? 0}%`, icon: TrendingUp, color: "bg-accent-soft text-accent" },
   ];
 
   const maxDirectionCount = Math.max(1, ...(stats.top_directions || []).map((d) => d.count));
@@ -118,6 +138,20 @@ export default function AdminStats() {
               ))}
             </div>
           )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-border shadow-sm p-5 mt-6">
+        <h2 className="font-semibold text-ink text-sm mb-1">Eksport</h2>
+        <p className="text-xs text-ink-3 mb-4">Ma'lumotlarni CSV formatida yuklab oling (Excel'da ochish mumkin).</p>
+        <div className="flex flex-wrap gap-2">
+          {EXPORTS.map((exp) => (
+            <button key={exp.path} onClick={() => runExport(exp)} disabled={exportingPath === exp.path}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-border text-xs font-medium text-ink-2 hover:bg-surface transition-colors disabled:opacity-50">
+              <Download className="w-3.5 h-3.5" />
+              {exportingPath === exp.path ? "Yuklanmoqda..." : exp.label}
+            </button>
+          ))}
         </div>
       </div>
     </div>

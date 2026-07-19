@@ -1,9 +1,28 @@
 const express = require("express");
 const db = require("../db.cjs");
 const { authMiddleware } = require("../middleware/auth.cjs");
-const { requireAdmin, requireSection } = require("../middleware/requireAdmin.cjs");
+const { requireAdmin, requireSection, DEFAULT_SECTION_ROLES, RBAC_SETTINGS_KEY, getSectionRoles } = require("../middleware/requireAdmin.cjs");
 
 const router = express.Router();
+
+function toCsv(rows) {
+  if (!rows.length) return "";
+  const headers = Object.keys(rows[0]);
+  const escape = (v) => {
+    if (v === null || v === undefined) return "";
+    const s = String(v).replace(/"/g, '""');
+    return /[",\n]/.test(s) ? `"${s}"` : s;
+  };
+  const lines = [headers.join(",")];
+  for (const row of rows) lines.push(headers.map((h) => escape(row[h])).join(","));
+  return lines.join("\n");
+}
+
+function sendCsv(res, filename, rows) {
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send("﻿" + toCsv(rows));
+}
 
 function logAdmin(adminId, action, targetType, targetId, details) {
   try {
@@ -84,11 +103,18 @@ router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), (req
       .sort((a, b) => b.count - a.count)
       .slice(0, 8);
 
+    const hired = db.prepare("SELECT COUNT(*) as c FROM applications WHERE status = 'Qabul qilindi'").get().c;
+    const conversion = {
+      total_applications: applications_total,
+      hired,
+      rate: applications_total > 0 ? Math.round((hired / applications_total) * 1000) / 10 : 0,
+    };
+
     res.json({
       users_total, specialists, employers, admins, vacancies_total, vacancies_active, vacancies_pending, vacancies_needs_fix,
       orders_total, orders_active, orders_completed,
       applications_total, messages_total, new_users_7d, verified_users, blocked_users, featured_users, signups_series, users_by_city,
-      vacancies_30d_series, top_directions,
+      vacancies_30d_series, top_directions, conversion,
     });
   } catch (err) {
     console.error("Admin stats error:", err);
@@ -207,6 +233,35 @@ router.patch("/users/:id", authMiddleware, requireAdmin, requireSection("users")
   }
 });
 
+router.get("/vacancies/:id/detail", authMiddleware, requireAdmin, requireSection("vacancies"), (req, res) => {
+  try {
+    const vacancy = db.prepare(`
+      SELECT v.*, u.name as author_name, u.email as author_email, u.company_name as author_company
+      FROM vacancies v LEFT JOIN users u ON v.employer_id = u.id
+      WHERE v.id = ?
+    `).get(req.params.id);
+    if (!vacancy) return res.status(404).json({ error: "Vakansiya topilmadi" });
+
+    vacancy.tags = JSON.parse(vacancy.tags || "[]");
+    vacancy.requirements = JSON.parse(vacancy.requirements || "[]");
+    vacancy.conditions = JSON.parse(vacancy.conditions || "[]");
+    vacancy.responsibilities = JSON.parse(vacancy.responsibilities || "[]");
+    vacancy.directions = JSON.parse(vacancy.directions || "[]");
+    vacancy.screening_questions = JSON.parse(vacancy.screening_questions || "[]");
+
+    const applications = db.prepare(`
+      SELECT a.id, a.status, a.match_percent, a.created_at, u.id as user_id, u.name as specialist_name
+      FROM applications a JOIN users u ON a.user_id = u.id
+      WHERE a.vacancy_id = ? ORDER BY a.created_at DESC
+    `).all(vacancy.id);
+
+    res.json({ vacancy, applications });
+  } catch (err) {
+    console.error("Admin vacancy detail error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
 router.get("/vacancies", authMiddleware, requireAdmin, requireSection("vacancies"), (req, res) => {
   try {
     const { search, status } = req.query;
@@ -312,6 +367,148 @@ router.delete("/vacancies/:id", authMiddleware, requireAdmin, requireSection("va
     res.json({ success: true });
   } catch (err) {
     console.error("Admin vacancy delete error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+// ---------- Moliya / To'lovlar ----------
+router.get("/finance/stats", authMiddleware, requireAdmin, requireSection("finance"), (req, res) => {
+  try {
+    const revenue = db.prepare(`
+      SELECT COALESCE(SUM(amount), 0) as total FROM transactions
+      WHERE status = 'Tasdiqlangan' AND amount > 0 AND type != 'demo_topup'
+    `).get().total;
+    const refunded = db.prepare(`SELECT COALESCE(SUM(refund), 0) as total FROM transactions WHERE status = 'Qaytarildi'`).get().total;
+    const topups = db.prepare(`
+      SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE status = 'Tasdiqlangan' AND type = 'demo_topup'
+    `).get().total;
+    const transactionCount = db.prepare("SELECT COUNT(*) as c FROM transactions").get().c;
+    const activeTariffs = db.prepare("SELECT COUNT(*) as c FROM tariffs_users WHERE active = 1 AND expires_at > CURRENT_TIMESTAMP").get().c;
+
+    const tariffSales = db.prepare(`
+      SELECT t.name, COUNT(tu.id) as sales, COALESCE(SUM(t.price), 0) as revenue
+      FROM tariffs_users tu JOIN tariffs t ON tu.tariff_id = t.id
+      GROUP BY t.id ORDER BY sales DESC
+    `).all();
+
+    const revenueByDay = db.prepare(`
+      SELECT date(created_at) as date, COALESCE(SUM(amount), 0) as total
+      FROM transactions
+      WHERE status = 'Tasdiqlangan' AND amount > 0 AND type != 'demo_topup' AND created_at >= datetime('now','-29 days')
+      GROUP BY date(created_at) ORDER BY date(created_at) ASC
+    `).all();
+    const revenueByDayMap = Object.fromEntries(revenueByDay.map((r) => [r.date, r.total]));
+    const revenue_30d_series = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+      revenue_30d_series.push({ date: d, total: revenueByDayMap[d] || 0 });
+    }
+
+    res.json({ revenue, refunded, topups, transactionCount, activeTariffs, tariffSales, revenue_30d_series });
+  } catch (err) {
+    console.error("Admin finance stats error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.get("/finance/transactions", authMiddleware, requireAdmin, requireSection("finance"), (req, res) => {
+  try {
+    const { status, type, search, page = 1, limit = 30 } = req.query;
+    let sql = `
+      SELECT tr.*, u.name as user_name, u.email as user_email
+      FROM transactions tr LEFT JOIN users u ON tr.user_id = u.id
+      WHERE 1=1
+    `;
+    const params = [];
+    if (status) { sql += ` AND tr.status = ?`; params.push(status); }
+    if (type) { sql += ` AND tr.type = ?`; params.push(type); }
+    if (search) { sql += ` AND (u.name LIKE ? OR u.email LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
+
+    const countSql = sql.replace("SELECT tr.*, u.name as user_name, u.email as user_email", "SELECT COUNT(*) as total");
+    const total = db.prepare(countSql).get(...params).total;
+
+    sql += ` ORDER BY tr.created_at DESC LIMIT ? OFFSET ?`;
+    params.push(Number(limit), (Number(page) - 1) * Number(limit));
+
+    const transactions = db.prepare(sql).all(...params);
+    res.json({ transactions, total, page: Number(page), limit: Number(limit) });
+  } catch (err) {
+    console.error("Admin finance transactions error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.post("/finance/transactions/:id/refund", authMiddleware, requireAdmin, requireSection("finance"), (req, res) => {
+  try {
+    const tx = db.prepare("SELECT * FROM transactions WHERE id = ?").get(req.params.id);
+    if (!tx) return res.status(404).json({ error: "Tranzaksiya topilmadi" });
+    if (tx.status !== "Tasdiqlangan" || tx.amount <= 0) {
+      return res.status(400).json({ error: "Faqat tasdiqlangan, musbat summali to'lovlarni qaytarish mumkin" });
+    }
+
+    db.prepare(`UPDATE transactions SET status = 'Qaytarildi', refund = ? WHERE id = ?`).run(tx.amount, tx.id);
+
+    const user = db.prepare("SELECT name FROM users WHERE id = ?").get(tx.user_id);
+    logAdmin(req.userId, "transaction_refund", "transaction", tx.id, `${user?.name || tx.user_id}: -${tx.amount} (${tx.description || tx.type})`);
+
+    db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'order', 'To''lov qaytarildi', ?, '/wallet')`)
+      .run(tx.user_id, `"${tx.description || tx.type}" uchun ${tx.amount.toLocaleString("ru-RU")} so'm qaytarildi`);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Admin refund error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+// ---------- Eksport (CSV) ----------
+router.get("/export/users", authMiddleware, requireAdmin, requireSection("users"), (req, res) => {
+  try {
+    const rows = db.prepare("SELECT id, name, email, phone, city, role, verified, blocked, rating, reviews_count, created_at FROM users ORDER BY id").all();
+    sendCsv(res, "users.csv", rows);
+  } catch (err) {
+    console.error("Export users error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.get("/export/vacancies", authMiddleware, requireAdmin, requireSection("vacancies"), (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT v.id, v.title, v.company, u.name as employer, v.category, v.status, v.views,
+        (SELECT COUNT(*) FROM applications a WHERE a.vacancy_id = v.id) as applications_count, v.created_at
+      FROM vacancies v LEFT JOIN users u ON v.employer_id = u.id ORDER BY v.id
+    `).all();
+    sendCsv(res, "vacancies.csv", rows);
+  } catch (err) {
+    console.error("Export vacancies error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.get("/export/applications", authMiddleware, requireAdmin, requireSection("applications"), (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT a.id, u.name as specialist, v.title as vacancy, a.status, a.match_percent, a.created_at
+      FROM applications a JOIN users u ON a.user_id = u.id JOIN vacancies v ON a.vacancy_id = v.id
+      ORDER BY a.id
+    `).all();
+    sendCsv(res, "applications.csv", rows);
+  } catch (err) {
+    console.error("Export applications error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.get("/export/transactions", authMiddleware, requireAdmin, requireSection("finance"), (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT tr.id, u.name as user_name, u.email as user_email, tr.amount, tr.method, tr.type, tr.status, tr.description, tr.created_at
+      FROM transactions tr LEFT JOIN users u ON tr.user_id = u.id ORDER BY tr.id
+    `).all();
+    sendCsv(res, "transactions.csv", rows);
+  } catch (err) {
+    console.error("Export transactions error:", err);
     res.status(500).json({ error: "Server xatoligi" });
   }
 });
@@ -852,7 +1049,10 @@ router.get("/users/:id/detail", authMiddleware, requireAdmin, requireSection("us
     const lastLogin = db.prepare("SELECT ip, user_agent, created_at FROM login_events WHERE user_id = ? ORDER BY created_at DESC LIMIT 1").get(id);
     const loginHistory = db.prepare("SELECT ip, user_agent, created_at FROM login_events WHERE user_id = ? ORDER BY created_at DESC LIMIT 20").all(id);
 
-    res.json({ user, applications, orders, vacancies, reportsFiled, reportsReceived, verification, lastLogin: lastLogin || null, loginHistory });
+    const transactions = db.prepare("SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC").all(id);
+    const balance = transactions.filter((t) => t.status === "Tasdiqlangan").reduce((sum, t) => sum + t.amount, 0);
+
+    res.json({ user, applications, orders, vacancies, reportsFiled, reportsReceived, verification, lastLogin: lastLogin || null, loginHistory, transactions, balance });
   } catch (err) {
     console.error("Admin user detail error:", err);
     res.status(500).json({ error: "Server xatoligi" });
@@ -860,6 +1060,117 @@ router.get("/users/:id/detail", authMiddleware, requireAdmin, requireSection("us
 });
 
 // ---------- Sozlamalar: umumiy (masalan vakansiya moderatsiyasi rejimi) ----------
+router.get("/tariffs", authMiddleware, requireAdmin, requireSection("system"), (req, res) => {
+  try {
+    const tariffs = db.prepare("SELECT * FROM tariffs ORDER BY price ASC").all()
+      .map((t) => ({ ...t, features: JSON.parse(t.features || "[]") }));
+    res.json({ tariffs });
+  } catch (err) {
+    console.error("Admin tariffs list error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.patch("/tariffs/:id", authMiddleware, requireAdmin, requireSection("system"), (req, res) => {
+  try {
+    const { name, price, duration_days, features, active } = req.body;
+    const tariff = db.prepare("SELECT * FROM tariffs WHERE id = ?").get(req.params.id);
+    if (!tariff) return res.status(404).json({ error: "Tarif topilmadi" });
+
+    db.prepare(`
+      UPDATE tariffs SET
+        name = COALESCE(?, name),
+        price = COALESCE(?, price),
+        duration_days = COALESCE(?, duration_days),
+        features = COALESCE(?, features),
+        active = COALESCE(?, active)
+      WHERE id = ?
+    `).run(
+      name || null,
+      price !== undefined ? Number(price) : null,
+      duration_days !== undefined ? Number(duration_days) : null,
+      features ? JSON.stringify(features) : null,
+      active !== undefined ? (active ? 1 : 0) : null,
+      req.params.id
+    );
+
+    logAdmin(req.userId, "tariff_update", "tariff", req.params.id, `${tariff.name}: price=${price ?? tariff.price}`);
+
+    const updated = db.prepare("SELECT * FROM tariffs WHERE id = ?").get(req.params.id);
+    res.json({ tariff: { ...updated, features: JSON.parse(updated.features || "[]") } });
+  } catch (err) {
+    console.error("Admin tariff update error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+const VALID_ADMIN_SUBROLES = ["moderator", "support"];
+
+// Permissions management is deliberately gated on adminRole === "super_admin" directly
+// (not via requireSection) so a moderator/support account can never edit the permission
+// matrix even if the matrix itself was misconfigured to allow it.
+router.get("/permissions", authMiddleware, requireAdmin, (req, res) => {
+  if (req.adminRole !== "super_admin") return res.status(403).json({ error: "Faqat Super Admin ruxsatlarni ko'ra oladi" });
+  res.json({ permissions: getSectionRoles(), defaults: DEFAULT_SECTION_ROLES });
+});
+
+router.patch("/permissions", authMiddleware, requireAdmin, (req, res) => {
+  try {
+    if (req.adminRole !== "super_admin") return res.status(403).json({ error: "Faqat Super Admin ruxsatlarni o'zgartira oladi" });
+
+    const { section, roles } = req.body;
+    if (!section || !Array.isArray(roles) || roles.some((r) => !VALID_ADMIN_SUBROLES.includes(r))) {
+      return res.status(400).json({ error: "Noto'g'ri bo'lim yoki rol ro'yxati" });
+    }
+
+    const current = getSectionRoles();
+    current[section] = ["super_admin", ...roles];
+    db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+      .run(RBAC_SETTINGS_KEY, JSON.stringify(current));
+
+    logAdmin(req.userId, "permissions_update", "setting", null, `${section}=${roles.join(",")}`);
+    res.json({ permissions: current });
+  } catch (err) {
+    console.error("Admin permissions update error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+// ---------- Kontent moderatsiyasi: taqiqlangan so'zlar bo'yicha ommaviy skanerlash ----------
+router.post("/moderation/scan", authMiddleware, requireAdmin, requireSection("reports"), (req, res) => {
+  try {
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'banned_words'").get();
+    const words = (row?.value || "").split(",").map((w) => w.trim().toLowerCase()).filter(Boolean);
+    if (words.length === 0) return res.status(400).json({ error: "Avval Sozlamalarda taqiqlangan so'zlar ro'yxatini kiriting" });
+
+    const alreadyFlagged = new Set(
+      db.prepare("SELECT target_type || ':' || target_id as k FROM content_flags WHERE auto_detected = 1 AND status != 'Rad etilgan'").all().map((r) => r.k)
+    );
+
+    let flagged = 0;
+    const scanTarget = (targetType, id, text) => {
+      const key = `${targetType}:${id}`;
+      if (alreadyFlagged.has(key)) return;
+      const lower = (text || "").toLowerCase();
+      const hit = words.find((w) => lower.includes(w));
+      if (!hit) return;
+      db.prepare(`INSERT INTO content_flags (target_type, target_id, reason, severity, status, auto_detected) VALUES (?, ?, ?, 'Yuqori', 'Ko''rib chiqilmoqda', 1)`)
+        .run(targetType, id, `Taqiqlangan so'z topildi: "${hit}"`);
+      alreadyFlagged.add(key);
+      flagged++;
+    };
+
+    for (const u of db.prepare("SELECT id, bio FROM users WHERE bio != ''").all()) scanTarget("user", u.id, u.bio);
+    for (const v of db.prepare("SELECT id, description FROM vacancies WHERE description != ''").all()) scanTarget("vacancy", v.id, v.description);
+
+    logAdmin(req.userId, "content_scan", "content_flags", null, `${flagged} ta yangi belgi topildi`);
+    res.json({ success: true, flagged, scannedWords: words.length });
+  } catch (err) {
+    console.error("Admin moderation scan error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
 router.get("/settings", authMiddleware, requireAdmin, requireSection("system"), (req, res) => {
   try {
     const rows = db.prepare("SELECT key, value FROM settings").all();

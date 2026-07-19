@@ -557,7 +557,7 @@ export default function Admin() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-medium text-ink text-sm">{v.title}</h3>
+                        <Link to={`/admin/vacancies/${v.id}`} className="font-medium text-ink text-sm hover:underline">{v.title}</Link>
                         <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${v.status === "Faol" ? "bg-emerald-50 text-emerald-600" : v.status === "Kutilmoqda" ? "bg-amber-50 text-amber-600" : v.status === "Tuzatish kerak" ? "bg-red-50 text-red-600" : "bg-gray-100 text-gray-500"}`}>{v.status || "Faol"}</span>
                       </div>
                       <div className="flex items-center gap-3 mt-1 text-xs text-ink-3">
