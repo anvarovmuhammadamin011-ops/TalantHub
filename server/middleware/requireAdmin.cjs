@@ -1,7 +1,10 @@
+// Postgres-era draft of requireAdmin.cjs — async/await added around the two db.prepare(...).get()
+// calls; requireSection's returned middleware is now async too since it awaits getSectionRoles().
+// Not yet wired in.
 const db = require("../db.cjs");
 
-function requireAdmin(req, res, next) {
-  const user = db.prepare("SELECT role, admin_role FROM users WHERE id = ?").get(req.userId);
+async function requireAdmin(req, res, next) {
+  const user = await db.prepare("SELECT role, admin_role FROM users WHERE id = ?").get(req.userId);
   if (!user || user.role !== "admin") {
     return res.status(403).json({ error: "Faqat administrator uchun ruxsat" });
   }
@@ -35,9 +38,9 @@ const RBAC_SETTINGS_KEY = "rbac_permissions";
 // Admin-editable overrides live in settings.rbac_permissions as JSON; sections not present
 // there fall back to DEFAULT_SECTION_ROLES. Read fresh each call — this is an admin-only,
 // low-traffic path, so a DB round-trip per request is not worth caching.
-function getSectionRoles() {
+async function getSectionRoles() {
   try {
-    const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(RBAC_SETTINGS_KEY);
+    const row = await db.prepare("SELECT value FROM settings WHERE key = ?").get(RBAC_SETTINGS_KEY);
     const overrides = row ? JSON.parse(row.value) : {};
     return { ...DEFAULT_SECTION_ROLES, ...overrides };
   } catch {
@@ -46,8 +49,8 @@ function getSectionRoles() {
 }
 
 function requireSection(section) {
-  return (req, res, next) => {
-    const roles = getSectionRoles();
+  return async (req, res, next) => {
+    const roles = await getSectionRoles();
     const allowed = roles[section] || ["super_admin"];
     if (req.adminRole === "super_admin" || allowed.includes(req.adminRole)) return next();
     return res.status(403).json({ error: "Ushbu bo'lim uchun ruxsatingiz yo'q" });

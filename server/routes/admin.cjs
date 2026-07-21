@@ -26,72 +26,74 @@ function sendCsv(res, filename, rows) {
   res.send("﻿" + toCsv(rows));
 }
 
-function logAdmin(adminId, action, targetType, targetId, details) {
+// Fire-and-forget, matching the original's design — every failure path is caught and logged
+// internally, so callers never need to await this.
+async function logAdmin(adminId, action, targetType, targetId, details) {
   try {
-    db.prepare(`INSERT INTO admin_logs (admin_id, action, target_type, target_id, details) VALUES (?, ?, ?, ?, ?)`)
+    await db.prepare(`INSERT INTO admin_logs (admin_id, action, target_type, target_id, details) VALUES (?, ?, ?, ?, ?)`)
       .run(adminId, action, targetType || "", targetId || null, details || "");
   } catch (e) {
     console.error("Admin log error:", e);
   }
 }
 
-router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), (req, res) => {
+router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), async (req, res) => {
   try {
-    const users_total = db.prepare("SELECT COUNT(*) as c FROM users").get().c;
-    const specialists = db.prepare("SELECT COUNT(*) as c FROM users WHERE role='specialist'").get().c;
-    const employers = db.prepare("SELECT COUNT(*) as c FROM users WHERE role='employer'").get().c;
-    const admins = db.prepare("SELECT COUNT(*) as c FROM users WHERE role='admin'").get().c;
-    const vacancies_total = db.prepare("SELECT COUNT(*) as c FROM vacancies").get().c;
-    const vacancies_active = db.prepare("SELECT COUNT(*) as c FROM vacancies WHERE status='Faol'").get().c;
-    const orders_total = db.prepare("SELECT COUNT(*) as c FROM orders").get().c;
-    const orders_active = db.prepare("SELECT COUNT(*) as c FROM orders WHERE status IN ('Yangi','Qabul qilindi','Jarayonda')").get().c;
-    const orders_completed = db.prepare("SELECT COUNT(*) as c FROM orders WHERE status='Tugatildi'").get().c;
-    const applications_total = db.prepare("SELECT COUNT(*) as c FROM applications").get().c;
-    const messages_total = db.prepare("SELECT COUNT(*) as c FROM messages").get().c;
-    const new_users_7d = db.prepare("SELECT COUNT(*) as c FROM users WHERE created_at >= datetime('now','-7 days')").get().c;
-    const verified_users = db.prepare("SELECT COUNT(*) as c FROM users WHERE verified = 1").get().c;
-    const blocked_users = db.prepare("SELECT COUNT(*) as c FROM users WHERE blocked = 1").get().c;
-    const featured_users = db.prepare("SELECT COUNT(*) as c FROM users WHERE featured = 1").get().c;
+    const users_total = (await db.prepare("SELECT COUNT(*) as c FROM users").get()).c;
+    const specialists = (await db.prepare("SELECT COUNT(*) as c FROM users WHERE role='specialist'").get()).c;
+    const employers = (await db.prepare("SELECT COUNT(*) as c FROM users WHERE role='employer'").get()).c;
+    const admins = (await db.prepare("SELECT COUNT(*) as c FROM users WHERE role='admin'").get()).c;
+    const vacancies_total = (await db.prepare("SELECT COUNT(*) as c FROM vacancies").get()).c;
+    const vacancies_active = (await db.prepare("SELECT COUNT(*) as c FROM vacancies WHERE status='Faol'").get()).c;
+    const orders_total = (await db.prepare("SELECT COUNT(*) as c FROM orders").get()).c;
+    const orders_active = (await db.prepare("SELECT COUNT(*) as c FROM orders WHERE status IN ('Yangi','Qabul qilindi','Jarayonda')").get()).c;
+    const orders_completed = (await db.prepare("SELECT COUNT(*) as c FROM orders WHERE status='Tugatildi'").get()).c;
+    const applications_total = (await db.prepare("SELECT COUNT(*) as c FROM applications").get()).c;
+    const messages_total = (await db.prepare("SELECT COUNT(*) as c FROM messages").get()).c;
+    const new_users_7d = (await db.prepare("SELECT COUNT(*) as c FROM users WHERE created_at >= NOW() - INTERVAL '7 days'").get()).c;
+    const verified_users = (await db.prepare("SELECT COUNT(*) as c FROM users WHERE verified = 1").get()).c;
+    const blocked_users = (await db.prepare("SELECT COUNT(*) as c FROM users WHERE blocked = 1").get()).c;
+    const featured_users = (await db.prepare("SELECT COUNT(*) as c FROM users WHERE featured = 1").get()).c;
 
-    const signups_by_day = db.prepare(`
+    const signups_by_day = await db.prepare(`
       SELECT date(created_at) as date, COUNT(*) as count
       FROM users
-      WHERE created_at >= datetime('now','-13 days')
+      WHERE created_at >= NOW() - INTERVAL '13 days'
       GROUP BY date(created_at)
       ORDER BY date(created_at) ASC
     `).all();
-    const signupsByDayMap = Object.fromEntries(signups_by_day.map((r) => [r.date, r.count]));
+    const signupsByDayMap = Object.fromEntries(signups_by_day.map((r) => [String(r.date).slice(0, 10), r.count]));
     const signups_series = [];
     for (let i = 13; i >= 0; i--) {
       const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
       signups_series.push({ date: d, count: signupsByDayMap[d] || 0 });
     }
 
-    const users_by_city = db.prepare(`
+    const users_by_city = await db.prepare(`
       SELECT city, COUNT(*) as count FROM users
       WHERE city IS NOT NULL AND city != ''
       GROUP BY city ORDER BY count DESC LIMIT 5
     `).all();
 
-    const vacanciesByDay = db.prepare(`
+    const vacanciesByDay = await db.prepare(`
       SELECT date(created_at) as date, COUNT(*) as count
       FROM vacancies
-      WHERE created_at >= datetime('now','-29 days')
+      WHERE created_at >= NOW() - INTERVAL '29 days'
       GROUP BY date(created_at)
       ORDER BY date(created_at) ASC
     `).all();
-    const vacanciesByDayMap = Object.fromEntries(vacanciesByDay.map((r) => [r.date, r.count]));
+    const vacanciesByDayMap = Object.fromEntries(vacanciesByDay.map((r) => [String(r.date).slice(0, 10), r.count]));
     const vacancies_30d_series = [];
     for (let i = 29; i >= 0; i--) {
       const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
       vacancies_30d_series.push({ date: d, count: vacanciesByDayMap[d] || 0 });
     }
 
-    const vacancies_pending = db.prepare("SELECT COUNT(*) as c FROM vacancies WHERE status='Kutilmoqda'").get().c;
-    const vacancies_needs_fix = db.prepare("SELECT COUNT(*) as c FROM vacancies WHERE status='Tuzatish kerak'").get().c;
+    const vacancies_pending = (await db.prepare("SELECT COUNT(*) as c FROM vacancies WHERE status='Kutilmoqda'").get()).c;
+    const vacancies_needs_fix = (await db.prepare("SELECT COUNT(*) as c FROM vacancies WHERE status='Tuzatish kerak'").get()).c;
 
     const directionCounts = {};
-    for (const row of db.prepare("SELECT category, directions FROM vacancies").all()) {
+    for (const row of await db.prepare("SELECT category, directions FROM vacancies").all()) {
       let dirs = [];
       try { dirs = JSON.parse(row.directions || "[]"); } catch { dirs = []; }
       const keys = dirs.length ? dirs : [row.category];
@@ -105,41 +107,41 @@ router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), (req
       .sort((a, b) => b.count - a.count)
       .slice(0, 8);
 
-    const hired = db.prepare("SELECT COUNT(*) as c FROM applications WHERE status = 'Qabul qilindi'").get().c;
+    const hired = (await db.prepare("SELECT COUNT(*) as c FROM applications WHERE status = 'Qabul qilindi'").get()).c;
     const conversion = {
       total_applications: applications_total,
       hired,
       rate: applications_total > 0 ? Math.round((hired / applications_total) * 1000) / 10 : 0,
     };
 
-    const pageviews_7d = db.prepare("SELECT COUNT(*) as c FROM analytics_events WHERE created_at >= datetime('now','-7 days')").get().c;
-    const applications_7d = db.prepare("SELECT COUNT(*) as c FROM applications WHERE created_at >= datetime('now','-7 days')").get().c;
-    const top_pages = db.prepare(`
+    const pageviews_7d = (await db.prepare("SELECT COUNT(*) as c FROM analytics_events WHERE created_at >= NOW() - INTERVAL '7 days'").get()).c;
+    const applications_7d = (await db.prepare("SELECT COUNT(*) as c FROM applications WHERE created_at >= NOW() - INTERVAL '7 days'").get()).c;
+    const top_pages = await db.prepare(`
       SELECT path, COUNT(*) as count FROM analytics_events
-      WHERE created_at >= datetime('now','-7 days')
+      WHERE created_at >= NOW() - INTERVAL '7 days'
       GROUP BY path ORDER BY count DESC LIMIT 8
     `).all();
     const analytics = { pageviews_7d, applications_7d, new_users_7d, top_pages };
 
-    function periodTrend(table, whereExtra = "") {
+    async function periodTrend(table, whereExtra = "") {
       const extra = whereExtra ? `AND ${whereExtra}` : "";
-      const current = db.prepare(`SELECT COUNT(*) as c FROM ${table} WHERE created_at >= datetime('now','-7 days') ${extra}`).get().c;
-      const prev = db.prepare(`SELECT COUNT(*) as c FROM ${table} WHERE created_at >= datetime('now','-14 days') AND created_at < datetime('now','-7 days') ${extra}`).get().c;
+      const current = (await db.prepare(`SELECT COUNT(*) as c FROM ${table} WHERE created_at >= NOW() - INTERVAL '7 days' ${extra}`).get()).c;
+      const prev = (await db.prepare(`SELECT COUNT(*) as c FROM ${table} WHERE created_at >= NOW() - INTERVAL '14 days' AND created_at < NOW() - INTERVAL '7 days' ${extra}`).get()).c;
       const pct = prev === 0 ? null : Math.round(((current - prev) / prev) * 1000) / 10;
       return { current, prev, pct };
     }
     const trend = {
-      users_total: periodTrend("users"),
-      vacancies_active: periodTrend("vacancies", "status='Faol'"),
-      applications_total: periodTrend("applications"),
-      orders_completed: periodTrend("orders", "status='Tugatildi'"),
+      users_total: await periodTrend("users"),
+      vacancies_active: await periodTrend("vacancies", "status='Faol'"),
+      applications_total: await periodTrend("applications"),
+      orders_completed: await periodTrend("orders", "status='Tugatildi'"),
     };
 
-    const applicationsByMonth = db.prepare(`
-      SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as count
+    const applicationsByMonth = await db.prepare(`
+      SELECT to_char(created_at, 'YYYY-MM') as month, COUNT(*) as count
       FROM applications
-      WHERE created_at >= datetime('now','-5 months','start of month')
-      GROUP BY strftime('%Y-%m', created_at)
+      WHERE created_at >= date_trunc('month', NOW() - INTERVAL '5 months')
+      GROUP BY to_char(created_at, 'YYYY-MM')
     `).all();
     const applicationsByMonthMap = Object.fromEntries(applicationsByMonth.map((r) => [r.month, r.count]));
     const applications_monthly_series = [];
@@ -151,14 +153,14 @@ router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), (req
       applications_monthly_series.push({ month: key, count: applicationsByMonthMap[key] || 0 });
     }
 
-    const upcomingVacancies = db.prepare(`
+    const upcomingVacancies = (await db.prepare(`
       SELECT id, title, company, start_date as date
       FROM vacancies
-      WHERE status='Faol' AND start_date IS NOT NULL AND start_date != '' AND date(start_date) >= date('now')
-      ORDER BY date(start_date) ASC LIMIT 8
-    `).all().map((v) => ({ type: "vacancy", id: v.id, title: v.title, subtitle: v.company, date: v.date }));
+      WHERE status='Faol' AND start_date IS NOT NULL AND start_date != '' AND start_date::date >= CURRENT_DATE
+      ORDER BY start_date::date ASC LIMIT 8
+    `).all()).map((v) => ({ type: "vacancy", id: v.id, title: v.title, subtitle: v.company, date: v.date }));
 
-    const candidateOrders = db.prepare(`
+    const candidateOrders = await db.prepare(`
       SELECT o.id, o.title, o.deadline, e.name as employer_name
       FROM orders o LEFT JOIN users e ON o.employer_id = e.id
       WHERE o.status IN ('Yangi','Qabul qilindi','Jarayonda') AND o.deadline IS NOT NULL AND o.deadline != ''
@@ -173,24 +175,24 @@ router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), (req
     const upcoming = [...upcomingVacancies, ...upcomingOrders].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 8);
 
     const APPLICATION_STATUSES = ["Yuborildi", "Ko'rib chiqilmoqda", "Interview", "Qabul qilindi", "Rad etildi"];
-    const statusCounts = db.prepare(`SELECT status, COUNT(*) as count FROM applications GROUP BY status`).all();
+    const statusCounts = await db.prepare(`SELECT status, COUNT(*) as count FROM applications GROUP BY status`).all();
     const statusCountMap = Object.fromEntries(statusCounts.map((r) => [r.status, r.count]));
     const application_status_breakdown = APPLICATION_STATUSES.map((status) => ({ status, count: statusCountMap[status] || 0 }));
 
     const avg_match_percent = Math.round(
-      (db.prepare("SELECT AVG(match_percent) as avg FROM applications WHERE match_percent > 0").get().avg || 0) * 10
+      ((await db.prepare("SELECT AVG(match_percent) as avg FROM applications WHERE match_percent > 0").get()).avg || 0) * 10
     ) / 10;
 
-    const appsByMonth12 = db.prepare(`
-      SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as count
-      FROM applications WHERE created_at >= datetime('now','-11 months','start of month')
-      GROUP BY strftime('%Y-%m', created_at)
+    const appsByMonth12 = await db.prepare(`
+      SELECT to_char(created_at, 'YYYY-MM') as month, COUNT(*) as count
+      FROM applications WHERE created_at >= date_trunc('month', NOW() - INTERVAL '11 months')
+      GROUP BY to_char(created_at, 'YYYY-MM')
     `).all();
     const appsByMonth12Map = Object.fromEntries(appsByMonth12.map((r) => [r.month, r.count]));
-    const vacsByMonth12 = db.prepare(`
-      SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as count
-      FROM vacancies WHERE created_at >= datetime('now','-11 months','start of month')
-      GROUP BY strftime('%Y-%m', created_at)
+    const vacsByMonth12 = await db.prepare(`
+      SELECT to_char(created_at, 'YYYY-MM') as month, COUNT(*) as count
+      FROM vacancies WHERE created_at >= date_trunc('month', NOW() - INTERVAL '11 months')
+      GROUP BY to_char(created_at, 'YYYY-MM')
     `).all();
     const vacsByMonth12Map = Object.fromEntries(vacsByMonth12.map((r) => [r.month, r.count]));
     const monthly_activity = [];
@@ -216,7 +218,7 @@ router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), (req
   }
 });
 
-router.get("/companies", authMiddleware, requireAdmin, requireSection("companies"), (req, res) => {
+router.get("/companies", authMiddleware, requireAdmin, requireSection("companies"), async (req, res) => {
   try {
     const { search, page = 1, limit = 20 } = req.query;
     let sql = `
@@ -229,17 +231,17 @@ router.get("/companies", authMiddleware, requireAdmin, requireSection("companies
     `;
     const params = [];
     if (search) {
-      sql += ` AND (u.name LIKE ? OR u.company_name LIKE ?)`;
+      sql += ` AND (u.name ILIKE ? OR u.company_name ILIKE ?)`;
       params.push(`%${search}%`, `%${search}%`);
     }
 
     const countSql = sql.replace(/SELECT[\s\S]*?FROM users u/, "SELECT COUNT(*) as total FROM users u");
-    const total = db.prepare(countSql).get(...params).total;
+    const total = (await db.prepare(countSql).get(...params)).total;
 
     sql += ` ORDER BY vacancies_count DESC, u.created_at DESC LIMIT ? OFFSET ?`;
     params.push(Number(limit), (Number(page) - 1) * Number(limit));
 
-    const companies = db.prepare(sql).all(...params).map((c) => ({
+    const companies = (await db.prepare(sql).all(...params)).map((c) => ({
       ...c,
       display_name: c.company_name || c.name,
     }));
@@ -250,14 +252,14 @@ router.get("/companies", authMiddleware, requireAdmin, requireSection("companies
   }
 });
 
-router.get("/users", authMiddleware, requireAdmin, requireSection("users"), (req, res) => {
+router.get("/users", authMiddleware, requireAdmin, requireSection("users"), async (req, res) => {
   try {
     const { search, role, status, page = 1, limit = 20 } = req.query;
     let sql = `SELECT id,name,email,phone,city,role,admin_role,verified,blocked,blocked_reason,featured,rating,reviews_count,orders_count,created_at,avatar,categories FROM users WHERE 1=1`;
     const params = [];
 
     if (search) {
-      sql += ` AND (name LIKE ? OR email LIKE ?)`;
+      sql += ` AND (name ILIKE ? OR email ILIKE ?)`;
       params.push(`%${search}%`, `%${search}%`);
     }
     if (role) {
@@ -273,12 +275,12 @@ router.get("/users", authMiddleware, requireAdmin, requireSection("users"), (req
     }
 
     const countSql = sql.replace("SELECT id,name,email,phone,city,role,admin_role,verified,blocked,blocked_reason,featured,rating,reviews_count,orders_count,created_at,avatar,categories", "SELECT COUNT(*) as total");
-    const total = db.prepare(countSql).get(...params).total;
+    const total = (await db.prepare(countSql).get(...params)).total;
 
     sql += ` ORDER BY featured DESC, created_at DESC LIMIT ? OFFSET ?`;
     params.push(Number(limit), (Number(page) - 1) * Number(limit));
 
-    const users = db.prepare(sql).all(...params);
+    const users = await db.prepare(sql).all(...params);
     res.json({ users, total, page: Number(page), limit: Number(limit) });
   } catch (err) {
     console.error("Admin users list error:", err);
@@ -289,16 +291,16 @@ router.get("/users", authMiddleware, requireAdmin, requireSection("users"), (req
 const VALID_ROLES = ["specialist", "employer", "admin"];
 const VALID_ADMIN_ROLES = ["super_admin", "moderator", "support"];
 
-router.patch("/users/:id", authMiddleware, requireAdmin, requireSection("users"), (req, res) => {
+router.patch("/users/:id", authMiddleware, requireAdmin, requireSection("users"), async (req, res) => {
   try {
     const targetId = Number(req.params.id);
     const isSelf = targetId === req.userId;
 
-    const target = db.prepare("SELECT id, role, admin_role, name FROM users WHERE id = ?").get(targetId);
+    const target = await db.prepare("SELECT id, role, admin_role, name FROM users WHERE id = ?").get(targetId);
     if (!target) return res.status(404).json({ error: "Foydalanuvchi topilmadi" });
 
     const { verified, blocked, blocked_reason, featured, rating, reviews_count, role, admin_role, name, phone, city } = req.body;
-    const actor = db.prepare("SELECT admin_role FROM users WHERE id = ?").get(req.userId);
+    const actor = await db.prepare("SELECT admin_role FROM users WHERE id = ?").get(req.userId);
     const actorIsSuperAdmin = (actor?.admin_role || "super_admin") === "super_admin";
 
     if (isSelf && (blocked !== undefined || role !== undefined)) {
@@ -335,7 +337,7 @@ router.patch("/users/:id", authMiddleware, requireAdmin, requireSection("users")
         // Admin-set roles only ever add to the unlocked-roles list, never revoke — an admin
         // "demoting" someone to specialist shouldn't strip their ability to self-switch back.
         let roles = [];
-        try { roles = JSON.parse(db.prepare("SELECT roles FROM users WHERE id = ?").get(targetId)?.roles || "[]"); } catch { roles = []; }
+        try { roles = JSON.parse((await db.prepare("SELECT roles FROM users WHERE id = ?").get(targetId))?.roles || "[]"); } catch { roles = []; }
         if (!Array.isArray(roles)) roles = [];
         if (!roles.includes(role)) roles.push(role);
         sets.push("roles = ?"); params.push(JSON.stringify(roles));
@@ -349,11 +351,11 @@ router.patch("/users/:id", authMiddleware, requireAdmin, requireSection("users")
     if (sets.length === 0) return res.status(400).json({ error: "Yangilanadigan maydon topilmadi" });
 
     params.push(targetId);
-    db.prepare(`UPDATE users SET ${sets.join(", ")} WHERE id = ?`).run(...params);
+    await db.prepare(`UPDATE users SET ${sets.join(", ")} WHERE id = ?`).run(...params);
 
     logAdmin(req.userId, "user_update", "user", targetId, `${target.name}: ${logDetails.join(", ")}`);
 
-    const user = db.prepare("SELECT id,name,email,role,admin_role,verified,blocked,blocked_reason,featured,rating,reviews_count,phone,city FROM users WHERE id = ?").get(targetId);
+    const user = await db.prepare("SELECT id,name,email,role,admin_role,verified,blocked,blocked_reason,featured,rating,reviews_count,phone,city FROM users WHERE id = ?").get(targetId);
     res.json({ user });
   } catch (err) {
     console.error("Admin user update error:", err);
@@ -361,9 +363,9 @@ router.patch("/users/:id", authMiddleware, requireAdmin, requireSection("users")
   }
 });
 
-router.get("/vacancies/:id/detail", authMiddleware, requireAdmin, requireSection("vacancies"), (req, res) => {
+router.get("/vacancies/:id/detail", authMiddleware, requireAdmin, requireSection("vacancies"), async (req, res) => {
   try {
-    const vacancy = db.prepare(`
+    const vacancy = await db.prepare(`
       SELECT v.*, u.name as author_name, u.email as author_email, u.company_name as author_company
       FROM vacancies v LEFT JOIN users u ON v.employer_id = u.id
       WHERE v.id = ?
@@ -377,7 +379,7 @@ router.get("/vacancies/:id/detail", authMiddleware, requireAdmin, requireSection
     vacancy.directions = JSON.parse(vacancy.directions || "[]");
     vacancy.screening_questions = JSON.parse(vacancy.screening_questions || "[]");
 
-    const applications = db.prepare(`
+    const applications = await db.prepare(`
       SELECT a.id, a.status, a.match_percent, a.created_at, u.id as user_id, u.name as specialist_name
       FROM applications a JOIN users u ON a.user_id = u.id
       WHERE a.vacancy_id = ? ORDER BY a.created_at DESC
@@ -390,7 +392,7 @@ router.get("/vacancies/:id/detail", authMiddleware, requireAdmin, requireSection
   }
 });
 
-router.get("/vacancies", authMiddleware, requireAdmin, requireSection("vacancies"), (req, res) => {
+router.get("/vacancies", authMiddleware, requireAdmin, requireSection("vacancies"), async (req, res) => {
   try {
     const { search, status } = req.query;
     let sql = `
@@ -401,7 +403,7 @@ router.get("/vacancies", authMiddleware, requireAdmin, requireSection("vacancies
     const params = [];
 
     if (search) {
-      sql += ` AND (v.title LIKE ? OR v.company LIKE ?)`;
+      sql += ` AND (v.title ILIKE ? OR v.company ILIKE ?)`;
       params.push(`%${search}%`, `%${search}%`);
     }
     if (status) {
@@ -410,7 +412,7 @@ router.get("/vacancies", authMiddleware, requireAdmin, requireSection("vacancies
     }
 
     sql += ` ORDER BY v.created_at DESC`;
-    const vacancies = db.prepare(sql).all(...params).map((v) => ({
+    const vacancies = (await db.prepare(sql).all(...params)).map((v) => ({
       ...v, tags: JSON.parse(v.tags), requirements: JSON.parse(v.requirements), conditions: JSON.parse(v.conditions),
       directions: JSON.parse(v.directions || "[]"),
     }));
@@ -424,17 +426,17 @@ router.get("/vacancies", authMiddleware, requireAdmin, requireSection("vacancies
 
 const VACANCY_MODERATION_STATUSES = ["Faol", "Tuzatish kerak", "Nofaol", "Arxivlangan"];
 
-router.patch("/vacancies/:id/status", authMiddleware, requireAdmin, requireSection("vacancies"), (req, res) => {
+router.patch("/vacancies/:id/status", authMiddleware, requireAdmin, requireSection("vacancies"), async (req, res) => {
   try {
     const { status, reject_reason } = req.body;
     if (!VACANCY_MODERATION_STATUSES.includes(status)) {
       return res.status(400).json({ error: "Noto'g'ri status" });
     }
 
-    const vacancy = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(req.params.id);
+    const vacancy = await db.prepare("SELECT * FROM vacancies WHERE id = ?").get(req.params.id);
     if (!vacancy) return res.status(404).json({ error: "Vakansiya topilmadi" });
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE vacancies SET status = ?, reject_reason = ?, moderated_by = ?, moderated_at = CURRENT_TIMESTAMP WHERE id = ?
     `).run(status, status === "Tuzatish kerak" ? (reject_reason || "") : "", req.userId, req.params.id);
 
@@ -453,7 +455,7 @@ router.patch("/vacancies/:id/status", authMiddleware, requireAdmin, requireSecti
         : status === "Tuzatish kerak" ? `"${vacancy.title}": ${reject_reason || "Sabab ko'rsatilmagan"}`
         : `"${vacancy.title}" e'loningiz holati o'zgardi.`;
 
-      db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'vacancy', ?, ?, '/dashboard')`)
+      await db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'vacancy', ?, ?, '/dashboard')`)
         .run(vacancy.employer_id, title, description);
 
       if (req.app.get("io")) {
@@ -470,16 +472,16 @@ router.patch("/vacancies/:id/status", authMiddleware, requireAdmin, requireSecti
   }
 });
 
-router.post("/wallet/adjust", authMiddleware, requireAdmin, requireSection("finance"), (req, res) => {
+router.post("/wallet/adjust", authMiddleware, requireAdmin, requireSection("finance"), async (req, res) => {
   try {
     const { user_id, amount, description } = req.body;
     const amountNum = Number(amount);
     if (!user_id || !amountNum) return res.status(400).json({ error: "user_id va amount majburiy" });
 
-    const target = db.prepare("SELECT id, name FROM users WHERE id = ?").get(user_id);
+    const target = await db.prepare("SELECT id, name FROM users WHERE id = ?").get(user_id);
     if (!target) return res.status(404).json({ error: "Foydalanuvchi topilmadi" });
 
-    db.prepare(`INSERT INTO transactions (user_id, amount, method, status, type, description) VALUES (?, ?, 'Admin', 'Tasdiqlangan', 'demo_topup', ?)`)
+    await db.prepare(`INSERT INTO transactions (user_id, amount, method, status, type, description) VALUES (?, ?, 'Admin', 'Tasdiqlangan', 'demo_topup', ?)`)
       .run(user_id, amountNum, description || "Administrator tomonidan balans to'ldirildi");
 
     logAdmin(req.userId, "wallet_adjust", "user", user_id, `${target.name}: ${amountNum > 0 ? "+" : ""}${amountNum}`);
@@ -491,12 +493,12 @@ router.post("/wallet/adjust", authMiddleware, requireAdmin, requireSection("fina
   }
 });
 
-router.delete("/vacancies/:id", authMiddleware, requireAdmin, requireSection("vacancies"), (req, res) => {
+router.delete("/vacancies/:id", authMiddleware, requireAdmin, requireSection("vacancies"), async (req, res) => {
   try {
-    const vacancy = db.prepare("SELECT id, title FROM vacancies WHERE id = ?").get(req.params.id);
+    const vacancy = await db.prepare("SELECT id, title FROM vacancies WHERE id = ?").get(req.params.id);
     if (!vacancy) return res.status(404).json({ error: "Vakansiya topilmadi" });
-    db.prepare("DELETE FROM applications WHERE vacancy_id = ?").run(req.params.id);
-    db.prepare("DELETE FROM vacancies WHERE id = ?").run(req.params.id);
+    await db.prepare("DELETE FROM applications WHERE vacancy_id = ?").run(req.params.id);
+    await db.prepare("DELETE FROM vacancies WHERE id = ?").run(req.params.id);
     logAdmin(req.userId, "vacancy_delete", "vacancy", req.params.id, vacancy.title);
     emitAdminUpdate(req.app.get("io"), "vacancy");
     res.json({ success: true });
@@ -507,32 +509,32 @@ router.delete("/vacancies/:id", authMiddleware, requireAdmin, requireSection("va
 });
 
 // ---------- Moliya / To'lovlar ----------
-router.get("/finance/stats", authMiddleware, requireAdmin, requireSection("finance"), (req, res) => {
+router.get("/finance/stats", authMiddleware, requireAdmin, requireSection("finance"), async (req, res) => {
   try {
-    const revenue = db.prepare(`
+    const revenue = (await db.prepare(`
       SELECT COALESCE(SUM(amount), 0) as total FROM transactions
       WHERE status = 'Tasdiqlangan' AND amount > 0 AND type != 'demo_topup'
-    `).get().total;
-    const refunded = db.prepare(`SELECT COALESCE(SUM(refund), 0) as total FROM transactions WHERE status = 'Qaytarildi'`).get().total;
-    const topups = db.prepare(`
+    `).get()).total;
+    const refunded = (await db.prepare(`SELECT COALESCE(SUM(refund), 0) as total FROM transactions WHERE status = 'Qaytarildi'`).get()).total;
+    const topups = (await db.prepare(`
       SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE status = 'Tasdiqlangan' AND type = 'demo_topup'
-    `).get().total;
-    const transactionCount = db.prepare("SELECT COUNT(*) as c FROM transactions").get().c;
-    const activeTariffs = db.prepare("SELECT COUNT(*) as c FROM tariffs_users WHERE active = 1 AND expires_at > CURRENT_TIMESTAMP").get().c;
+    `).get()).total;
+    const transactionCount = (await db.prepare("SELECT COUNT(*) as c FROM transactions").get()).c;
+    const activeTariffs = (await db.prepare("SELECT COUNT(*) as c FROM tariffs_users WHERE active = 1 AND expires_at > CURRENT_TIMESTAMP").get()).c;
 
-    const tariffSales = db.prepare(`
+    const tariffSales = await db.prepare(`
       SELECT t.name, COUNT(tu.id) as sales, COALESCE(SUM(t.price), 0) as revenue
       FROM tariffs_users tu JOIN tariffs t ON tu.tariff_id = t.id
       GROUP BY t.id ORDER BY sales DESC
     `).all();
 
-    const revenueByDay = db.prepare(`
+    const revenueByDay = await db.prepare(`
       SELECT date(created_at) as date, COALESCE(SUM(amount), 0) as total
       FROM transactions
-      WHERE status = 'Tasdiqlangan' AND amount > 0 AND type != 'demo_topup' AND created_at >= datetime('now','-29 days')
+      WHERE status = 'Tasdiqlangan' AND amount > 0 AND type != 'demo_topup' AND created_at >= NOW() - INTERVAL '29 days'
       GROUP BY date(created_at) ORDER BY date(created_at) ASC
     `).all();
-    const revenueByDayMap = Object.fromEntries(revenueByDay.map((r) => [r.date, r.total]));
+    const revenueByDayMap = Object.fromEntries(revenueByDay.map((r) => [String(r.date).slice(0, 10), r.total]));
     const revenue_30d_series = [];
     for (let i = 29; i >= 0; i--) {
       const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
@@ -546,7 +548,7 @@ router.get("/finance/stats", authMiddleware, requireAdmin, requireSection("finan
   }
 });
 
-router.get("/finance/transactions", authMiddleware, requireAdmin, requireSection("finance"), (req, res) => {
+router.get("/finance/transactions", authMiddleware, requireAdmin, requireSection("finance"), async (req, res) => {
   try {
     const { status, type, search, page = 1, limit = 30 } = req.query;
     let sql = `
@@ -557,15 +559,15 @@ router.get("/finance/transactions", authMiddleware, requireAdmin, requireSection
     const params = [];
     if (status) { sql += ` AND tr.status = ?`; params.push(status); }
     if (type) { sql += ` AND tr.type = ?`; params.push(type); }
-    if (search) { sql += ` AND (u.name LIKE ? OR u.email LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
+    if (search) { sql += ` AND (u.name ILIKE ? OR u.email ILIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
 
     const countSql = sql.replace("SELECT tr.*, u.name as user_name, u.email as user_email", "SELECT COUNT(*) as total");
-    const total = db.prepare(countSql).get(...params).total;
+    const total = (await db.prepare(countSql).get(...params)).total;
 
     sql += ` ORDER BY tr.created_at DESC LIMIT ? OFFSET ?`;
     params.push(Number(limit), (Number(page) - 1) * Number(limit));
 
-    const transactions = db.prepare(sql).all(...params);
+    const transactions = await db.prepare(sql).all(...params);
     res.json({ transactions, total, page: Number(page), limit: Number(limit) });
   } catch (err) {
     console.error("Admin finance transactions error:", err);
@@ -573,20 +575,20 @@ router.get("/finance/transactions", authMiddleware, requireAdmin, requireSection
   }
 });
 
-router.post("/finance/transactions/:id/refund", authMiddleware, requireAdmin, requireSection("finance"), (req, res) => {
+router.post("/finance/transactions/:id/refund", authMiddleware, requireAdmin, requireSection("finance"), async (req, res) => {
   try {
-    const tx = db.prepare("SELECT * FROM transactions WHERE id = ?").get(req.params.id);
+    const tx = await db.prepare("SELECT * FROM transactions WHERE id = ?").get(req.params.id);
     if (!tx) return res.status(404).json({ error: "Tranzaksiya topilmadi" });
     if (tx.status !== "Tasdiqlangan" || tx.amount <= 0) {
       return res.status(400).json({ error: "Faqat tasdiqlangan, musbat summali to'lovlarni qaytarish mumkin" });
     }
 
-    db.prepare(`UPDATE transactions SET status = 'Qaytarildi', refund = ? WHERE id = ?`).run(tx.amount, tx.id);
+    await db.prepare(`UPDATE transactions SET status = 'Qaytarildi', refund = ? WHERE id = ?`).run(tx.amount, tx.id);
 
-    const user = db.prepare("SELECT name FROM users WHERE id = ?").get(tx.user_id);
+    const user = await db.prepare("SELECT name FROM users WHERE id = ?").get(tx.user_id);
     logAdmin(req.userId, "transaction_refund", "transaction", tx.id, `${user?.name || tx.user_id}: -${tx.amount} (${tx.description || tx.type})`);
 
-    db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'order', 'To''lov qaytarildi', ?, '/wallet')`)
+    await db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'order', 'To''lov qaytarildi', ?, '/wallet')`)
       .run(tx.user_id, `"${tx.description || tx.type}" uchun ${tx.amount.toLocaleString("ru-RU")} so'm qaytarildi`);
 
     res.json({ success: true });
@@ -597,9 +599,9 @@ router.post("/finance/transactions/:id/refund", authMiddleware, requireAdmin, re
 });
 
 // ---------- Eksport (CSV) ----------
-router.get("/export/users", authMiddleware, requireAdmin, requireSection("users"), (req, res) => {
+router.get("/export/users", authMiddleware, requireAdmin, requireSection("users"), async (req, res) => {
   try {
-    const rows = db.prepare("SELECT id, name, email, phone, city, role, verified, blocked, rating, reviews_count, created_at FROM users ORDER BY id").all();
+    const rows = await db.prepare("SELECT id, name, email, phone, city, role, verified, blocked, rating, reviews_count, created_at FROM users ORDER BY id").all();
     sendCsv(res, "users.csv", rows);
   } catch (err) {
     console.error("Export users error:", err);
@@ -607,9 +609,9 @@ router.get("/export/users", authMiddleware, requireAdmin, requireSection("users"
   }
 });
 
-router.get("/export/vacancies", authMiddleware, requireAdmin, requireSection("vacancies"), (req, res) => {
+router.get("/export/vacancies", authMiddleware, requireAdmin, requireSection("vacancies"), async (req, res) => {
   try {
-    const rows = db.prepare(`
+    const rows = await db.prepare(`
       SELECT v.id, v.title, v.company, u.name as employer, v.category, v.status, v.views,
         (SELECT COUNT(*) FROM applications a WHERE a.vacancy_id = v.id) as applications_count, v.created_at
       FROM vacancies v LEFT JOIN users u ON v.employer_id = u.id ORDER BY v.id
@@ -621,9 +623,9 @@ router.get("/export/vacancies", authMiddleware, requireAdmin, requireSection("va
   }
 });
 
-router.get("/export/applications", authMiddleware, requireAdmin, requireSection("applications"), (req, res) => {
+router.get("/export/applications", authMiddleware, requireAdmin, requireSection("applications"), async (req, res) => {
   try {
-    const rows = db.prepare(`
+    const rows = await db.prepare(`
       SELECT a.id, u.name as specialist, v.title as vacancy, a.status, a.match_percent, a.created_at
       FROM applications a JOIN users u ON a.user_id = u.id JOIN vacancies v ON a.vacancy_id = v.id
       ORDER BY a.id
@@ -635,9 +637,9 @@ router.get("/export/applications", authMiddleware, requireAdmin, requireSection(
   }
 });
 
-router.get("/export/transactions", authMiddleware, requireAdmin, requireSection("finance"), (req, res) => {
+router.get("/export/transactions", authMiddleware, requireAdmin, requireSection("finance"), async (req, res) => {
   try {
-    const rows = db.prepare(`
+    const rows = await db.prepare(`
       SELECT tr.id, u.name as user_name, u.email as user_email, tr.amount, tr.method, tr.type, tr.status, tr.description, tr.created_at
       FROM transactions tr LEFT JOIN users u ON tr.user_id = u.id ORDER BY tr.id
     `).all();
@@ -648,7 +650,7 @@ router.get("/export/transactions", authMiddleware, requireAdmin, requireSection(
   }
 });
 
-router.get("/orders", authMiddleware, requireAdmin, requireSection("orders"), (req, res) => {
+router.get("/orders", authMiddleware, requireAdmin, requireSection("orders"), async (req, res) => {
   try {
     const { status } = req.query;
     let sql = `
@@ -661,7 +663,7 @@ router.get("/orders", authMiddleware, requireAdmin, requireSection("orders"), (r
     const params = [];
     if (status) { sql += ` AND o.status = ?`; params.push(status); }
     sql += ` ORDER BY o.created_at DESC`;
-    const orders = db.prepare(sql).all(...params);
+    const orders = await db.prepare(sql).all(...params);
     res.json({ orders });
   } catch (err) {
     console.error("Admin orders list error:", err);
@@ -669,19 +671,19 @@ router.get("/orders", authMiddleware, requireAdmin, requireSection("orders"), (r
   }
 });
 
-router.patch("/orders/:id/status", authMiddleware, requireAdmin, requireSection("orders"), (req, res) => {
+router.patch("/orders/:id/status", authMiddleware, requireAdmin, requireSection("orders"), async (req, res) => {
   try {
     const { status } = req.body;
     if (!status || !status.trim()) return res.status(400).json({ error: "Holat kiritilishi shart" });
 
-    const order = db.prepare("SELECT id, employer_id, specialist_id, title FROM orders WHERE id = ?").get(req.params.id);
+    const order = await db.prepare("SELECT id, employer_id, specialist_id, title FROM orders WHERE id = ?").get(req.params.id);
     if (!order) return res.status(404).json({ error: "Buyurtma topilmadi" });
 
-    db.prepare("UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(status, req.params.id);
+    await db.prepare("UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(status, req.params.id);
     logAdmin(req.userId, "order_status", "order", req.params.id, `status=${status}`);
 
     for (const userId of [order.employer_id, order.specialist_id]) {
-      db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'order', 'Buyurtma holati yangilandi', ?, '/orders')`).run(
+      await db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'order', 'Buyurtma holati yangilandi', ?, '/orders')`).run(
         userId, `"${order.title}" holati "${status}" ga o'zgartirildi`
       );
       if (req.app.get("io")) {
@@ -696,11 +698,11 @@ router.patch("/orders/:id/status", authMiddleware, requireAdmin, requireSection(
   }
 });
 
-router.delete("/orders/:id", authMiddleware, requireAdmin, requireSection("orders"), (req, res) => {
+router.delete("/orders/:id", authMiddleware, requireAdmin, requireSection("orders"), async (req, res) => {
   try {
-    const order = db.prepare("SELECT id, title FROM orders WHERE id = ?").get(req.params.id);
+    const order = await db.prepare("SELECT id, title FROM orders WHERE id = ?").get(req.params.id);
     if (!order) return res.status(404).json({ error: "Buyurtma topilmadi" });
-    db.prepare("DELETE FROM orders WHERE id = ?").run(req.params.id);
+    await db.prepare("DELETE FROM orders WHERE id = ?").run(req.params.id);
     logAdmin(req.userId, "order_delete", "order", req.params.id, order.title);
     res.json({ success: true });
   } catch (err) {
@@ -709,7 +711,7 @@ router.delete("/orders/:id", authMiddleware, requireAdmin, requireSection("order
   }
 });
 
-router.get("/applications", authMiddleware, requireAdmin, requireSection("applications"), (req, res) => {
+router.get("/applications", authMiddleware, requireAdmin, requireSection("applications"), async (req, res) => {
   try {
     const { search, status } = req.query;
     let sql = `
@@ -721,7 +723,7 @@ router.get("/applications", authMiddleware, requireAdmin, requireSection("applic
     `;
     const params = [];
     if (search) {
-      sql += ` AND (v.title LIKE ? OR u.name LIKE ?)`;
+      sql += ` AND (v.title ILIKE ? OR u.name ILIKE ?)`;
       params.push(`%${search}%`, `%${search}%`);
     }
     if (status) {
@@ -729,7 +731,7 @@ router.get("/applications", authMiddleware, requireAdmin, requireSection("applic
       params.push(status);
     }
     sql += ` ORDER BY a.created_at DESC`;
-    const applications = db.prepare(sql).all(...params);
+    const applications = await db.prepare(sql).all(...params);
     res.json({ applications });
   } catch (err) {
     console.error("Admin applications list error:", err);
@@ -737,16 +739,16 @@ router.get("/applications", authMiddleware, requireAdmin, requireSection("applic
   }
 });
 
-router.patch("/applications/:id/status", authMiddleware, requireAdmin, requireSection("applications"), (req, res) => {
+router.patch("/applications/:id/status", authMiddleware, requireAdmin, requireSection("applications"), async (req, res) => {
   try {
     const { status } = req.body;
-    const application = db.prepare("SELECT id, user_id FROM applications WHERE id = ?").get(req.params.id);
+    const application = await db.prepare("SELECT id, user_id FROM applications WHERE id = ?").get(req.params.id);
     if (!application) return res.status(404).json({ error: "Ariza topilmadi" });
 
-    db.prepare("UPDATE applications SET status = ? WHERE id = ?").run(status, req.params.id);
+    await db.prepare("UPDATE applications SET status = ? WHERE id = ?").run(status, req.params.id);
     logAdmin(req.userId, "application_status", "application", req.params.id, `status=${status}`);
 
-    db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'application', 'Ariza yangilandi', ?, '/applications')`).run(
+    await db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'application', 'Ariza yangilandi', ?, '/applications')`).run(
       application.user_id, `Administrator arizangiz holatini "${status}" ga o'zgartirdi`
     );
     if (req.app.get("io")) {
@@ -764,11 +766,11 @@ router.patch("/applications/:id/status", authMiddleware, requireAdmin, requireSe
   }
 });
 
-router.delete("/applications/:id", authMiddleware, requireAdmin, requireSection("applications"), (req, res) => {
+router.delete("/applications/:id", authMiddleware, requireAdmin, requireSection("applications"), async (req, res) => {
   try {
-    const application = db.prepare("SELECT id FROM applications WHERE id = ?").get(req.params.id);
+    const application = await db.prepare("SELECT id FROM applications WHERE id = ?").get(req.params.id);
     if (!application) return res.status(404).json({ error: "Ariza topilmadi" });
-    db.prepare("DELETE FROM applications WHERE id = ?").run(req.params.id);
+    await db.prepare("DELETE FROM applications WHERE id = ?").run(req.params.id);
     logAdmin(req.userId, "application_delete", "application", req.params.id, "");
     emitAdminUpdate(req.app.get("io"), "application");
     res.json({ success: true });
@@ -779,7 +781,7 @@ router.delete("/applications/:id", authMiddleware, requireAdmin, requireSection(
 });
 
 // ---------- Foydalanuvchilar: sessions ----------
-router.get("/sessions", authMiddleware, requireAdmin, requireSection("users"), (req, res) => {
+router.get("/sessions", authMiddleware, requireAdmin, requireSection("users"), async (req, res) => {
   try {
     const { search, limit = 50 } = req.query;
     let sql = `
@@ -788,12 +790,12 @@ router.get("/sessions", authMiddleware, requireAdmin, requireSection("users"), (
     `;
     const params = [];
     if (search) {
-      sql += ` AND (u.name LIKE ? OR u.email LIKE ?)`;
+      sql += ` AND (u.name ILIKE ? OR u.email ILIKE ?)`;
       params.push(`%${search}%`, `%${search}%`);
     }
     sql += ` ORDER BY l.created_at DESC LIMIT ?`;
     params.push(Number(limit));
-    const sessions = db.prepare(sql).all(...params);
+    const sessions = await db.prepare(sql).all(...params);
     res.json({ sessions });
   } catch (err) {
     console.error("Admin sessions error:", err);
@@ -802,7 +804,7 @@ router.get("/sessions", authMiddleware, requireAdmin, requireSection("users"), (
 });
 
 // ---------- Moderatsiya: shikoyatlar (Shikoyatlar navbati) ----------
-router.get("/flags", authMiddleware, requireAdmin, requireSection("reports"), (req, res) => {
+router.get("/flags", authMiddleware, requireAdmin, requireSection("reports"), async (req, res) => {
   try {
     const { status, severity, target_type } = req.query;
     let sql = `
@@ -817,7 +819,7 @@ router.get("/flags", authMiddleware, requireAdmin, requireSection("reports"), (r
     if (severity) { sql += ` AND f.severity = ?`; params.push(severity); }
     if (target_type) { sql += ` AND f.target_type = ?`; params.push(target_type); }
     sql += ` ORDER BY f.created_at DESC`;
-    const flags = db.prepare(sql).all(...params);
+    const flags = await db.prepare(sql).all(...params);
     res.json({ flags });
   } catch (err) {
     console.error("Admin flags list error:", err);
@@ -827,10 +829,10 @@ router.get("/flags", authMiddleware, requireAdmin, requireSection("reports"), (r
 
 // status: "Ko'rib chiqilmoqda" | "Tasdiqlangan" (asosli) | "Rad etilgan" (asossiz)
 // block=true va target_type="user" bo'lsa, shikoyat qilingan foydalanuvchi bloklanadi.
-router.patch("/flags/:id", authMiddleware, requireAdmin, requireSection("reports"), (req, res) => {
+router.patch("/flags/:id", authMiddleware, requireAdmin, requireSection("reports"), async (req, res) => {
   try {
     const { status, severity, resolution_note, block } = req.body;
-    const flag = db.prepare("SELECT * FROM content_flags WHERE id = ?").get(req.params.id);
+    const flag = await db.prepare("SELECT * FROM content_flags WHERE id = ?").get(req.params.id);
     if (!flag) return res.status(404).json({ error: "Shikoyat topilmadi" });
 
     const sets = ["reviewed_by = ?"];
@@ -840,11 +842,11 @@ router.patch("/flags/:id", authMiddleware, requireAdmin, requireSection("reports
     if (resolution_note !== undefined) { sets.push("resolution_note = ?"); params.push(resolution_note); }
     params.push(req.params.id);
 
-    db.prepare(`UPDATE content_flags SET ${sets.join(", ")} WHERE id = ?`).run(...params);
+    await db.prepare(`UPDATE content_flags SET ${sets.join(", ")} WHERE id = ?`).run(...params);
 
     let blocked = false;
     if (block && flag.target_type === "user" && status === "Tasdiqlangan") {
-      db.prepare("UPDATE users SET blocked = 1, blocked_reason = ? WHERE id = ?").run(
+      await db.prepare("UPDATE users SET blocked = 1, blocked_reason = ? WHERE id = ?").run(
         resolution_note || flag.reason || "Shikoyat asosida bloklandi", flag.target_id
       );
       blocked = true;
@@ -860,9 +862,9 @@ router.patch("/flags/:id", authMiddleware, requireAdmin, requireSection("reports
   }
 });
 
-router.delete("/flags/:id", authMiddleware, requireAdmin, requireSection("reports"), (req, res) => {
+router.delete("/flags/:id", authMiddleware, requireAdmin, requireSection("reports"), async (req, res) => {
   try {
-    db.prepare("DELETE FROM content_flags WHERE id = ?").run(req.params.id);
+    await db.prepare("DELETE FROM content_flags WHERE id = ?").run(req.params.id);
     logAdmin(req.userId, "flag_delete", "content_flag", req.params.id, "");
     emitAdminUpdate(req.app.get("io"), "flag");
     res.json({ success: true });
@@ -873,7 +875,7 @@ router.delete("/flags/:id", authMiddleware, requireAdmin, requireSection("report
 });
 
 // ---------- Operatsiyalar: nizolar ----------
-router.get("/disputes", authMiddleware, requireAdmin, requireSection("disputes"), (req, res) => {
+router.get("/disputes", authMiddleware, requireAdmin, requireSection("disputes"), async (req, res) => {
   try {
     const { status } = req.query;
     let sql = `
@@ -887,7 +889,7 @@ router.get("/disputes", authMiddleware, requireAdmin, requireSection("disputes")
     const params = [];
     if (status) { sql += ` AND d.status = ?`; params.push(status); }
     sql += ` ORDER BY d.created_at DESC`;
-    const disputes = db.prepare(sql).all(...params);
+    const disputes = await db.prepare(sql).all(...params);
     res.json({ disputes });
   } catch (err) {
     console.error("Admin disputes list error:", err);
@@ -895,10 +897,10 @@ router.get("/disputes", authMiddleware, requireAdmin, requireSection("disputes")
   }
 });
 
-router.patch("/disputes/:id", authMiddleware, requireAdmin, requireSection("disputes"), (req, res) => {
+router.patch("/disputes/:id", authMiddleware, requireAdmin, requireSection("disputes"), async (req, res) => {
   try {
     const { status, resolution } = req.body;
-    const dispute = db.prepare("SELECT * FROM disputes WHERE id = ?").get(req.params.id);
+    const dispute = await db.prepare("SELECT * FROM disputes WHERE id = ?").get(req.params.id);
     if (!dispute) return res.status(404).json({ error: "Nizo topilmadi" });
 
     const sets = ["updated_at = CURRENT_TIMESTAMP"];
@@ -908,7 +910,7 @@ router.patch("/disputes/:id", authMiddleware, requireAdmin, requireSection("disp
     if (status && status !== "Ochiq") { sets.push("resolved_by = ?"); params.push(req.userId); }
     params.push(req.params.id);
 
-    db.prepare(`UPDATE disputes SET ${sets.join(", ")} WHERE id = ?`).run(...params);
+    await db.prepare(`UPDATE disputes SET ${sets.join(", ")} WHERE id = ?`).run(...params);
     logAdmin(req.userId, "dispute_update", "dispute", req.params.id, `status=${status || ""}`);
     emitAdminUpdate(req.app.get("io"), "dispute");
     res.json({ success: true });
@@ -919,7 +921,7 @@ router.patch("/disputes/:id", authMiddleware, requireAdmin, requireSection("disp
 });
 
 // ---------- Operatsiyalar: support ----------
-router.get("/support", authMiddleware, requireAdmin, requireSection("support_tickets"), (req, res) => {
+router.get("/support", authMiddleware, requireAdmin, requireSection("support_tickets"), async (req, res) => {
   try {
     const { status } = req.query;
     let sql = `
@@ -929,7 +931,7 @@ router.get("/support", authMiddleware, requireAdmin, requireSection("support_tic
     const params = [];
     if (status) { sql += ` AND s.status = ?`; params.push(status); }
     sql += ` ORDER BY s.created_at DESC`;
-    const tickets = db.prepare(sql).all(...params);
+    const tickets = await db.prepare(sql).all(...params);
     res.json({ tickets });
   } catch (err) {
     console.error("Admin support list error:", err);
@@ -937,10 +939,10 @@ router.get("/support", authMiddleware, requireAdmin, requireSection("support_tic
   }
 });
 
-router.patch("/support/:id", authMiddleware, requireAdmin, requireSection("support_tickets"), (req, res) => {
+router.patch("/support/:id", authMiddleware, requireAdmin, requireSection("support_tickets"), async (req, res) => {
   try {
     const { status, response } = req.body;
-    const ticket = db.prepare("SELECT * FROM support_tickets WHERE id = ?").get(req.params.id);
+    const ticket = await db.prepare("SELECT * FROM support_tickets WHERE id = ?").get(req.params.id);
     if (!ticket) return res.status(404).json({ error: "Murojaat topilmadi" });
 
     const sets = ["updated_at = CURRENT_TIMESTAMP", "handled_by = ?"];
@@ -949,10 +951,10 @@ router.patch("/support/:id", authMiddleware, requireAdmin, requireSection("suppo
     if (response !== undefined) { sets.push("response = ?"); params.push(response); }
     params.push(req.params.id);
 
-    db.prepare(`UPDATE support_tickets SET ${sets.join(", ")} WHERE id = ?`).run(...params);
+    await db.prepare(`UPDATE support_tickets SET ${sets.join(", ")} WHERE id = ?`).run(...params);
 
     if (response) {
-      db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'info', 'Support javob berdi', ?, '/profile')`).run(
+      await db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'info', 'Support javob berdi', ?, '/profile')`).run(
         ticket.user_id, `"${ticket.subject}" bo'yicha javob keldi`
       );
       if (req.app.get("io")) {
@@ -972,28 +974,26 @@ router.patch("/support/:id", authMiddleware, requireAdmin, requireSection("suppo
 });
 
 // ---------- Marketing: broadcast ----------
-router.post("/broadcast", authMiddleware, requireAdmin, requireSection("broadcast"), (req, res) => {
+router.post("/broadcast", authMiddleware, requireAdmin, requireSection("broadcast"), async (req, res) => {
   try {
     const { title, description, link, audience } = req.body;
     if (!title || !title.trim()) return res.status(400).json({ error: "Sarlavha kiritilishi shart" });
 
     let targets;
     if (audience === "specialist" || audience === "employer") {
-      targets = db.prepare("SELECT id FROM users WHERE role = ?").all(audience);
+      targets = await db.prepare("SELECT id FROM users WHERE role = ?").all(audience);
     } else {
-      targets = db.prepare("SELECT id FROM users WHERE role != 'admin'").all();
+      targets = await db.prepare("SELECT id FROM users WHERE role != 'admin'").all();
     }
 
-    const insertNotif = db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'broadcast', ?, ?, ?)`);
-    const insertPush = db.prepare(`INSERT INTO push_logs (user_id, title, body, status) VALUES (?, ?, ?, 'Yuborildi')`);
-
-    const run = db.transaction((rows) => {
-      for (const t of rows) {
-        insertNotif.run(t.id, title.trim(), description || "", link || "");
-        insertPush.run(t.id, title.trim(), description || "");
+    await db.transaction(async (trx) => {
+      const insertNotif = trx.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'broadcast', ?, ?, ?)`);
+      const insertPush = trx.prepare(`INSERT INTO push_logs (user_id, title, body, status) VALUES (?, ?, ?, 'Yuborildi')`);
+      for (const t of targets) {
+        await insertNotif.run(t.id, title.trim(), description || "", link || "");
+        await insertPush.run(t.id, title.trim(), description || "");
       }
     });
-    run(targets);
 
     if (req.app.get("io")) {
       for (const t of targets) {
@@ -1011,14 +1011,14 @@ router.post("/broadcast", authMiddleware, requireAdmin, requireSection("broadcas
 
 // ---------- Sozlamalar: kategoriyalar / ko'nikmalar (mini-CMS) ----------
 // type: 'category' (yo'nalishlar, group_name = "IT"/"Ta'lim" kabi soha) yoki 'skill' (ko'nikmalar ro'yxati)
-router.get("/categories", authMiddleware, requireAdmin, requireSection("categories"), (req, res) => {
+router.get("/categories", authMiddleware, requireAdmin, requireSection("categories"), async (req, res) => {
   try {
     const { type } = req.query;
     let sql = "SELECT * FROM categories WHERE 1=1";
     const params = [];
     if (type) { sql += " AND type = ?"; params.push(type); }
     sql += " ORDER BY type, group_name, sort_order, name";
-    const categories = db.prepare(sql).all(...params);
+    const categories = await db.prepare(sql).all(...params);
     res.json({ categories });
   } catch (err) {
     console.error("Admin categories list error:", err);
@@ -1026,23 +1026,23 @@ router.get("/categories", authMiddleware, requireAdmin, requireSection("categori
   }
 });
 
-router.post("/categories", authMiddleware, requireAdmin, requireSection("categories"), (req, res) => {
+router.post("/categories", authMiddleware, requireAdmin, requireSection("categories"), async (req, res) => {
   try {
     const { group_name, name, type } = req.body;
     const kind = type === "skill" ? "skill" : "category";
     if (!name || !name.trim()) return res.status(400).json({ error: "Nom kiritilishi shart" });
     if (kind === "category" && !group_name) return res.status(400).json({ error: "Yo'nalish (guruh) kiritilishi shart" });
-    const result = db.prepare("INSERT INTO categories (group_name, name, type) VALUES (?, ?, ?)").run(group_name || "", name.trim(), kind);
+    const result = await db.prepare("INSERT INTO categories (group_name, name, type) VALUES (?, ?, ?)").run(group_name || "", name.trim(), kind);
     logAdmin(req.userId, "category_create", "category", result.lastInsertRowid, `${kind} ${group_name || ""}: ${name.trim()}`);
     res.json({ id: result.lastInsertRowid });
   } catch (err) {
     console.error("Admin category create error:", err);
-    if (String(err.message || "").includes("UNIQUE")) return res.status(409).json({ error: "Bu nom allaqachon mavjud" });
+    if (err.code === "23505") return res.status(409).json({ error: "Bu nom allaqachon mavjud" });
     res.status(500).json({ error: "Server xatoligi" });
   }
 });
 
-router.patch("/categories/:id", authMiddleware, requireAdmin, requireSection("categories"), (req, res) => {
+router.patch("/categories/:id", authMiddleware, requireAdmin, requireSection("categories"), async (req, res) => {
   try {
     const { active, name, hidden } = req.body;
     const sets = [];
@@ -1052,7 +1052,7 @@ router.patch("/categories/:id", authMiddleware, requireAdmin, requireSection("ca
     if (name !== undefined && name.trim()) { sets.push("name = ?"); params.push(name.trim()); }
     if (sets.length === 0) return res.status(400).json({ error: "Yangilanadigan maydon topilmadi" });
     params.push(req.params.id);
-    db.prepare(`UPDATE categories SET ${sets.join(", ")} WHERE id = ?`).run(...params);
+    await db.prepare(`UPDATE categories SET ${sets.join(", ")} WHERE id = ?`).run(...params);
     logAdmin(req.userId, "category_update", "category", req.params.id, "");
     res.json({ success: true });
   } catch (err) {
@@ -1061,9 +1061,9 @@ router.patch("/categories/:id", authMiddleware, requireAdmin, requireSection("ca
   }
 });
 
-router.delete("/categories/:id", authMiddleware, requireAdmin, requireSection("categories"), (req, res) => {
+router.delete("/categories/:id", authMiddleware, requireAdmin, requireSection("categories"), async (req, res) => {
   try {
-    db.prepare("DELETE FROM categories WHERE id = ?").run(req.params.id);
+    await db.prepare("DELETE FROM categories WHERE id = ?").run(req.params.id);
     logAdmin(req.userId, "category_delete", "category", req.params.id, "");
     res.json({ success: true });
   } catch (err) {
@@ -1073,7 +1073,7 @@ router.delete("/categories/:id", authMiddleware, requireAdmin, requireSection("c
 });
 
 // ---------- Verifikatsiya navbati ----------
-router.get("/verification", authMiddleware, requireAdmin, requireSection("verification"), (req, res) => {
+router.get("/verification", authMiddleware, requireAdmin, requireSection("verification"), async (req, res) => {
   try {
     const { status, type } = req.query;
     let sql = `
@@ -1087,7 +1087,7 @@ router.get("/verification", authMiddleware, requireAdmin, requireSection("verifi
     if (status) { sql += ` AND v.status = ?`; params.push(status); }
     if (type) { sql += ` AND v.type = ?`; params.push(type); }
     sql += ` ORDER BY v.created_at DESC`;
-    const requests = db.prepare(sql).all(...params);
+    const requests = await db.prepare(sql).all(...params);
     res.json({ requests });
   } catch (err) {
     console.error("Admin verification list error:", err);
@@ -1095,7 +1095,7 @@ router.get("/verification", authMiddleware, requireAdmin, requireSection("verifi
   }
 });
 
-router.patch("/verification/:id", authMiddleware, requireAdmin, requireSection("verification"), (req, res) => {
+router.patch("/verification/:id", authMiddleware, requireAdmin, requireSection("verification"), async (req, res) => {
   try {
     const { status, reject_reason } = req.body;
     if (!["Tasdiqlangan", "Rad etildi"].includes(status)) {
@@ -1105,22 +1105,22 @@ router.patch("/verification/:id", authMiddleware, requireAdmin, requireSection("
       return res.status(400).json({ error: "Rad etish sababi kiritilishi shart" });
     }
 
-    const request = db.prepare("SELECT * FROM verification_requests WHERE id = ?").get(req.params.id);
+    const request = await db.prepare("SELECT * FROM verification_requests WHERE id = ?").get(req.params.id);
     if (!request) return res.status(404).json({ error: "So'rov topilmadi" });
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE verification_requests SET status = ?, reject_reason = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP WHERE id = ?
     `).run(status, status === "Rad etildi" ? reject_reason.trim() : "", req.userId, req.params.id);
 
     if (status === "Tasdiqlangan") {
-      db.prepare("UPDATE users SET verified = 1 WHERE id = ?").run(request.user_id);
+      await db.prepare("UPDATE users SET verified = 1 WHERE id = ?").run(request.user_id);
     }
 
     const notifTitle = status === "Tasdiqlangan" ? "Verifikatsiya tasdiqlandi" : "Verifikatsiya rad etildi";
     const notifDesc = status === "Tasdiqlangan"
       ? "Hujjatlaringiz tekshirildi va profilingiz tasdiqlangan deb belgilandi."
       : `Hujjatlaringiz rad etildi. Sabab: ${reject_reason.trim()}`;
-    db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'verification', ?, ?, '/profile')`).run(
+    await db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'verification', ?, ?, '/profile')`).run(
       request.user_id, notifTitle, notifDesc
     );
     if (req.app.get("io")) {
@@ -1137,7 +1137,7 @@ router.patch("/verification/:id", authMiddleware, requireAdmin, requireSection("
 });
 
 // ---------- Foydalanuvchilar: bulk amallar ----------
-router.patch("/users/bulk", authMiddleware, requireAdmin, requireSection("users"), (req, res) => {
+router.patch("/users/bulk", authMiddleware, requireAdmin, requireSection("users"), async (req, res) => {
   try {
     const { ids, action, reason } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "Foydalanuvchilar tanlanmagan" });
@@ -1148,13 +1148,13 @@ router.patch("/users/bulk", authMiddleware, requireAdmin, requireSection("users"
 
     const placeholders = targetIds.map(() => "?").join(",");
     if (action === "block") {
-      db.prepare(`UPDATE users SET blocked = 1, blocked_reason = ? WHERE id IN (${placeholders})`).run(reason || "Ommaviy bloklash", ...targetIds);
+      await db.prepare(`UPDATE users SET blocked = 1, blocked_reason = ? WHERE id IN (${placeholders})`).run(reason || "Ommaviy bloklash", ...targetIds);
     } else if (action === "unblock") {
-      db.prepare(`UPDATE users SET blocked = 0, blocked_reason = '' WHERE id IN (${placeholders})`).run(...targetIds);
+      await db.prepare(`UPDATE users SET blocked = 0, blocked_reason = '' WHERE id IN (${placeholders})`).run(...targetIds);
     } else if (action === "verify") {
-      db.prepare(`UPDATE users SET verified = 1 WHERE id IN (${placeholders})`).run(...targetIds);
+      await db.prepare(`UPDATE users SET verified = 1 WHERE id IN (${placeholders})`).run(...targetIds);
     } else if (action === "unverify") {
-      db.prepare(`UPDATE users SET verified = 0 WHERE id IN (${placeholders})`).run(...targetIds);
+      await db.prepare(`UPDATE users SET verified = 0 WHERE id IN (${placeholders})`).run(...targetIds);
     }
 
     logAdmin(req.userId, `bulk_${action}`, "user", null, `ids=${targetIds.join(",")}`);
@@ -1166,33 +1166,33 @@ router.patch("/users/bulk", authMiddleware, requireAdmin, requireSection("users"
 });
 
 // ---------- Foydalanuvchi: batafsil sahifa ----------
-router.get("/users/:id/detail", authMiddleware, requireAdmin, requireSection("users"), (req, res) => {
+router.get("/users/:id/detail", authMiddleware, requireAdmin, requireSection("users"), async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const user = db.prepare("SELECT id,name,email,phone,city,role,admin_role,verified,blocked,blocked_reason,featured,rating,reviews_count,orders_count,created_at,bio,avatar FROM users WHERE id = ?").get(id);
+    const user = await db.prepare("SELECT id,name,email,phone,city,role,admin_role,verified,blocked,blocked_reason,featured,rating,reviews_count,orders_count,created_at,bio,avatar FROM users WHERE id = ?").get(id);
     if (!user) return res.status(404).json({ error: "Foydalanuvchi topilmadi" });
 
-    const applications = db.prepare(`
+    const applications = await db.prepare(`
       SELECT a.*, v.title as vacancy_title FROM applications a JOIN vacancies v ON a.vacancy_id = v.id WHERE a.user_id = ? ORDER BY a.created_at DESC
     `).all(id);
 
-    const orders = db.prepare(`
+    const orders = await db.prepare(`
       SELECT o.*, e.name as employer_name, s.name as specialist_name
       FROM orders o LEFT JOIN users e ON o.employer_id = e.id LEFT JOIN users s ON o.specialist_id = s.id
       WHERE o.employer_id = ? OR o.specialist_id = ? ORDER BY o.created_at DESC
     `).all(id, id);
 
-    const vacancies = db.prepare("SELECT id, title, status, created_at FROM vacancies WHERE employer_id = ? ORDER BY created_at DESC").all(id);
+    const vacancies = await db.prepare("SELECT id, title, status, created_at FROM vacancies WHERE employer_id = ? ORDER BY created_at DESC").all(id);
 
-    const reportsFiled = db.prepare("SELECT * FROM content_flags WHERE reporter_id = ? ORDER BY created_at DESC").all(id);
-    const reportsReceived = db.prepare("SELECT * FROM content_flags WHERE target_type = 'user' AND target_id = ? ORDER BY created_at DESC").all(id);
+    const reportsFiled = await db.prepare("SELECT * FROM content_flags WHERE reporter_id = ? ORDER BY created_at DESC").all(id);
+    const reportsReceived = await db.prepare("SELECT * FROM content_flags WHERE target_type = 'user' AND target_id = ? ORDER BY created_at DESC").all(id);
 
-    const verification = db.prepare("SELECT * FROM verification_requests WHERE user_id = ? ORDER BY created_at DESC").all(id);
+    const verification = await db.prepare("SELECT * FROM verification_requests WHERE user_id = ? ORDER BY created_at DESC").all(id);
 
-    const lastLogin = db.prepare("SELECT ip, user_agent, created_at FROM login_events WHERE user_id = ? ORDER BY created_at DESC LIMIT 1").get(id);
-    const loginHistory = db.prepare("SELECT ip, user_agent, created_at FROM login_events WHERE user_id = ? ORDER BY created_at DESC LIMIT 20").all(id);
+    const lastLogin = await db.prepare("SELECT ip, user_agent, created_at FROM login_events WHERE user_id = ? ORDER BY created_at DESC LIMIT 1").get(id);
+    const loginHistory = await db.prepare("SELECT ip, user_agent, created_at FROM login_events WHERE user_id = ? ORDER BY created_at DESC LIMIT 20").all(id);
 
-    const transactions = db.prepare("SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC").all(id);
+    const transactions = await db.prepare("SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC").all(id);
     const balance = transactions.filter((t) => t.status === "Tasdiqlangan").reduce((sum, t) => sum + t.amount, 0);
 
     res.json({ user, applications, orders, vacancies, reportsFiled, reportsReceived, verification, lastLogin: lastLogin || null, loginHistory, transactions, balance });
@@ -1203,9 +1203,9 @@ router.get("/users/:id/detail", authMiddleware, requireAdmin, requireSection("us
 });
 
 // ---------- Sozlamalar: umumiy (masalan vakansiya moderatsiyasi rejimi) ----------
-router.get("/tariffs", authMiddleware, requireAdmin, requireSection("system"), (req, res) => {
+router.get("/tariffs", authMiddleware, requireAdmin, requireSection("system"), async (req, res) => {
   try {
-    const tariffs = db.prepare("SELECT * FROM tariffs ORDER BY price ASC").all()
+    const tariffs = (await db.prepare("SELECT * FROM tariffs ORDER BY price ASC").all())
       .map((t) => ({ ...t, features: JSON.parse(t.features || "[]") }));
     res.json({ tariffs });
   } catch (err) {
@@ -1214,13 +1214,13 @@ router.get("/tariffs", authMiddleware, requireAdmin, requireSection("system"), (
   }
 });
 
-router.patch("/tariffs/:id", authMiddleware, requireAdmin, requireSection("system"), (req, res) => {
+router.patch("/tariffs/:id", authMiddleware, requireAdmin, requireSection("system"), async (req, res) => {
   try {
     const { name, price, duration_days, features, active } = req.body;
-    const tariff = db.prepare("SELECT * FROM tariffs WHERE id = ?").get(req.params.id);
+    const tariff = await db.prepare("SELECT * FROM tariffs WHERE id = ?").get(req.params.id);
     if (!tariff) return res.status(404).json({ error: "Tarif topilmadi" });
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE tariffs SET
         name = COALESCE(?, name),
         price = COALESCE(?, price),
@@ -1239,7 +1239,7 @@ router.patch("/tariffs/:id", authMiddleware, requireAdmin, requireSection("syste
 
     logAdmin(req.userId, "tariff_update", "tariff", req.params.id, `${tariff.name}: price=${price ?? tariff.price}`);
 
-    const updated = db.prepare("SELECT * FROM tariffs WHERE id = ?").get(req.params.id);
+    const updated = await db.prepare("SELECT * FROM tariffs WHERE id = ?").get(req.params.id);
     res.json({ tariff: { ...updated, features: JSON.parse(updated.features || "[]") } });
   } catch (err) {
     console.error("Admin tariff update error:", err);
@@ -1252,12 +1252,12 @@ const VALID_ADMIN_SUBROLES = ["moderator", "support"];
 // Permissions management is deliberately gated on adminRole === "super_admin" directly
 // (not via requireSection) so a moderator/support account can never edit the permission
 // matrix even if the matrix itself was misconfigured to allow it.
-router.get("/permissions", authMiddleware, requireAdmin, (req, res) => {
+router.get("/permissions", authMiddleware, requireAdmin, async (req, res) => {
   if (req.adminRole !== "super_admin") return res.status(403).json({ error: "Faqat Super Admin ruxsatlarni ko'ra oladi" });
-  res.json({ permissions: getSectionRoles(), defaults: DEFAULT_SECTION_ROLES });
+  res.json({ permissions: await getSectionRoles(), defaults: DEFAULT_SECTION_ROLES });
 });
 
-router.patch("/permissions", authMiddleware, requireAdmin, (req, res) => {
+router.patch("/permissions", authMiddleware, requireAdmin, async (req, res) => {
   try {
     if (req.adminRole !== "super_admin") return res.status(403).json({ error: "Faqat Super Admin ruxsatlarni o'zgartira oladi" });
 
@@ -1266,9 +1266,9 @@ router.patch("/permissions", authMiddleware, requireAdmin, (req, res) => {
       return res.status(400).json({ error: "Noto'g'ri bo'lim yoki rol ro'yxati" });
     }
 
-    const current = getSectionRoles();
+    const current = await getSectionRoles();
     current[section] = ["super_admin", ...roles];
-    db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+    await db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
       .run(RBAC_SETTINGS_KEY, JSON.stringify(current));
 
     logAdmin(req.userId, "permissions_update", "setting", null, `${section}=${roles.join(",")}`);
@@ -1280,31 +1280,31 @@ router.patch("/permissions", authMiddleware, requireAdmin, (req, res) => {
 });
 
 // ---------- Kontent moderatsiyasi: taqiqlangan so'zlar bo'yicha ommaviy skanerlash ----------
-router.post("/moderation/scan", authMiddleware, requireAdmin, requireSection("reports"), (req, res) => {
+router.post("/moderation/scan", authMiddleware, requireAdmin, requireSection("reports"), async (req, res) => {
   try {
-    const row = db.prepare("SELECT value FROM settings WHERE key = 'banned_words'").get();
+    const row = await db.prepare("SELECT value FROM settings WHERE key = 'banned_words'").get();
     const words = (row?.value || "").split(",").map((w) => w.trim().toLowerCase()).filter(Boolean);
     if (words.length === 0) return res.status(400).json({ error: "Avval Sozlamalarda taqiqlangan so'zlar ro'yxatini kiriting" });
 
     const alreadyFlagged = new Set(
-      db.prepare("SELECT target_type || ':' || target_id as k FROM content_flags WHERE auto_detected = 1 AND status != 'Rad etilgan'").all().map((r) => r.k)
+      (await db.prepare("SELECT target_type || ':' || target_id as k FROM content_flags WHERE auto_detected = 1 AND status != 'Rad etilgan'").all()).map((r) => r.k)
     );
 
     let flagged = 0;
-    const scanTarget = (targetType, id, text) => {
+    const scanTarget = async (targetType, id, text) => {
       const key = `${targetType}:${id}`;
       if (alreadyFlagged.has(key)) return;
       const lower = (text || "").toLowerCase();
       const hit = words.find((w) => lower.includes(w));
       if (!hit) return;
-      db.prepare(`INSERT INTO content_flags (target_type, target_id, reason, severity, status, auto_detected) VALUES (?, ?, ?, 'Yuqori', 'Ko''rib chiqilmoqda', 1)`)
+      await db.prepare(`INSERT INTO content_flags (target_type, target_id, reason, severity, status, auto_detected) VALUES (?, ?, ?, 'Yuqori', 'Ko''rib chiqilmoqda', 1)`)
         .run(targetType, id, `Taqiqlangan so'z topildi: "${hit}"`);
       alreadyFlagged.add(key);
       flagged++;
     };
 
-    for (const u of db.prepare("SELECT id, bio FROM users WHERE bio != ''").all()) scanTarget("user", u.id, u.bio);
-    for (const v of db.prepare("SELECT id, description FROM vacancies WHERE description != ''").all()) scanTarget("vacancy", v.id, v.description);
+    for (const u of await db.prepare("SELECT id, bio FROM users WHERE bio != ''").all()) await scanTarget("user", u.id, u.bio);
+    for (const v of await db.prepare("SELECT id, description FROM vacancies WHERE description != ''").all()) await scanTarget("vacancy", v.id, v.description);
 
     logAdmin(req.userId, "content_scan", "content_flags", null, `${flagged} ta yangi belgi topildi`);
     if (flagged > 0) emitAdminUpdate(req.app.get("io"), "flag");
@@ -1315,9 +1315,9 @@ router.post("/moderation/scan", authMiddleware, requireAdmin, requireSection("re
   }
 });
 
-router.get("/settings", authMiddleware, requireAdmin, requireSection("system"), (req, res) => {
+router.get("/settings", authMiddleware, requireAdmin, requireSection("system"), async (req, res) => {
   try {
-    const rows = db.prepare("SELECT key, value FROM settings").all();
+    const rows = await db.prepare("SELECT key, value FROM settings").all();
     const settings = {};
     for (const r of rows) settings[r.key] = r.value;
     res.json({ settings });
@@ -1327,11 +1327,11 @@ router.get("/settings", authMiddleware, requireAdmin, requireSection("system"), 
   }
 });
 
-router.patch("/settings/:key", authMiddleware, requireAdmin, requireSection("system"), (req, res) => {
+router.patch("/settings/:key", authMiddleware, requireAdmin, requireSection("system"), async (req, res) => {
   try {
     const { value } = req.body;
     if (value === undefined) return res.status(400).json({ error: "Qiymat kiritilishi shart" });
-    db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(req.params.key, String(value));
+    await db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(req.params.key, String(value));
     logAdmin(req.userId, "setting_update", "setting", null, `${req.params.key}=${value}`);
     res.json({ success: true });
   } catch (err) {
@@ -1340,7 +1340,7 @@ router.patch("/settings/:key", authMiddleware, requireAdmin, requireSection("sys
   }
 });
 
-router.get("/logs", authMiddleware, requireAdmin, requireSection("logs"), (req, res) => {
+router.get("/logs", authMiddleware, requireAdmin, requireSection("logs"), async (req, res) => {
   try {
     const { search, action } = req.query;
     let sql = `
@@ -1350,11 +1350,11 @@ router.get("/logs", authMiddleware, requireAdmin, requireSection("logs"), (req, 
       WHERE 1=1
     `;
     const params = [];
-    if (search) { sql += ` AND (a.name LIKE ? OR l.details LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
+    if (search) { sql += ` AND (a.name ILIKE ? OR l.details ILIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
     if (action) { sql += ` AND l.action = ?`; params.push(action); }
     sql += ` ORDER BY l.created_at DESC LIMIT 200`;
-    const logs = db.prepare(sql).all(...params);
-    const actions = db.prepare("SELECT DISTINCT action FROM admin_logs ORDER BY action").all().map((r) => r.action);
+    const logs = await db.prepare(sql).all(...params);
+    const actions = (await db.prepare("SELECT DISTINCT action FROM admin_logs ORDER BY action").all()).map((r) => r.action);
     res.json({ logs, actions });
   } catch (err) {
     console.error("Admin logs error:", err);
@@ -1362,11 +1362,11 @@ router.get("/logs", authMiddleware, requireAdmin, requireSection("logs"), (req, 
   }
 });
 
-router.post("/flags", authMiddleware, requireAdmin, requireSection("reports"), (req, res) => {
+router.post("/flags", authMiddleware, requireAdmin, requireSection("reports"), async (req, res) => {
   try {
     const { target_type, target_id, reason, severity } = req.body;
     if (!target_type || !target_id) return res.status(400).json({ error: "Target majburiy" });
-    const result = db.prepare("INSERT INTO content_flags (target_type, target_id, reason, severity, status, auto_detected) VALUES (?, ?, ?, ?, ?, 0)").run(
+    const result = await db.prepare("INSERT INTO content_flags (target_type, target_id, reason, severity, status, auto_detected) VALUES (?, ?, ?, ?, ?, 0)").run(
       target_type, Number(target_id), reason || "", severity || "O'rta", "Ko'rib chiqilmoqda"
     );
     logAdmin(req.userId, "flag_create", "flag", result.lastInsertRowid, `${target_type}:${target_id}`);

@@ -3,12 +3,12 @@ const db = require("../db.cjs");
 
 const router = express.Router();
 
-router.get("/overview", (req, res) => {
+router.get("/overview", async (req, res) => {
   try {
-    const specialists = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'specialist'").get().count;
-    const vacancies = db.prepare("SELECT COUNT(*) as count FROM vacancies").get().count;
-    const placements = db.prepare("SELECT COUNT(*) as count FROM orders WHERE status = 'Tugatildi'").get().count;
-    const companies = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'employer'").get().count;
+    const specialists = (await db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'specialist'").get()).count;
+    const vacancies = (await db.prepare("SELECT COUNT(*) as count FROM vacancies").get()).count;
+    const placements = (await db.prepare("SELECT COUNT(*) as count FROM orders WHERE status = 'Tugatildi'").get()).count;
+    const companies = (await db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'employer'").get()).count;
 
     res.json({ specialists, vacancies, placements, companies });
   } catch (err) {

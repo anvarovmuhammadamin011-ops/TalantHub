@@ -102,7 +102,7 @@ router.post("/search-specialists", async (req, res) => {
       });
     }
 
-    const rows = db.prepare("SELECT * FROM users WHERE role = 'specialist'").all();
+    const rows = await db.prepare("SELECT * FROM users WHERE role = 'specialist'").all();
     const specialists = rows.map(parseSpecialist);
 
     if (!specialists.length) {
@@ -176,7 +176,7 @@ ${JSON.stringify(specialistSummary, null, 0)}`;
   } catch (err) {
     console.error("AI specialist search error:", err);
     try {
-      const rows = db.prepare("SELECT * FROM users WHERE role = 'specialist'").all();
+      const rows = await db.prepare("SELECT * FROM users WHERE role = 'specialist'").all();
       const specialists = rows.map(parseSpecialist);
       const matched = clientSideSpecialistMatch(req.body.query || "", specialists);
       return res.json({ text: "Eng mos natijalar:", specialists: matched, ai: false });
@@ -188,10 +188,10 @@ ${JSON.stringify(specialistSummary, null, 0)}`;
 
 router.post("/match-jobs", authMiddleware, async (req, res) => {
   try {
-    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
+    const user = await db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
     if (!user) return res.status(404).json({ error: "Foydalanuvchi topilmadi" });
 
-    const vacancies = db.prepare(`
+    const vacancies = await db.prepare(`
       SELECT v.*, u.name as author_name
       FROM vacancies v LEFT JOIN users u ON v.employer_id = u.id
       WHERE v.status = 'Faol'
@@ -279,8 +279,8 @@ Eng mos 6 ta ishni topib ber. Har biriga matchPercent va reasons qo'sh. Faqat JS
     res.json({ matches: matches.slice(0, 6), ai: true });
   } catch (err) {
     console.error("AI match error:", err);
-    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
-    const vacancies = db.prepare("SELECT * FROM vacancies WHERE status = 'Faol' ORDER BY created_at DESC").all();
+    const user = await db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
+    const vacancies = await db.prepare("SELECT * FROM vacancies WHERE status = 'Faol' ORDER BY created_at DESC").all();
     const matches = clientSideMatch(user || {}, vacancies);
     res.json({ matches, ai: false });
   }

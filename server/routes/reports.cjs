@@ -6,7 +6,7 @@ const router = express.Router();
 
 const VALID_TARGET_TYPES = ["vacancy", "specialist", "profile", "user", "chat", "order"];
 
-router.post("/", authMiddleware, (req, res) => {
+router.post("/", authMiddleware, async (req, res) => {
   try {
     const { target_type, target_id, reason } = req.body;
     if (!target_type || !VALID_TARGET_TYPES.includes(target_type)) {
@@ -16,7 +16,7 @@ router.post("/", authMiddleware, (req, res) => {
       return res.status(400).json({ error: "Sabab va maqsad ko'rsatilishi shart" });
     }
 
-    const result = db.prepare(`
+    const result = await db.prepare(`
       INSERT INTO content_flags (target_type, target_id, reason, severity, status, auto_detected, reporter_id)
       VALUES (?, ?, ?, ?, ?, 0, ?)
     `).run(target_type, Number(target_id), reason.trim(), "O'rta", "Ko'rib chiqilmoqda", req.userId);
@@ -28,9 +28,9 @@ router.post("/", authMiddleware, (req, res) => {
   }
 });
 
-router.get("/mine", authMiddleware, (req, res) => {
+router.get("/mine", authMiddleware, async (req, res) => {
   try {
-    const reports = db.prepare("SELECT * FROM content_flags WHERE reporter_id = ? ORDER BY created_at DESC").all(req.userId);
+    const reports = await db.prepare("SELECT * FROM content_flags WHERE reporter_id = ? ORDER BY created_at DESC").all(req.userId);
     res.json({ reports });
   } catch (err) {
     console.error("Reports list error:", err);

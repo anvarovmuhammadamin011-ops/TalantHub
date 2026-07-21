@@ -11,6 +11,14 @@ services:
         value: 20
       - key: JWT_SECRET
         generateValue: true
+      # PostgreSQL (Neon — use the POOLED connection string, hostname contains "-pooler")
+      - key: DATABASE_URL
+        sync: false
+      # Set to "false" once the site has real users, to stop the demo dataset (fake
+      # specialists/vacancies/orders) from being seeded on a fresh database. Leave unset
+      # (defaults to on) for a new deploy you want to explore populated.
+      - key: SEED_DEMO_DATA
+        sync: false
       # Google OAuth (create free credentials at https://console.cloud.google.com)
       - key: GOOGLE_CLIENT_ID
         sync: false

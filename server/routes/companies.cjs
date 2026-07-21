@@ -14,9 +14,9 @@ function parseVacancy(v) {
   };
 }
 
-router.get("/:id", (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
-    const employer = db.prepare(`
+    const employer = await db.prepare(`
       SELECT id, name, company_name, company_logo, company_description, industry,
              employee_count, website, social_linkedin, address, city, verified, created_at
       FROM users WHERE id = ? AND role = 'employer' AND blocked = 0
@@ -24,11 +24,11 @@ router.get("/:id", (req, res) => {
 
     if (!employer) return res.status(404).json({ error: "Kompaniya topilmadi" });
 
-    const vacancies = db.prepare(`
+    const vacancies = (await db.prepare(`
       SELECT * FROM vacancies WHERE employer_id = ? AND status = 'Faol' ORDER BY created_at DESC
-    `).all(req.params.id).map(parseVacancy);
+    `).all(req.params.id)).map(parseVacancy);
 
-    const ratingRow = db.prepare(`
+    const ratingRow = await db.prepare(`
       SELECT AVG(company_rating) as avgRating, SUM(company_reviews) as totalReviews
       FROM vacancies WHERE employer_id = ?
     `).get(req.params.id);

@@ -81,6 +81,8 @@ function titleCase(s) {
 }
 
 async function main() {
+  await db.initSchema();
+
   const apiId = parseInt(process.env.TELEGRAM_API_ID, 10);
   const apiHash = process.env.TELEGRAM_API_HASH;
   const session = loadSession();
@@ -95,7 +97,7 @@ async function main() {
 
   const insertUser = db.prepare(`
     INSERT INTO users (name, email, password, phone, city, role, fields, categories, category, bio, avatar, hourly_price, orders_count, rating, reviews_count, verified, online, experience, experience_level, skills, certificates, timeline, social_telegram, social_instagram, social_github)
-    VALUES (@name, @email, @password, @phone, @city, @role, @fields, @categories, @category, @bio, @avatar, @hourly_price, @orders_count, @rating, @reviews_count, @verified, @online, @experience, @experience_level, @skills, @certificates, @timeline, @social_telegram, @social_instagram, @social_github)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const findExisting = db.prepare(`SELECT id FROM users WHERE email = ? OR (social_telegram <> '' AND social_telegram = ?)`);
 
@@ -128,7 +130,7 @@ async function main() {
     if (!result) continue;
 
     const email = `tg_${user.id}@telegram.import`;
-    if (findExisting.get(email, username ? `t.me/${username}` : "__none__")) continue;
+    if (await findExisting.get(email, username ? `t.me/${username}` : "__none__")) continue;
 
     const record = {
       name,
@@ -161,7 +163,14 @@ async function main() {
     if (DRY_RUN) {
       preview.push({ name, role: result.role, matched: result.matched, username });
     } else {
-      insertUser.run(record);
+      await insertUser.run(
+        record.name, record.email, record.password, record.phone, record.city, record.role,
+        record.fields, record.categories, record.category, record.bio, record.avatar,
+        record.hourly_price, record.orders_count, record.rating, record.reviews_count,
+        record.verified, record.online, record.experience, record.experience_level,
+        record.skills, record.certificates, record.timeline, record.social_telegram,
+        record.social_instagram, record.social_github
+      );
     }
     imported++;
   }
@@ -176,6 +185,7 @@ async function main() {
     }
     if (preview.length > 30) console.log(`  ...va yana ${preview.length - 30} ta`);
   }
+  await db.pool.end();
 }
 
 main().catch((err) => {

@@ -1,11 +1,15 @@
 import { test, expect } from "@playwright/test";
 import { createRequire } from "module";
+import { fileURLToPath } from "url";
+import path from "path";
 import { uiLogin, SPECIALIST } from "./helpers.js";
 
 // No delete-user API exists (the product deliberately only supports blocking, never
 // deleting, accounts) — so cleanup for the throwaway account this test creates goes
-// straight through the same SQLite file (WAL mode, safe for a second connection).
+// straight through the same db module the server uses.
 const require = createRequire(import.meta.url);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+require("dotenv").config({ path: path.join(__dirname, "../../server/.env") });
 const db = require("../../server/db.cjs");
 
 test.describe("Authentication", () => {
@@ -15,6 +19,7 @@ test.describe("Authentication", () => {
 
     await page.goto("/profile");
     await page.getByRole("main").getByRole("button", { name: "Chiqish", exact: true }).click();
+    await page.getByRole("button", { name: "Chiqish", exact: true }).last().click();
     await expect(page).toHaveURL(/\/login/);
   });
 
@@ -58,6 +63,6 @@ test.describe("Authentication", () => {
     await page.getByText("Keyinroq to'ldiraman").click();
     await expect(page.getByText(/Xush kelibsiz/i)).not.toBeVisible();
 
-    db.prepare("DELETE FROM users WHERE email = ?").run(email);
+    await db.prepare("DELETE FROM users WHERE email = ?").run(email);
   });
 });

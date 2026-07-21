@@ -18,9 +18,9 @@ function computeMatch(skills, tags) {
   return Math.min(98, 55 + Math.round((overlap.length / tags.length) * 45));
 }
 
-router.get("/", authMiddleware, (req, res) => {
+router.get("/", authMiddleware, async (req, res) => {
   try {
-    const applications = db.prepare(`
+    const applications = await db.prepare(`
       SELECT a.*, v.title as vacancy_title, v.company, v.company_logo, v.salary, v.location, v.format, v.experience, v.category,
              u.name as employer_name
       FROM applications a
@@ -44,9 +44,9 @@ router.get("/", authMiddleware, (req, res) => {
   }
 });
 
-router.get("/employer", authMiddleware, (req, res) => {
+router.get("/employer", authMiddleware, async (req, res) => {
   try {
-    const applications = db.prepare(`
+    const applications = (await db.prepare(`
       SELECT a.*, v.title as vacancy_title, v.id as vacancy_id_ref,
              u.name as specialist_name, u.category as specialist_category, u.avatar as specialist_avatar,
              u.rating as specialist_rating, u.reviews_count as specialist_reviews, u.experience as specialist_experience,
@@ -58,7 +58,7 @@ router.get("/employer", authMiddleware, (req, res) => {
       JOIN users u ON a.user_id = u.id
       WHERE v.employer_id = ?
       ORDER BY a.created_at DESC
-    `).all(req.userId).map((a) => {
+    `).all(req.userId)).map((a) => {
       try { a.screening_answers = JSON.parse(a.screening_answers || "[]"); } catch { a.screening_answers = []; }
       return a;
     });
@@ -70,13 +70,13 @@ router.get("/employer", authMiddleware, (req, res) => {
   }
 });
 
-router.get("/vacancy/:vacancyId", authMiddleware, (req, res) => {
+router.get("/vacancy/:vacancyId", authMiddleware, async (req, res) => {
   try {
-    const vacancy = db.prepare("SELECT id, title, employer_id FROM vacancies WHERE id = ?").get(req.params.vacancyId);
+    const vacancy = await db.prepare("SELECT id, title, employer_id FROM vacancies WHERE id = ?").get(req.params.vacancyId);
     if (!vacancy) return res.status(404).json({ error: "Vakansiya topilmadi" });
     if (vacancy.employer_id !== req.userId) return res.status(403).json({ error: "Ruxsat yo'q" });
 
-    const applications = db.prepare(`
+    const applications = (await db.prepare(`
       SELECT a.*, u.name as specialist_name, u.category as specialist_category, u.avatar as specialist_avatar,
              u.rating as specialist_rating, u.reviews_count as specialist_reviews, u.experience as specialist_experience,
              u.experience_level as specialist_experience_level,
@@ -86,7 +86,7 @@ router.get("/vacancy/:vacancyId", authMiddleware, (req, res) => {
       JOIN users u ON a.user_id = u.id
       WHERE a.vacancy_id = ?
       ORDER BY a.created_at DESC
-    `).all(vacancy.id).map((a) => {
+    `).all(vacancy.id)).map((a) => {
       try { a.screening_answers = JSON.parse(a.screening_answers || "[]"); } catch { a.screening_answers = []; }
       return a;
     });
@@ -98,9 +98,9 @@ router.get("/vacancy/:vacancyId", authMiddleware, (req, res) => {
   }
 });
 
-router.post("/", authMiddleware, validateBody(applicationCreateSchema), (req, res) => {
+router.post("/", authMiddleware, validateBody(applicationCreateSchema), async (req, res) => {
   try {
-    const requester = db.prepare("SELECT role FROM users WHERE id = ?").get(req.userId);
+    const requester = await db.prepare("SELECT role FROM users WHERE id = ?").get(req.userId);
     if (!requester || requester.role !== "specialist") {
       return res.status(403).json({ error: "Faqat mutaxassislar ariza yubora oladi" });
     }
@@ -108,22 +108,22 @@ router.post("/", authMiddleware, validateBody(applicationCreateSchema), (req, re
     const { vacancy_id, resume_url, screening_answers, cover_letter } = req.body;
     if (!vacancy_id) return res.status(400).json({ error: "Vakansiya ID kerak" });
 
-    const existing = db.prepare("SELECT id FROM applications WHERE vacancy_id = ? AND user_id = ?").get(vacancy_id, req.userId);
+    const existing = await db.prepare("SELECT id FROM applications WHERE vacancy_id = ? AND user_id = ?").get(vacancy_id, req.userId);
     if (existing) return res.status(409).json({ error: "Siz allaqachon ariza yuborgansiz" });
 
-    const specialist = db.prepare("SELECT skills FROM users WHERE id = ?").get(req.userId);
-    const vacancy = db.prepare("SELECT tags FROM vacancies WHERE id = ?").get(vacancy_id);
+    const specialist = await db.prepare("SELECT skills FROM users WHERE id = ?").get(req.userId);
+    const vacancy = await db.prepare("SELECT tags FROM vacancies WHERE id = ?").get(vacancy_id);
     let specialistSkills = [];
     let vacancyTags = [];
     try { specialistSkills = JSON.parse(specialist?.skills || "[]"); } catch { specialistSkills = []; }
     try { vacancyTags = JSON.parse(vacancy?.tags || "[]"); } catch { vacancyTags = []; }
     const matchPercent = computeMatch(specialistSkills, vacancyTags);
 
-    const result = db.prepare("INSERT INTO applications (vacancy_id, user_id, status, match_percent, resume_url, screening_answers, cover_letter) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+    const result = await db.prepare("INSERT INTO applications (vacancy_id, user_id, status, match_percent, resume_url, screening_answers, cover_letter) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
       vacancy_id, req.userId, "Yuborildi", matchPercent, resume_url || "", JSON.stringify(screening_answers || []), cover_letter || ""
     );
 
-    const application = db.prepare(`
+    const application = await db.prepare(`
       SELECT a.*, v.title as vacancy_title, v.company, v.salary, v.location, v.employer_id
       FROM applications a
       JOIN vacancies v ON a.vacancy_id = v.id
@@ -131,8 +131,8 @@ router.post("/", authMiddleware, validateBody(applicationCreateSchema), (req, re
     `).get(result.lastInsertRowid);
 
     if (application.employer_id) {
-      const specialist = db.prepare("SELECT name FROM users WHERE id = ?").get(req.userId);
-      db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'application', 'Yangi ariza', ?, '/applications')`).run(
+      const specialist = await db.prepare("SELECT name FROM users WHERE id = ?").get(req.userId);
+      await db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'application', 'Yangi ariza', ?, '/applications')`).run(
         application.employer_id, `${specialist?.name || "Nomzod"} "${application.vacancy_title}" vakansiyasiga ariza yubordi`
       );
       if (req.app.get("io")) {
@@ -151,14 +151,14 @@ router.post("/", authMiddleware, validateBody(applicationCreateSchema), (req, re
   }
 });
 
-router.patch("/:id/status", authMiddleware, (req, res) => {
+router.patch("/:id/status", authMiddleware, async (req, res) => {
   try {
     const { status } = req.body;
     if (!APPLICATION_STATUSES.includes(status)) {
       return res.status(400).json({ error: "Noto'g'ri status qiymati" });
     }
 
-    const application = db.prepare(`
+    const application = await db.prepare(`
       SELECT a.*, v.employer_id FROM applications a
       JOIN vacancies v ON a.vacancy_id = v.id
       WHERE a.id = ?
@@ -167,9 +167,9 @@ router.patch("/:id/status", authMiddleware, (req, res) => {
     if (!application) return res.status(404).json({ error: "Ariza topilmadi" });
     if (application.employer_id !== req.userId) return res.status(403).json({ error: "Ruxsat yo'q" });
 
-    db.prepare("UPDATE applications SET status = ? WHERE id = ?").run(status, req.params.id);
+    await db.prepare("UPDATE applications SET status = ? WHERE id = ?").run(status, req.params.id);
 
-    db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'application', 'Ariza yangilandi', ?, '/applications')`).run(
+    await db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'application', 'Ariza yangilandi', ?, '/applications')`).run(
       application.user_id, `Arizangiz holati "${status}" ga o'zgartirildi`
     );
 
@@ -188,13 +188,13 @@ router.patch("/:id/status", authMiddleware, (req, res) => {
   }
 });
 
-router.delete("/:id", authMiddleware, (req, res) => {
+router.delete("/:id", authMiddleware, async (req, res) => {
   try {
-    const application = db.prepare("SELECT * FROM applications WHERE id = ?").get(req.params.id);
+    const application = await db.prepare("SELECT * FROM applications WHERE id = ?").get(req.params.id);
     if (!application) return res.status(404).json({ error: "Ariza topilmadi" });
     if (application.user_id !== req.userId) return res.status(403).json({ error: "Ruxsat yo'q" });
 
-    db.prepare("DELETE FROM applications WHERE id = ?").run(req.params.id);
+    await db.prepare("DELETE FROM applications WHERE id = ?").run(req.params.id);
     res.json({ success: true });
   } catch (err) {
     console.error("Application delete error:", err);

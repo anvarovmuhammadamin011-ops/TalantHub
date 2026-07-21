@@ -4,9 +4,9 @@ const { authMiddleware } = require("../middleware/auth.cjs");
 
 const router = express.Router();
 
-router.get("/", authMiddleware, (req, res) => {
+router.get("/", authMiddleware, async (req, res) => {
   try {
-    const chats = db.prepare(`
+    const chats = await db.prepare(`
       SELECT c.*,
         CASE WHEN c.user1_id = ? THEN u2.name ELSE u1.name END as other_name,
         CASE WHEN c.user1_id = ? THEN u2.id ELSE u1.id END as other_id,
@@ -28,20 +28,20 @@ router.get("/", authMiddleware, (req, res) => {
   }
 });
 
-function assertChatMember(chatId, userId) {
-  const chat = db.prepare("SELECT * FROM chats WHERE id = ?").get(chatId);
+async function assertChatMember(chatId, userId) {
+  const chat = await db.prepare("SELECT * FROM chats WHERE id = ?").get(chatId);
   if (!chat) return null;
   if (chat.user1_id !== userId && chat.user2_id !== userId) return false;
   return chat;
 }
 
-router.get("/:id/messages", authMiddleware, (req, res) => {
+router.get("/:id/messages", authMiddleware, async (req, res) => {
   try {
-    const chat = assertChatMember(req.params.id, req.userId);
+    const chat = await assertChatMember(req.params.id, req.userId);
     if (chat === null) return res.status(404).json({ error: "Suhbat topilmadi" });
     if (chat === false) return res.status(403).json({ error: "Ruxsat yo'q" });
 
-    const messages = db.prepare(`
+    const messages = await db.prepare(`
       SELECT m.*, u.name as sender_name
       FROM messages m
       LEFT JOIN users u ON m.sender_id = u.id
@@ -49,7 +49,7 @@ router.get("/:id/messages", authMiddleware, (req, res) => {
       ORDER BY m.created_at ASC
     `).all(req.params.id);
 
-    db.prepare("UPDATE messages SET read = 1 WHERE chat_id = ? AND sender_id != ?").run(req.params.id, req.userId);
+    await db.prepare("UPDATE messages SET read = 1 WHERE chat_id = ? AND sender_id != ?").run(req.params.id, req.userId);
 
     res.json({ messages });
   } catch (err) {
@@ -58,18 +58,18 @@ router.get("/:id/messages", authMiddleware, (req, res) => {
   }
 });
 
-router.post("/:id/messages", authMiddleware, (req, res) => {
+router.post("/:id/messages", authMiddleware, async (req, res) => {
   try {
-    const chat = assertChatMember(req.params.id, req.userId);
+    const chat = await assertChatMember(req.params.id, req.userId);
     if (chat === null) return res.status(404).json({ error: "Suhbat topilmadi" });
     if (chat === false) return res.status(403).json({ error: "Ruxsat yo'q" });
 
     const { text } = req.body;
     if (!text) return res.status(400).json({ error: "Xabar matni kerak" });
 
-    const result = db.prepare("INSERT INTO messages (chat_id, sender_id, text) VALUES (?, ?, ?)").run(req.params.id, req.userId, text);
+    const result = await db.prepare("INSERT INTO messages (chat_id, sender_id, text) VALUES (?, ?, ?)").run(req.params.id, req.userId, text);
 
-    const message = db.prepare(`
+    const message = await db.prepare(`
       SELECT m.*, u.name as sender_name
       FROM messages m
       LEFT JOIN users u ON m.sender_id = u.id
@@ -83,19 +83,19 @@ router.post("/:id/messages", authMiddleware, (req, res) => {
   }
 });
 
-router.post("/create", authMiddleware, (req, res) => {
+router.post("/create", authMiddleware, async (req, res) => {
   try {
     const { user_id } = req.body;
     if (!user_id) return res.status(400).json({ error: "Foydalanuvchi ID kerak" });
 
-    let chat = db.prepare(`
+    let chat = await db.prepare(`
       SELECT * FROM chats WHERE
       (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)
     `).get(req.userId, user_id, user_id, req.userId);
 
     if (!chat) {
-      const result = db.prepare("INSERT INTO chats (user1_id, user2_id) VALUES (?, ?)").run(req.userId, user_id);
-      chat = db.prepare("SELECT * FROM chats WHERE id = ?").get(result.lastInsertRowid);
+      const result = await db.prepare("INSERT INTO chats (user1_id, user2_id) VALUES (?, ?)").run(req.userId, user_id);
+      chat = await db.prepare("SELECT * FROM chats WHERE id = ?").get(result.lastInsertRowid);
     }
 
     res.json({ chat });

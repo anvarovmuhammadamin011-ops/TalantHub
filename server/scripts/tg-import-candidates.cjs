@@ -7,9 +7,6 @@ const path = require("path");
 const bcrypt = require("bcryptjs");
 const db = require("../db.cjs");
 
-const exportFile = path.join(__dirname, "..", ".tg-export", "candidates.json");
-const candidates = JSON.parse(fs.readFileSync(exportFile, "utf8"));
-
 const PLACEHOLDER_PASSWORD_HASH = bcrypt.hashSync("tg-import-" + Date.now(), 10);
 
 function normTelegram(handle) {
@@ -27,74 +24,85 @@ function makeEmail(handle, phone, msgId) {
   return `${base}@tg-import.local`;
 }
 
-// Keep the most recent post per person (highest msg_id) when the same
-// telegram handle or phone appears multiple times in the fetched batch.
-const byKey = new Map();
-for (const c of candidates) {
-  const key = normTelegram(c.telegram) || normPhone(c.phone) || `msg-${c.msg_id}`;
-  const existing = byKey.get(key);
-  if (!existing || c.msg_id > existing.msg_id) byKey.set(key, c);
-}
-const deduped = [...byKey.values()];
+async function main() {
+  await db.initSchema();
 
-const existingEmails = new Set(db.prepare("SELECT email FROM users").all().map((r) => r.email));
-const existingTelegrams = new Set(
-  db.prepare("SELECT social_telegram FROM users WHERE social_telegram != ''").all().map((r) => r.social_telegram.toLowerCase())
-);
-const existingPhones = new Set(
-  db.prepare("SELECT phone FROM users WHERE phone != ''").all().map((r) => normPhone(r.phone))
-);
+  const exportFile = path.join(__dirname, "..", ".tg-export", "candidates.json");
+  const candidates = JSON.parse(fs.readFileSync(exportFile, "utf8"));
 
-const insertUser = db.prepare(`
-  INSERT INTO users (name, email, password, phone, city, role, fields, categories, category, bio, avatar, hourly_price, skills, certificates, timeline, experience, experience_level, social_telegram)
-  VALUES (@name, @email, @password, @phone, @city, 'specialist', '[]', @categories, @category, @bio, '', @hourly_price, @skills, '[]', '[]', '', 'Junior', @social_telegram)
-`);
-
-let inserted = 0;
-let skipped = 0;
-
-const run = db.transaction(() => {
-  for (const c of deduped) {
-    const tgHandle = normTelegram(c.telegram);
-    const phoneNorm = normPhone(c.phone);
-
-    if ((tgHandle && existingTelegrams.has(tgHandle)) || (phoneNorm && existingPhones.has(phoneNorm))) {
-      skipped++;
-      continue;
-    }
-
-    const email = makeEmail(c.telegram, c.phone, c.msg_id);
-    if (existingEmails.has(email)) {
-      skipped++;
-      continue;
-    }
-    existingEmails.add(email);
-    if (tgHandle) existingTelegrams.add(tgHandle);
-    if (phoneNorm) existingPhones.add(phoneNorm);
-
-    const skills = (c.skills || "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    insertUser.run({
-      name: c.name,
-      email,
-      password: PLACEHOLDER_PASSWORD_HASH,
-      phone: c.phone || "",
-      city: c.city || "",
-      categories: JSON.stringify(c.profession ? [c.profession] : []),
-      category: c.profession || "",
-      bio: c.bio || "",
-      hourly_price: c.price || "",
-      skills: JSON.stringify(skills),
-      social_telegram: c.telegram ? `t.me/${tgHandle}` : "",
-    });
-    inserted++;
+  // Keep the most recent post per person (highest msg_id) when the same
+  // telegram handle or phone appears multiple times in the fetched batch.
+  const byKey = new Map();
+  for (const c of candidates) {
+    const key = normTelegram(c.telegram) || normPhone(c.phone) || `msg-${c.msg_id}`;
+    const existing = byKey.get(key);
+    if (!existing || c.msg_id > existing.msg_id) byKey.set(key, c);
   }
+  const deduped = [...byKey.values()];
+
+  const existingEmails = new Set((await db.prepare("SELECT email FROM users").all()).map((r) => r.email));
+  const existingTelegrams = new Set(
+    (await db.prepare("SELECT social_telegram FROM users WHERE social_telegram != ''").all()).map((r) => r.social_telegram.toLowerCase())
+  );
+  const existingPhones = new Set(
+    (await db.prepare("SELECT phone FROM users WHERE phone != ''").all()).map((r) => normPhone(r.phone))
+  );
+
+  let inserted = 0;
+  let skipped = 0;
+
+  await db.transaction(async (trx) => {
+    const insertUser = trx.prepare(`
+      INSERT INTO users (name, email, password, phone, city, role, fields, categories, category, bio, avatar, hourly_price, skills, certificates, timeline, experience, experience_level, social_telegram)
+      VALUES (?, ?, ?, ?, ?, 'specialist', '[]', ?, ?, ?, '', ?, ?, '[]', '[]', '', 'Junior', ?)
+    `);
+
+    for (const c of deduped) {
+      const tgHandle = normTelegram(c.telegram);
+      const phoneNorm = normPhone(c.phone);
+
+      if ((tgHandle && existingTelegrams.has(tgHandle)) || (phoneNorm && existingPhones.has(phoneNorm))) {
+        skipped++;
+        continue;
+      }
+
+      const email = makeEmail(c.telegram, c.phone, c.msg_id);
+      if (existingEmails.has(email)) {
+        skipped++;
+        continue;
+      }
+      existingEmails.add(email);
+      if (tgHandle) existingTelegrams.add(tgHandle);
+      if (phoneNorm) existingPhones.add(phoneNorm);
+
+      const skills = (c.skills || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      await insertUser.run(
+        c.name,
+        email,
+        PLACEHOLDER_PASSWORD_HASH,
+        c.phone || "",
+        c.city || "",
+        JSON.stringify(c.profession ? [c.profession] : []),
+        c.profession || "",
+        c.bio || "",
+        c.price || "",
+        JSON.stringify(skills),
+        c.telegram ? `t.me/${tgHandle}` : ""
+      );
+      inserted++;
+    }
+  });
+
+  console.log(`Parsed candidates: ${candidates.length}, deduped: ${deduped.length}`);
+  console.log(`Inserted: ${inserted}, skipped (already existed): ${skipped}`);
+  await db.pool.end();
+}
+
+main().catch((err) => {
+  console.error("Xatolik:", err.message || err);
+  process.exit(1);
 });
-
-run();
-
-console.log(`Parsed candidates: ${candidates.length}, deduped: ${deduped.length}`);
-console.log(`Inserted: ${inserted}, skipped (already existed): ${skipped}`);

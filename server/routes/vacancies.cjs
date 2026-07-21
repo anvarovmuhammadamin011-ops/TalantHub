@@ -10,8 +10,8 @@ const router = express.Router();
 
 const EMPLOYER_SETTABLE_STATUSES = ["Faol", "Nofaol", "Arxivlangan"];
 
-function getInitialStatus() {
-  const modeRow = db.prepare("SELECT value FROM settings WHERE key = 'vacancy_moderation_mode'").get();
+async function getInitialStatus() {
+  const modeRow = await db.prepare("SELECT value FROM settings WHERE key = 'vacancy_moderation_mode'").get();
   return modeRow?.value === "pre" ? "Kutilmoqda" : "Faol";
 }
 
@@ -27,7 +27,7 @@ function parseVacancy(v) {
   };
 }
 
-router.get("/", optionalAuthMiddleware, (req, res) => {
+router.get("/", optionalAuthMiddleware, async (req, res) => {
   try {
     const { search, location, format, experience, category } = req.query;
 
@@ -39,12 +39,13 @@ router.get("/", optionalAuthMiddleware, (req, res) => {
     `;
     const params = [];
 
+    // ILIKE, not LIKE — Postgres's LIKE is case-sensitive by default.
     if (search) {
-      sql += ` AND (v.title LIKE ? OR v.company LIKE ? OR v.tags LIKE ?)`;
+      sql += ` AND (v.title ILIKE ? OR v.company ILIKE ? OR v.tags ILIKE ?)`;
       params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
     if (location) {
-      sql += ` AND v.location LIKE ?`;
+      sql += ` AND v.location ILIKE ?`;
       params.push(`%${location}%`);
     }
     if (format) {
@@ -62,9 +63,9 @@ router.get("/", optionalAuthMiddleware, (req, res) => {
 
     sql += ` ORDER BY v.created_at DESC`;
 
-    const vacancies = db.prepare(sql).all(...params).map(parseVacancy);
+    const vacancies = (await db.prepare(sql).all(...params)).map(parseVacancy);
     const savedIds = req.userId
-      ? new Set(db.prepare("SELECT vacancy_id FROM saved_vacancies WHERE user_id = ?").all(req.userId).map((r) => r.vacancy_id))
+      ? new Set((await db.prepare("SELECT vacancy_id FROM saved_vacancies WHERE user_id = ?").all(req.userId)).map((r) => r.vacancy_id))
       : new Set();
     vacancies.forEach((v) => { v.is_saved = savedIds.has(v.id); });
 
@@ -75,16 +76,16 @@ router.get("/", optionalAuthMiddleware, (req, res) => {
   }
 });
 
-router.get("/saved", authMiddleware, (req, res) => {
+router.get("/saved", authMiddleware, async (req, res) => {
   try {
-    const vacancies = db.prepare(`
+    const vacancies = (await db.prepare(`
       SELECT v.*, u.name as author_name, s.created_at as saved_at
       FROM saved_vacancies s
       JOIN vacancies v ON v.id = s.vacancy_id
       LEFT JOIN users u ON v.employer_id = u.id
       WHERE s.user_id = ?
       ORDER BY s.created_at DESC
-    `).all(req.userId).map((v) => ({ ...parseVacancy(v), is_saved: true }));
+    `).all(req.userId)).map((v) => ({ ...parseVacancy(v), is_saved: true }));
 
     res.json({ vacancies });
   } catch (err) {
@@ -93,12 +94,12 @@ router.get("/saved", authMiddleware, (req, res) => {
   }
 });
 
-router.post("/:id/save", authMiddleware, (req, res) => {
+router.post("/:id/save", authMiddleware, async (req, res) => {
   try {
-    const vacancy = db.prepare("SELECT id FROM vacancies WHERE id = ?").get(req.params.id);
+    const vacancy = await db.prepare("SELECT id FROM vacancies WHERE id = ?").get(req.params.id);
     if (!vacancy) return res.status(404).json({ error: "Vakansiya topilmadi" });
 
-    db.prepare("INSERT OR IGNORE INTO saved_vacancies (user_id, vacancy_id) VALUES (?, ?)").run(req.userId, req.params.id);
+    await db.prepare("INSERT INTO saved_vacancies (user_id, vacancy_id) VALUES (?, ?) ON CONFLICT (user_id, vacancy_id) DO NOTHING").run(req.userId, req.params.id);
     res.json({ success: true, is_saved: true });
   } catch (err) {
     console.error("Vacancy save error:", err);
@@ -106,9 +107,9 @@ router.post("/:id/save", authMiddleware, (req, res) => {
   }
 });
 
-router.delete("/:id/save", authMiddleware, (req, res) => {
+router.delete("/:id/save", authMiddleware, async (req, res) => {
   try {
-    db.prepare("DELETE FROM saved_vacancies WHERE user_id = ? AND vacancy_id = ?").run(req.userId, req.params.id);
+    await db.prepare("DELETE FROM saved_vacancies WHERE user_id = ? AND vacancy_id = ?").run(req.userId, req.params.id);
     res.json({ success: true, is_saved: false });
   } catch (err) {
     console.error("Vacancy unsave error:", err);
@@ -116,14 +117,14 @@ router.delete("/:id/save", authMiddleware, (req, res) => {
   }
 });
 
-router.get("/mine", authMiddleware, (req, res) => {
+router.get("/mine", authMiddleware, async (req, res) => {
   try {
-    const vacancies = db.prepare(`
+    const vacancies = (await db.prepare(`
       SELECT v.*, (SELECT COUNT(*) FROM applications a WHERE a.vacancy_id = v.id) as applications_count
       FROM vacancies v
       WHERE v.employer_id = ?
       ORDER BY v.created_at DESC
-    `).all(req.userId).map(parseVacancy);
+    `).all(req.userId)).map(parseVacancy);
 
     res.json({ vacancies });
   } catch (err) {
@@ -132,11 +133,11 @@ router.get("/mine", authMiddleware, (req, res) => {
   }
 });
 
-router.get("/:id", optionalAuthMiddleware, (req, res) => {
+router.get("/:id", optionalAuthMiddleware, async (req, res) => {
   try {
-    db.prepare("UPDATE vacancies SET views = views + 1 WHERE id = ?").run(req.params.id);
+    await db.prepare("UPDATE vacancies SET views = views + 1 WHERE id = ?").run(req.params.id);
 
-    const vacancy = db.prepare(`
+    const vacancy = await db.prepare(`
       SELECT v.*, u.name as author_name, u.id as author_id
       FROM vacancies v
       LEFT JOIN users u ON v.employer_id = u.id
@@ -146,7 +147,7 @@ router.get("/:id", optionalAuthMiddleware, (req, res) => {
     if (!vacancy) return res.status(404).json({ error: "Vakansiya topilmadi" });
 
     const isSaved = req.userId
-      ? !!db.prepare("SELECT 1 FROM saved_vacancies WHERE user_id = ? AND vacancy_id = ?").get(req.userId, req.params.id)
+      ? !!(await db.prepare("SELECT 1 FROM saved_vacancies WHERE user_id = ? AND vacancy_id = ?").get(req.userId, req.params.id))
       : false;
 
     res.json({ vacancy: { ...parseVacancy(vacancy), is_saved: isSaved } });
@@ -156,9 +157,9 @@ router.get("/:id", optionalAuthMiddleware, (req, res) => {
   }
 });
 
-router.post("/", authMiddleware, validateBody(vacancyCreateSchema), (req, res) => {
+router.post("/", authMiddleware, validateBody(vacancyCreateSchema), async (req, res) => {
   try {
-    const requester = db.prepare("SELECT role FROM users WHERE id = ?").get(req.userId);
+    const requester = await db.prepare("SELECT role FROM users WHERE id = ?").get(req.userId);
     if (!requester || requester.role !== "employer") {
       return res.status(403).json({ error: "Faqat ish beruvchilar vakansiya joylashi mumkin" });
     }
@@ -173,7 +174,7 @@ router.post("/", authMiddleware, validateBody(vacancyCreateSchema), (req, res) =
       return res.status(400).json({ error: "Sarlavha va kompaniya majburiy" });
     }
 
-    const initialStatus = save_as === "draft" ? "Qoralama" : getInitialStatus();
+    const initialStatus = save_as === "draft" ? "Qoralama" : await getInitialStatus();
 
     const stmt = db.prepare(`
       INSERT INTO vacancies (
@@ -184,7 +185,7 @@ router.post("/", authMiddleware, validateBody(vacancyCreateSchema), (req, res) =
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    const result = stmt.run(
+    const result = await stmt.run(
       title, company, "🏢",
       location || "", salary || "",
       salary_min || 0, salary_max || 0,
@@ -211,10 +212,10 @@ router.post("/", authMiddleware, validateBody(vacancyCreateSchema), (req, res) =
       start_date || ""
     );
 
-    const vacancy = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(result.lastInsertRowid);
+    const vacancy = await db.prepare("SELECT * FROM vacancies WHERE id = ?").get(result.lastInsertRowid);
 
     if (vacancy.status === "Faol") {
-      notifySavedSearches(vacancy, req.app.get("io"));
+      await notifySavedSearches(vacancy, req.app.get("io"));
     }
 
     emitAdminUpdate(req.app.get("io"), "vacancy");
@@ -226,13 +227,13 @@ router.post("/", authMiddleware, validateBody(vacancyCreateSchema), (req, res) =
   }
 });
 
-router.post("/:id/duplicate", authMiddleware, (req, res) => {
+router.post("/:id/duplicate", authMiddleware, async (req, res) => {
   try {
-    const source = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(req.params.id);
+    const source = await db.prepare("SELECT * FROM vacancies WHERE id = ?").get(req.params.id);
     if (!source) return res.status(404).json({ error: "Vakansiya topilmadi" });
     if (source.employer_id !== req.userId) return res.status(403).json({ error: "Ruxsat yo'q" });
 
-    const result = db.prepare(`
+    const result = await db.prepare(`
       INSERT INTO vacancies (
         title, company, company_logo, location, salary, salary_min, salary_max, format, experience, category, tags, description, requirements, conditions, employer_id, status,
         employment_type, schedule, gender, responsibilities, salary_details, day_off,
@@ -250,7 +251,7 @@ router.post("/:id/duplicate", authMiddleware, (req, res) => {
       source.screening_questions, source.salary_type, source.directions, source.start_date
     );
 
-    const vacancy = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(result.lastInsertRowid);
+    const vacancy = await db.prepare("SELECT * FROM vacancies WHERE id = ?").get(result.lastInsertRowid);
     res.json({ vacancy: parseVacancy(vacancy) });
   } catch (err) {
     console.error("Vacancy duplicate error:", err);
@@ -258,14 +259,14 @@ router.post("/:id/duplicate", authMiddleware, (req, res) => {
   }
 });
 
-router.delete("/:id", authMiddleware, (req, res) => {
+router.delete("/:id", authMiddleware, async (req, res) => {
   try {
-    const vacancy = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(req.params.id);
+    const vacancy = await db.prepare("SELECT * FROM vacancies WHERE id = ?").get(req.params.id);
     if (!vacancy) return res.status(404).json({ error: "Vakansiya topilmadi" });
     if (vacancy.employer_id !== req.userId) return res.status(403).json({ error: "Ruxsat yo'q" });
 
-    db.prepare("DELETE FROM applications WHERE vacancy_id = ?").run(req.params.id);
-    db.prepare("DELETE FROM vacancies WHERE id = ?").run(req.params.id);
+    await db.prepare("DELETE FROM applications WHERE vacancy_id = ?").run(req.params.id);
+    await db.prepare("DELETE FROM vacancies WHERE id = ?").run(req.params.id);
 
     res.json({ success: true });
   } catch (err) {
@@ -274,9 +275,9 @@ router.delete("/:id", authMiddleware, (req, res) => {
   }
 });
 
-router.patch("/:id", authMiddleware, (req, res) => {
+router.patch("/:id", authMiddleware, async (req, res) => {
   try {
-    const vacancy = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(req.params.id);
+    const vacancy = await db.prepare("SELECT * FROM vacancies WHERE id = ?").get(req.params.id);
     if (!vacancy) return res.status(404).json({ error: "Vakansiya topilmadi" });
     if (vacancy.employer_id !== req.userId) return res.status(403).json({ error: "Ruxsat yo'q" });
 
@@ -298,14 +299,14 @@ router.patch("/:id", authMiddleware, (req, res) => {
       resolvedStatus = status;
     } else if (vacancy.status === "Qoralama" && save_as !== "draft") {
       // Submitting a draft for review.
-      resolvedStatus = getInitialStatus();
+      resolvedStatus = await getInitialStatus();
     } else if (vacancy.status === "Tuzatish kerak") {
       // Any employer edit to a rejected vacancy re-enters the moderation queue.
-      resolvedStatus = getInitialStatus();
+      resolvedStatus = await getInitialStatus();
     }
     const clearRejectReason = resolvedStatus !== null && resolvedStatus !== "Tuzatish kerak";
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE vacancies SET
         title = COALESCE(?, title),
         company = COALESCE(?, company),
@@ -361,7 +362,7 @@ router.patch("/:id", authMiddleware, (req, res) => {
       req.params.id
     );
 
-    const updated = db.prepare("SELECT * FROM vacancies WHERE id = ?").get(req.params.id);
+    const updated = await db.prepare("SELECT * FROM vacancies WHERE id = ?").get(req.params.id);
 
     res.json({ vacancy: parseVacancy(updated) });
   } catch (err) {

@@ -1,3 +1,6 @@
+// Postgres-era draft of auth.cjs — only change from the original is `async`/`await` around
+// the two db.prepare(...).get(...) calls, since db.cjs's methods are now async. Not yet wired
+// in (index.cjs and every route still require the original auth.cjs).
 const jwt = require("jsonwebtoken");
 const fs = require("fs");
 const path = require("path");
@@ -19,7 +22,7 @@ function loadOrCreateSecret() {
 
 const JWT_SECRET = loadOrCreateSecret();
 
-function authMiddleware(req, res, next) {
+async function authMiddleware(req, res, next) {
   const header = req.headers.authorization;
   if (!header || !header.startsWith("Bearer ")) {
     return res.status(401).json({ error: "Token topilmadi" });
@@ -28,7 +31,7 @@ function authMiddleware(req, res, next) {
   const token = header.split(" ")[1];
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = db.prepare("SELECT token_version FROM users WHERE id = ?").get(decoded.id);
+    const user = await db.prepare("SELECT token_version FROM users WHERE id = ?").get(decoded.id);
     if (!user || (decoded.tokenVersion || 0) !== (user.token_version || 0)) {
       return res.status(401).json({ error: "Token muddati tugagan" });
     }
@@ -39,14 +42,14 @@ function authMiddleware(req, res, next) {
   }
 }
 
-function optionalAuthMiddleware(req, res, next) {
+async function optionalAuthMiddleware(req, res, next) {
   const header = req.headers.authorization;
   if (!header || !header.startsWith("Bearer ")) return next();
 
   const token = header.split(" ")[1];
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = db.prepare("SELECT token_version FROM users WHERE id = ?").get(decoded.id);
+    const user = await db.prepare("SELECT token_version FROM users WHERE id = ?").get(decoded.id);
     if (user && (decoded.tokenVersion || 0) === (user.token_version || 0)) {
       req.userId = decoded.id;
     }
