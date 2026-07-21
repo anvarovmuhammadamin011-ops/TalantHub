@@ -22,6 +22,7 @@
     "@capacitor/core": "^8.4.1",
     "@sentry/node": "^10.66.0",
     "@sentry/react": "^10.66.0",
+    "@vercel/blob": "^2.6.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
