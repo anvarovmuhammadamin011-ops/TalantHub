@@ -4,6 +4,7 @@ const { authMiddleware, optionalAuthMiddleware } = require("../middleware/auth.c
 const { notifySavedSearches } = require("../lib/savedSearchAgent.cjs");
 const { validateBody } = require("../middleware/validate.cjs");
 const { vacancyCreateSchema } = require("../schemas.cjs");
+const { emitAdminUpdate } = require("../lib/adminEvents.cjs");
 
 const router = express.Router();
 
@@ -216,6 +217,8 @@ router.post("/", authMiddleware, validateBody(vacancyCreateSchema), async (req, 
     if (vacancy.status === "Faol") {
       await notifySavedSearches(vacancy, req.app.get("io"));
     }
+
+    emitAdminUpdate(req.app.get("io"), "vacancy");
 
     res.json({ vacancy: parseVacancy(vacancy) });
   } catch (err) {

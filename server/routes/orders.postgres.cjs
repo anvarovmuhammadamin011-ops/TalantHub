@@ -1,0 +1,251 @@
+const express = require("express");
+const db = require("../db.cjs");
+const { authMiddleware } = require("../middleware/auth.cjs");
+
+const router = express.Router();
+
+const ORDER_STATUSES = ["Yangi", "Qabul qilindi", "Jarayonda", "Tugatildi", "Bekor qilindi"];
+
+// Which transitions are allowed, and who (relative to the order) may trigger them.
+function canTransitionOrder(order, userId, newStatus) {
+  const isEmployer = order.employer_id === userId;
+  const isSpecialist = order.specialist_id === userId;
+  if (order.status === "Yangi" && newStatus === "Qabul qilindi") return isSpecialist;
+  if (order.status === "Yangi" && newStatus === "Bekor qilindi") return isEmployer;
+  if (order.status === "Qabul qilindi" && newStatus === "Jarayonda") return isEmployer || isSpecialist;
+  if (order.status === "Jarayonda" && newStatus === "Tugatildi") return isSpecialist;
+  return false;
+}
+
+router.get("/", authMiddleware, async (req, res) => {
+  try {
+    const user = await db.prepare("SELECT role FROM users WHERE id = ?").get(req.userId);
+    let orders;
+
+    if (user && user.role === "employer") {
+      orders = await db.prepare(`
+        SELECT o.*, u.name as specialist_name, u.category as specialist_category, u.avatar as specialist_avatar, u.rating as specialist_rating_score
+        FROM orders o
+        LEFT JOIN users u ON o.specialist_id = u.id
+        WHERE o.employer_id = ?
+        ORDER BY o.created_at DESC
+      `).all(req.userId);
+    } else {
+      orders = await db.prepare(`
+        SELECT o.*, u.name as employer_name, u.avatar as employer_avatar, u.rating as employer_rating_score
+        FROM orders o
+        LEFT JOIN users u ON o.employer_id = u.id
+        WHERE o.specialist_id = ?
+        ORDER BY o.created_at DESC
+      `).all(req.userId);
+    }
+
+    const stats = {
+      total: orders.length,
+      new: orders.filter((o) => o.status === "Yangi").length,
+      active: orders.filter((o) => o.status === "Jarayonda" || o.status === "Qabul qilindi").length,
+      completed: orders.filter((o) => o.status === "Tugatildi").length,
+    };
+
+    res.json({ orders, stats });
+  } catch (err) {
+    console.error("Orders list error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.post("/", authMiddleware, async (req, res) => {
+  try {
+    const requester = await db.prepare("SELECT role FROM users WHERE id = ?").get(req.userId);
+    if (!requester || requester.role !== "employer") {
+      return res.status(403).json({ error: "Faqat ish beruvchilar zakaz bera oladi" });
+    }
+
+    const { specialist_id, title, description, price, deadline, priority } = req.body;
+    if (!specialist_id || !title) {
+      return res.status(400).json({ error: "Mutaxassis va sarlavha majburiy" });
+    }
+
+    const specialist = await db.prepare("SELECT id FROM users WHERE id = ? AND role = 'specialist'").get(specialist_id);
+    if (!specialist) return res.status(400).json({ error: "Mutaxassis topilmadi" });
+
+    const result = await db.prepare(`
+      INSERT INTO orders (employer_id, specialist_id, title, description, price, deadline, status, priority)
+      VALUES (?, ?, ?, ?, ?, ?, 'Yangi', ?)
+    `).run(req.userId, specialist_id, title, description || "", price || "", deadline || "", priority || "O'rta");
+
+    await db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'order', 'Yangi zakaz', ?, '/orders')`).run(
+      specialist_id,
+      `"${title}" — yangi zakaz sizga yuborildi`
+    );
+
+    const order = await db.prepare(`
+      SELECT o.*, u.name as specialist_name, u.category as specialist_category
+      FROM orders o LEFT JOIN users u ON o.specialist_id = u.id
+      WHERE o.id = ?
+    `).get(result.lastInsertRowid);
+
+    if (req.app.get("io")) {
+      req.app.get("io").to(`user_${specialist_id}`).emit("notification", {
+        type: "order", title: "Yangi zakaz", description: `"${title}" — yangi zakaz`
+      });
+    }
+
+    res.json({ order });
+  } catch (err) {
+    console.error("Order create error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.patch("/:id/status", authMiddleware, async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!ORDER_STATUSES.includes(status)) {
+      return res.status(400).json({ error: "Noto'g'ri status qiymati" });
+    }
+
+    const order = await db.prepare("SELECT * FROM orders WHERE id = ?").get(req.params.id);
+    if (!order) return res.status(404).json({ error: "Zakaz topilmadi" });
+    if (order.employer_id !== req.userId && order.specialist_id !== req.userId) {
+      return res.status(403).json({ error: "Ruxsat yo'q" });
+    }
+    if (!canTransitionOrder(order, req.userId, status)) {
+      return res.status(409).json({ error: `"${order.status}" holatidan "${status}" holatiga o'tish mumkin emas` });
+    }
+
+    await db.prepare("UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(status, req.params.id);
+
+    const notifyUserId = order.employer_id === req.userId ? order.specialist_id : order.employer_id;
+    const statusText = {
+      "Qabul qilindi": "Zakazingiz qabul qilindi!",
+      "Jarayonda": "Zakaz boshlandi!",
+      "Tugatildi": "Zakaz tugatildi!",
+      "Bekor qilindi": "Zakaz bekor qilindi",
+    };
+
+    if (statusText[status]) {
+      await db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'order', ?, ?, '/orders')`).run(
+        notifyUserId, statusText[status], `"${order.title}" — ${status}`
+      );
+
+      if (req.app.get("io")) {
+        req.app.get("io").to(`user_${notifyUserId}`).emit("notification", {
+          type: "order", title: statusText[status], description: `"${order.title}"`
+        });
+      }
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Order update error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.patch("/:id/rate", authMiddleware, async (req, res) => {
+  try {
+    const { rating, review, role } = req.body;
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: "Baholash 1-5 orasida bo'lishi kerak" });
+    }
+
+    const order = await db.prepare("SELECT * FROM orders WHERE id = ?").get(req.params.id);
+    if (!order) return res.status(404).json({ error: "Zakaz topilmadi" });
+    if (order.status !== "Tugatildi") return res.status(400).json({ error: "Faqat tugatilgan zakazlarni baholash mumkin" });
+
+    if (role === "specialist") {
+      if (order.specialist_id !== req.userId) return res.status(403).json({ error: "Faqat mutaxassis baholashi mumkin" });
+      if (order.specialist_rating > 0) return res.status(409).json({ error: "Siz allaqachon baholagansiz" });
+
+      await db.prepare("UPDATE orders SET specialist_rating = ?, specialist_review = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(
+        rating, review || "", req.params.id
+      );
+
+      const employer = await db.prepare("SELECT rating, reviews_count FROM users WHERE id = ?").get(order.employer_id);
+      if (employer) {
+        const oldTotal = employer.rating * employer.reviews_count;
+        const newCount = employer.reviews_count + 1;
+        const newRating = Math.round(((oldTotal + rating) / newCount) * 10) / 10;
+        await db.prepare("UPDATE users SET rating = ?, reviews_count = ? WHERE id = ?").run(newRating, newCount, order.employer_id);
+      }
+
+      await db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'review', 'Baholash', ?, '/orders')`).run(
+        order.employer_id, `"${order.title}" zakazi ${rating} yulduz bilan baholandi`
+      );
+
+      if (req.app.get("io")) {
+        req.app.get("io").to(`user_${order.employer_id}`).emit("notification", {
+          type: "review", title: "Baholash", description: `"${order.title}" zakazi ${rating} yulduz bilan baholandi`
+        });
+      }
+    } else {
+      if (order.employer_id !== req.userId) return res.status(403).json({ error: "Faqat employer baholashi mumkin" });
+      if (order.rating > 0) return res.status(409).json({ error: "Siz allaqachon baholagansiz" });
+
+      await db.prepare("UPDATE orders SET rating = ?, review = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(
+        rating, review || "", req.params.id
+      );
+
+      const specialist = await db.prepare("SELECT rating, reviews_count FROM users WHERE id = ?").get(order.specialist_id);
+      if (specialist) {
+        const oldTotal = specialist.rating * specialist.reviews_count;
+        const newCount = specialist.reviews_count + 1;
+        const newRating = Math.round(((oldTotal + rating) / newCount) * 10) / 10;
+        await db.prepare("UPDATE users SET rating = ?, reviews_count = ? WHERE id = ?").run(newRating, newCount, order.specialist_id);
+      }
+
+      await db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'review', 'Baholash', ?, '/orders')`).run(
+        order.specialist_id, `"${order.title}" zakazi ${rating} yulduz bilan baholandi`
+      );
+
+      if (req.app.get("io")) {
+        req.app.get("io").to(`user_${order.specialist_id}`).emit("notification", {
+          type: "review", title: "Baholash", description: `"${order.title}" zakazi ${rating} yulduz bilan baholandi`
+        });
+      }
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Order rate error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.post("/:id/dispute", authMiddleware, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ error: "Nizo sababi kiritilishi shart" });
+    }
+
+    const order = await db.prepare("SELECT * FROM orders WHERE id = ?").get(req.params.id);
+    if (!order) return res.status(404).json({ error: "Zakaz topilmadi" });
+    if (order.employer_id !== req.userId && order.specialist_id !== req.userId) {
+      return res.status(403).json({ error: "Ruxsat yo'q" });
+    }
+
+    const result = await db.prepare(`
+      INSERT INTO disputes (order_id, opened_by, reason, status)
+      VALUES (?, ?, ?, 'Ochiq')
+    `).run(order.id, req.userId, reason.trim());
+
+    const otherUserId = order.employer_id === req.userId ? order.specialist_id : order.employer_id;
+    await db.prepare(`INSERT INTO notifications (user_id, type, title, description, link) VALUES (?, 'order', 'Nizo ochildi', ?, '/orders')`).run(
+      otherUserId, `"${order.title}" zakazi bo'yicha nizo ochildi`
+    );
+    if (req.app.get("io")) {
+      req.app.get("io").to(`user_${otherUserId}`).emit("notification", {
+        type: "order", title: "Nizo ochildi", description: `"${order.title}" zakazi bo'yicha nizo ochildi`
+      });
+    }
+
+    res.json({ success: true, id: result.lastInsertRowid });
+  } catch (err) {
+    console.error("Dispute create error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+module.exports = router;

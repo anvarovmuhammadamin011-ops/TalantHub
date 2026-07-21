@@ -41,6 +41,11 @@ function toPgSql(sql) {
   return sql.replace(/\?/g, () => `$${++i}`);
 }
 
+// Tables without an `id` SERIAL PRIMARY KEY — the auto-RETURNING logic below must not
+// append `RETURNING id` for these (settings' PK is `key`). Kept as an explicit denylist
+// since it's the only exception in the schema today.
+const NO_ID_TABLES = new Set(["settings"]);
+
 // Wraps either the pool (autocommit, a fresh connection per call) or a single checked-out
 // client (inside a transaction) with the same .prepare(sql).get/all/run(...) + .exec(sql) shape.
 function makeExecutor(queryable) {
@@ -49,7 +54,10 @@ function makeExecutor(queryable) {
       const pgSql = toPgSql(sql);
       const isInsert = /^\s*insert\s+into/i.test(sql);
       const hasReturning = /\breturning\b/i.test(sql);
-      const runSql = isInsert && !hasReturning ? `${pgSql} RETURNING id` : pgSql;
+      const insertTableMatch = sql.match(/^\s*insert\s+into\s+"?(\w+)"?/i);
+      const noIdTable = insertTableMatch && NO_ID_TABLES.has(insertTableMatch[1]);
+      const shouldAppendReturning = isInsert && !hasReturning && !noIdTable;
+      const runSql = shouldAppendReturning ? `${pgSql} RETURNING id` : pgSql;
 
       return {
         async get(...params) {
@@ -61,8 +69,18 @@ function makeExecutor(queryable) {
           return res.rows;
         },
         async run(...params) {
-          const res = await queryable.query(runSql, params);
-          return { changes: res.rowCount, lastInsertRowid: res.rows[0]?.id };
+          // Safety net: if a future PK-less table is added and the denylist above isn't
+          // updated, don't hard-crash — retry once without the appended RETURNING.
+          try {
+            const res = await queryable.query(runSql, params);
+            return { changes: res.rowCount, lastInsertRowid: res.rows[0]?.id };
+          } catch (err) {
+            if (shouldAppendReturning && err.code === "42703") {
+              const res = await queryable.query(pgSql, params);
+              return { changes: res.rowCount, lastInsertRowid: undefined };
+            }
+            throw err;
+          }
         },
       };
     },
