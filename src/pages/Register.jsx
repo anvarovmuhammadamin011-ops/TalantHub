@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { api, BASE_URL } from "../lib/api";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import LanguageSwitcher from "../components/ui/LanguageSwitcher";
+import { useT } from "../context/I18nContext";
 
 const steps = ["Rol", "Yo'nalish", "Ma'lumotlar", "SMS", "Tasdiqlash"];
 
@@ -29,6 +30,7 @@ function detectCountry(value) {
 }
 
 export default function Register() {
+  const { t } = useT();
   const [step, setStep] = useState(0);
   const [role, setRole] = useState("");
   const [fields, setFields] = useState([]);
@@ -67,11 +69,11 @@ export default function Register() {
   const next = () => {
     if (step === 2) {
       if (form.password.length < 8) {
-        setPasswordError("Parol kamida 8 ta belgi bo'lishi kerak");
+        setPasswordError(t("pages.register.passwordErrorMsg"));
         return;
       }
       if (form.phone.replace(/\D/g, "").length < 9) {
-        setPhoneError("Telefon raqamini to'g'ri kiriting");
+        setPhoneError(t("pages.register.phoneErrorMsg"));
         return;
       }
       setPasswordError("");
@@ -108,7 +110,7 @@ export default function Register() {
     if (newCode.every((c) => c !== "") && newCode.join("") === generatedCode) {
       setTimeout(() => setStep(4), 300);
     } else if (newCode.every((c) => c !== "")) {
-      setSmsError("Noto'g'ri kod. Qaytadan urinib ko'ring.");
+      setSmsError(t("pages.register.smsErrorMsg"));
     }
   };
 
@@ -131,7 +133,7 @@ export default function Register() {
     setSubmitError("");
     setSubmitting(true);
     const result = await register({
-      name: form.name || "Foydalanuvchi",
+      name: form.name || t("pages.register.defaultUserName"),
       email: form.email,
       phone: form.phone,
       password: form.password,
@@ -183,8 +185,8 @@ export default function Register() {
           {/* Step 0: Role */}
           {step === 0 && (
             <div>
-              <h2 className="text-xl font-semibold text-ink mb-1.5 text-center tracking-tight">Siz kimsiz?</h2>
-              <p className="text-ink-3 text-sm text-center mb-8">O'zingizga mos rolni tanlang</p>
+              <h2 className="text-xl font-semibold text-ink mb-1.5 text-center tracking-tight">{t("pages.register.roleTitle")}</h2>
+              <p className="text-ink-3 text-sm text-center mb-8">{t("pages.register.roleSubtitle")}</p>
               <div className="grid gap-3">
                 <button onClick={() => { setRole("specialist"); next(); }}
                   className="flex items-center gap-4 p-5 rounded-xl border border-border hover:border-ink/30 transition-colors text-left">
@@ -192,8 +194,8 @@ export default function Register() {
                     <User className="w-5 h-5 text-ink" strokeWidth={1.75} />
                   </div>
                   <div>
-                    <div className="font-semibold text-ink text-sm">Men mutaxassisman</div>
-                    <div className="text-ink-3 text-xs mt-0.5">Ish qidiraman yoki profilimni ko'rsataman</div>
+                    <div className="font-semibold text-ink text-sm">{t("pages.register.specialistTitle")}</div>
+                    <div className="text-ink-3 text-xs mt-0.5">{t("pages.register.specialistDesc")}</div>
                   </div>
                 </button>
                 <button onClick={() => { setRole("employer"); next(); }}
@@ -202,8 +204,8 @@ export default function Register() {
                     <Briefcase className="w-5 h-5 text-ink" strokeWidth={1.75} />
                   </div>
                   <div>
-                    <div className="font-semibold text-ink text-sm">Men ish beruvchiman</div>
-                    <div className="text-ink-3 text-xs mt-0.5">Vakansiya e'lon qilaman yoki xodim izlayman</div>
+                    <div className="font-semibold text-ink text-sm">{t("pages.register.employerTitle")}</div>
+                    <div className="text-ink-3 text-xs mt-0.5">{t("pages.register.employerDesc")}</div>
                   </div>
                 </button>
               </div>
@@ -213,7 +215,7 @@ export default function Register() {
                   <div className="w-full border-t border-border" />
                 </div>
                 <div className="relative flex justify-center text-xs">
-                  <span className="bg-white px-3 text-ink-3">yoki</span>
+                  <span className="bg-white px-3 text-ink-3">{t("pages.register.or")}</span>
                 </div>
               </div>
 
@@ -228,7 +230,7 @@ export default function Register() {
                   <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
                   <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                 </svg>
-                Google orqali ro'yxatdan o'tish
+                {t("pages.register.googleRegister")}
               </button>
             </div>
           )}
@@ -237,13 +239,13 @@ export default function Register() {
           {step === 1 && (
             <div>
               <button onClick={prev} className="flex items-center gap-1 text-ink-3 hover:text-ink mb-6 text-sm transition-colors">
-                <ArrowLeft className="w-4 h-4" /> Orqaga
+                <ArrowLeft className="w-4 h-4" /> {t("common.back")}
               </button>
-              <h2 className="text-xl font-semibold text-ink mb-1.5 text-center tracking-tight">Yo'nalishlarni tanlang</h2>
-              <p className="text-ink-3 text-sm text-center mb-6">Bir yoki bir nechta yo'nalishni tanlashingiz mumkin</p>
+              <h2 className="text-xl font-semibold text-ink mb-1.5 text-center tracking-tight">{t("pages.register.directionsTitle")}</h2>
+              <p className="text-ink-3 text-sm text-center mb-6">{t("pages.register.directionsSubtitle")}</p>
 
               <div className="mb-6">
-                <label className="text-xs font-medium text-ink-3 uppercase tracking-wide mb-2 block">Sohalar</label>
+                <label className="text-xs font-medium text-ink-3 uppercase tracking-wide mb-2 block">{t("pages.register.fieldsLabel")}</label>
                 <div className="flex gap-3">
                   <button onClick={() => toggleField("IT")}
                     className={`flex-1 flex items-center justify-center gap-2 p-3.5 rounded-lg border text-sm font-medium transition-colors ${
@@ -264,7 +266,7 @@ export default function Register() {
                 <div className="space-y-4">
                   {fields.map((field) => (
                     <div key={field}>
-                      <label className="text-xs font-medium text-ink-3 uppercase tracking-wide mb-2 block">{field} kasblari</label>
+                      <label className="text-xs font-medium text-ink-3 uppercase tracking-wide mb-2 block">{t("pages.register.fieldProfessions", { field })}</label>
                       <div className="grid grid-cols-2 gap-2">
                         {(categoriesByField[field] || []).map((cat) => (
                           <button key={cat} onClick={() => toggleCategory(cat)}
@@ -287,13 +289,13 @@ export default function Register() {
 
               {selectedCats.length > 0 && (
                 <div className="mt-4 p-3 bg-surface rounded-lg">
-                  <span className="text-xs text-ink-3">{selectedCats.length} ta yo'nalish tanlandi</span>
+                  <span className="text-xs text-ink-3">{t("pages.register.categoriesSelectedCount", { count: selectedCats.length })}</span>
                 </div>
               )}
 
               {isStep1Valid && (
                 <button onClick={next} className="w-full mt-6 bg-ink text-white py-3 rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors flex items-center justify-center gap-2">
-                  Davom etish <ArrowRight className="w-4 h-4" />
+                  {t("pages.register.continueButton")} <ArrowRight className="w-4 h-4" />
                 </button>
               )}
             </div>
@@ -303,13 +305,13 @@ export default function Register() {
           {step === 2 && (
             <div>
               <button onClick={prev} className="flex items-center gap-1 text-ink-3 hover:text-ink mb-6 text-sm transition-colors">
-                <ArrowLeft className="w-4 h-4" /> Orqaga
+                <ArrowLeft className="w-4 h-4" /> {t("common.back")}
               </button>
-              <h2 className="text-xl font-semibold text-ink mb-6 text-center tracking-tight">Shaxsiy ma'lumotlar</h2>
+              <h2 className="text-xl font-semibold text-ink mb-6 text-center tracking-tight">{t("pages.register.personalInfoTitle")}</h2>
               <div className="space-y-4">
                 {[
-                  { label: "To'liq ism", key: "name", placeholder: "Masalan: Aziz Karimov" },
-                  { label: "Email", key: "email", placeholder: "example@mail.com", type: "email" },
+                  { label: t("pages.register.fullNameLabel"), key: "name", placeholder: t("pages.register.fullNamePlaceholder") },
+                  { label: t("auth.email"), key: "email", placeholder: "example@mail.com", type: "email" },
                 ].map((f) => (
                   <div key={f.key}>
                     <label className="block text-sm font-medium text-ink-2 mb-1.5">{f.label}</label>
@@ -333,7 +335,7 @@ export default function Register() {
                 ))}
 
                 <div>
-                  <label className="block text-sm font-medium text-ink-2 mb-1.5">Telefon raqam</label>
+                  <label className="block text-sm font-medium text-ink-2 mb-1.5">{t("pages.register.phoneLabel")}</label>
                   <div className="relative">
                     {detectedCountry && (
                       <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-sm">
@@ -343,7 +345,7 @@ export default function Register() {
                     )}
                     <input
                       type="tel"
-                      placeholder="+998 90 123 45 67"
+                      placeholder={t("pages.register.phonePlaceholder")}
                       value={form.phone}
                       onChange={(e) => {
                         const formatted = formatPhone(e.target.value);
@@ -360,8 +362,8 @@ export default function Register() {
                 </div>
 
                 {[
-                  { label: "Shahar", key: "city", placeholder: "Masalan: Toshkent" },
-                  { label: "Parol", key: "password", placeholder: "Kamida 8 ta belgi", type: "password" },
+                  { label: t("pages.register.cityLabel"), key: "city", placeholder: t("pages.register.cityPlaceholder") },
+                  { label: t("auth.password"), key: "password", placeholder: t("pages.register.passwordPlaceholder"), type: "password" },
                 ].map((f) => (
                   <div key={f.key}>
                     <label className="block text-sm font-medium text-ink-2 mb-1.5">{f.label}</label>
@@ -385,7 +387,7 @@ export default function Register() {
                 ))}
               </div>
               <button onClick={next} className="w-full mt-6 bg-ink text-white py-3 rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors flex items-center justify-center gap-2">
-                Davom etish <ArrowRight className="w-4 h-4" />
+                {t("pages.register.continueButton")} <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           )}
@@ -394,16 +396,16 @@ export default function Register() {
           {step === 3 && (
             <div>
               <button onClick={prev} className="flex items-center gap-1 text-ink-3 hover:text-ink mb-6 text-sm transition-colors">
-                <ArrowLeft className="w-4 h-4" /> Orqaga
+                <ArrowLeft className="w-4 h-4" /> {t("common.back")}
               </button>
               <div className="text-center">
                 <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center mx-auto mb-6">
                   <Smartphone className="w-8 h-8 text-ink" strokeWidth={1.75} />
                 </div>
-                <h2 className="text-xl font-semibold text-ink mb-1.5 tracking-tight">SMS kodni kiriting</h2>
-                <p className="text-ink-3 text-sm mb-2">{form.phone} raqamiga yuborilgan 4 xonali kodni kiriting</p>
+                <h2 className="text-xl font-semibold text-ink mb-1.5 tracking-tight">{t("pages.register.smsTitle")}</h2>
+                <p className="text-ink-3 text-sm mb-2">{t("pages.register.smsSubtitle", { phone: form.phone })}</p>
                 {generatedCode && (
-                  <p className="text-xs text-accent font-medium mb-6">Demo: {generatedCode}</p>
+                  <p className="text-xs text-accent font-medium mb-6">{t("pages.register.smsDemoCode", { code: generatedCode })}</p>
                 )}
                 {!generatedCode && (
                   <button onClick={() => {
@@ -411,7 +413,7 @@ export default function Register() {
                     setGeneratedCode(code);
                     setSmsSent(true);
                   }} className="text-xs text-ink font-medium mb-6 underline">
-                    SMS kod olish
+                    {t("pages.register.smsGetCode")}
                   </button>
                 )}
 
@@ -437,7 +439,7 @@ export default function Register() {
 
                 <div className="flex items-center gap-2 justify-center text-xs text-ink-3">
                   <Shield className="w-3.5 h-3.5" />
-                  <span>Sizning raqamingiz xavfsiz saqlanadi</span>
+                  <span>{t("pages.register.smsSecureNote")}</span>
                 </div>
               </div>
             </div>
@@ -449,27 +451,27 @@ export default function Register() {
               <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center mx-auto mb-6">
                 <CheckCircle className="w-8 h-8 text-accent" strokeWidth={1.75} />
               </div>
-              <h2 className="text-xl font-semibold text-ink mb-1.5 tracking-tight">Ma'lumotlarni tasdiqlang</h2>
-              <p className="text-ink-3 text-sm mb-6">Barcha ma'lumotlar to'g'rimi?</p>
+              <h2 className="text-xl font-semibold text-ink mb-1.5 tracking-tight">{t("pages.register.confirmTitle")}</h2>
+              <p className="text-ink-3 text-sm mb-6">{t("pages.register.confirmSubtitle")}</p>
               <div className="bg-surface rounded-xl p-5 mb-8 text-left space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-ink-3">Rol:</span>
-                  <span className="font-medium text-ink">{role === "specialist" ? "Mutaxassis" : "Ish beruvchi"}</span>
+                  <span className="text-ink-3">{t("pages.register.confirmRoleLabel")}</span>
+                  <span className="font-medium text-ink">{role === "specialist" ? t("role.specialist") : t("role.employer")}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-ink-3">Yo'nalishlar:</span>
+                  <span className="text-ink-3">{t("pages.register.confirmDirectionsLabel")}</span>
                   <span className="font-medium text-ink text-right max-w-[200px]">{selectedCats.join(", ")}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-ink-3">Ism:</span>
-                  <span className="font-medium text-ink">{form.name || "Foydalanuvchi"}</span>
+                  <span className="text-ink-3">{t("pages.register.confirmNameLabel")}</span>
+                  <span className="font-medium text-ink">{form.name || t("pages.register.defaultUserName")}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-ink-3">Telefon:</span>
+                  <span className="text-ink-3">{t("pages.register.confirmPhoneLabel")}</span>
                   <span className="font-medium text-ink">{form.phone}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-ink-3">Email:</span>
+                  <span className="text-ink-3">{t("pages.register.confirmEmailLabel")}</span>
                   <span className="font-medium text-ink">{form.email}</span>
                 </div>
               </div>
@@ -478,7 +480,7 @@ export default function Register() {
               )}
               <button onClick={handleFinish} disabled={submitting}
                 className="inline-flex items-center gap-2 bg-ink text-white px-8 py-3 rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors disabled:opacity-60">
-                {submitting ? "Yuklanmoqda..." : "Ro'yxatdan o'tish"} <ArrowRight className="w-4 h-4" />
+                {submitting ? t("common.loading") : t("auth.register")} <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           )}

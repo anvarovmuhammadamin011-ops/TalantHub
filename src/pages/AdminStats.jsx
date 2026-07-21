@@ -2,15 +2,17 @@ import { useState, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Users, Briefcase, Eye, ClipboardList, TrendingUp, Download } from "lucide-react";
 import { api, downloadFile } from "../lib/api";
+import { useT } from "../context/I18nContext";
 
 const EXPORTS = [
-  { path: "/admin/export/users", filename: "users.csv", label: "Foydalanuvchilar" },
-  { path: "/admin/export/vacancies", filename: "vacancies.csv", label: "Vakansiyalar" },
-  { path: "/admin/export/applications", filename: "applications.csv", label: "Arizalar" },
-  { path: "/admin/export/transactions", filename: "transactions.csv", label: "Tranzaksiyalar" },
+  { path: "/admin/export/users", filename: "users.csv", key: "users" },
+  { path: "/admin/export/vacancies", filename: "vacancies.csv", key: "vacancies" },
+  { path: "/admin/export/applications", filename: "applications.csv", key: "applications" },
+  { path: "/admin/export/transactions", filename: "transactions.csv", key: "transactions" },
 ];
 
 export default function AdminStats() {
+  const { t } = useT();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -22,7 +24,7 @@ export default function AdminStats() {
       const data = await api("/admin/stats");
       setStats(data);
     } catch (err) {
-      setError(err.message || "Xatolik yuz berdi");
+      setError(err.message || t("common.error"));
     } finally {
       setLoading(false);
     }
@@ -35,31 +37,31 @@ export default function AdminStats() {
     try {
       await downloadFile(exp.path, exp.filename);
     } catch (err) {
-      alert(err.message || "Xatolik yuz berdi");
+      alert(err.message || t("common.error"));
     } finally {
       setExportingPath("");
     }
   };
 
   if (loading) {
-    return <div className="max-w-5xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">Yuklanmoqda...</div>;
+    return <div className="max-w-5xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">{t("common.loading")}</div>;
   }
 
   if (error) {
     return (
       <div className="max-w-5xl mx-auto px-4 py-20 text-center">
         <div className="inline-block bg-danger-soft text-danger text-sm px-4 py-3 rounded-lg mb-4">{error}</div>
-        <div><button onClick={load} className="text-sm font-medium text-accent hover:underline">Qayta urinish</button></div>
+        <div><button onClick={load} className="text-sm font-medium text-accent hover:underline">{t("common.retry")}</button></div>
       </div>
     );
   }
 
   const cards = [
-    { label: "Jami foydalanuvchilar", value: stats.users_total, icon: Users, color: "bg-accent-soft text-accent" },
-    { label: "Jami vakansiyalar", value: stats.vacancies_total, icon: Briefcase, color: "bg-surface text-ink" },
-    { label: "Faol vakansiyalar", value: stats.vacancies_active, icon: Eye, color: "bg-success-soft text-success" },
-    { label: "Jami arizalar", value: stats.applications_total, icon: ClipboardList, color: "bg-[#FEF3C7] text-[#B45309]" },
-    { label: "Konversiya (ariza → yollash)", value: `${stats.conversion?.rate ?? 0}%`, icon: TrendingUp, color: "bg-accent-soft text-accent" },
+    { label: t("pages.adminStats.cardTotalUsers"), value: stats.users_total, icon: Users, color: "bg-accent-soft text-accent" },
+    { label: t("pages.adminStats.cardTotalVacancies"), value: stats.vacancies_total, icon: Briefcase, color: "bg-surface text-ink" },
+    { label: t("pages.adminStats.cardActiveVacancies"), value: stats.vacancies_active, icon: Eye, color: "bg-success-soft text-success" },
+    { label: t("pages.adminStats.cardTotalApplications"), value: stats.applications_total, icon: ClipboardList, color: "bg-[#FEF3C7] text-[#B45309]" },
+    { label: t("pages.adminStats.cardConversion"), value: `${stats.conversion?.rate ?? 0}%`, icon: TrendingUp, color: "bg-accent-soft text-accent" },
   ];
 
   const maxDirectionCount = Math.max(1, ...(stats.top_directions || []).map((d) => d.count));
@@ -67,7 +69,7 @@ export default function AdminStats() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <h1 className="text-2xl font-semibold text-ink tracking-tight mb-6">Statistika</h1>
+      <h1 className="text-2xl font-semibold text-ink tracking-tight mb-6">{t("nav.statistics")}</h1>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
         {cards.map((c) => (
@@ -82,7 +84,7 @@ export default function AdminStats() {
       </div>
 
       <div className="bg-white rounded-xl border border-border shadow-sm p-5 mb-6">
-        <h2 className="font-semibold text-ink text-sm mb-4">Oxirgi 30 kunda yangi vakansiyalar</h2>
+        <h2 className="font-semibold text-ink text-sm mb-4">{t("pages.adminStats.newVacanciesChartTitle")}</h2>
         <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={stats.vacancies_30d_series}>
@@ -99,9 +101,9 @@ export default function AdminStats() {
 
       <div className="grid md:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl border border-border shadow-sm p-5">
-          <h2 className="font-semibold text-ink text-sm mb-4">Top yo'nalishlar</h2>
+          <h2 className="font-semibold text-ink text-sm mb-4">{t("pages.adminStats.topDirectionsTitle")}</h2>
           {(stats.top_directions || []).length === 0 ? (
-            <p className="text-sm text-ink-3">Ma'lumot yo'q</p>
+            <p className="text-sm text-ink-3">{t("pages.adminStats.noData")}</p>
           ) : (
             <div className="space-y-2.5">
               {stats.top_directions.map((d) => (
@@ -120,9 +122,9 @@ export default function AdminStats() {
         </div>
 
         <div className="bg-white rounded-xl border border-border shadow-sm p-5">
-          <h2 className="font-semibold text-ink text-sm mb-4">Viloyatlar bo'yicha taqsimot</h2>
+          <h2 className="font-semibold text-ink text-sm mb-4">{t("pages.adminStats.cityDistributionTitle")}</h2>
           {(stats.users_by_city || []).length === 0 ? (
-            <p className="text-sm text-ink-3">Ma'lumot yo'q</p>
+            <p className="text-sm text-ink-3">{t("pages.adminStats.noData")}</p>
           ) : (
             <div className="space-y-2.5">
               {stats.users_by_city.map((c) => (
@@ -143,28 +145,28 @@ export default function AdminStats() {
 
       <div className="grid md:grid-cols-2 gap-4 mt-6">
         <div className="bg-white rounded-xl border border-border shadow-sm p-5">
-          <h2 className="font-semibold text-ink text-sm mb-1">Trafik va konversiya (7 kun)</h2>
-          <p className="text-xs text-ink-3 mb-4">O'z serveringizda yozilgan, tashqi tracker ishlatilmagan</p>
+          <h2 className="font-semibold text-ink text-sm mb-1">{t("pages.adminStats.trafficTitle")}</h2>
+          <p className="text-xs text-ink-3 mb-4">{t("pages.adminStats.trafficSubtitle")}</p>
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
               <div className="text-xl font-semibold text-ink">{stats.analytics?.pageviews_7d ?? 0}</div>
-              <div className="text-[11px] text-ink-3 mt-0.5">sahifa ko'rish</div>
+              <div className="text-[11px] text-ink-3 mt-0.5">{t("pages.adminStats.pageviews")}</div>
             </div>
             <div>
               <div className="text-xl font-semibold text-ink">{stats.analytics?.new_users_7d ?? 0}</div>
-              <div className="text-[11px] text-ink-3 mt-0.5">ro'yxatdan o'tish</div>
+              <div className="text-[11px] text-ink-3 mt-0.5">{t("pages.adminStats.newRegistrations")}</div>
             </div>
             <div>
               <div className="text-xl font-semibold text-ink">{stats.analytics?.applications_7d ?? 0}</div>
-              <div className="text-[11px] text-ink-3 mt-0.5">ariza</div>
+              <div className="text-[11px] text-ink-3 mt-0.5">{t("pages.adminStats.applicationsLabel")}</div>
             </div>
           </div>
         </div>
 
         <div className="bg-white rounded-xl border border-border shadow-sm p-5">
-          <h2 className="font-semibold text-ink text-sm mb-4">Eng ko'p ko'rilgan sahifalar</h2>
+          <h2 className="font-semibold text-ink text-sm mb-4">{t("pages.adminStats.topPagesTitle")}</h2>
           {(stats.analytics?.top_pages || []).length === 0 ? (
-            <p className="text-sm text-ink-3">Ma'lumot yo'q</p>
+            <p className="text-sm text-ink-3">{t("pages.adminStats.noData")}</p>
           ) : (
             <div className="space-y-2">
               {stats.analytics.top_pages.map((p) => (
@@ -179,14 +181,14 @@ export default function AdminStats() {
       </div>
 
       <div className="bg-white rounded-xl border border-border shadow-sm p-5 mt-6">
-        <h2 className="font-semibold text-ink text-sm mb-1">Eksport</h2>
-        <p className="text-xs text-ink-3 mb-4">Ma'lumotlarni CSV formatida yuklab oling (Excel'da ochish mumkin).</p>
+        <h2 className="font-semibold text-ink text-sm mb-1">{t("pages.adminStats.exportTitle")}</h2>
+        <p className="text-xs text-ink-3 mb-4">{t("pages.adminStats.exportSubtitle")}</p>
         <div className="flex flex-wrap gap-2">
           {EXPORTS.map((exp) => (
             <button key={exp.path} onClick={() => runExport(exp)} disabled={exportingPath === exp.path}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-border text-xs font-medium text-ink-2 hover:bg-surface transition-colors disabled:opacity-50">
               <Download className="w-3.5 h-3.5" />
-              {exportingPath === exp.path ? "Yuklanmoqda..." : exp.label}
+              {exportingPath === exp.path ? t("common.loading") : t(`pages.adminStats.export${exp.key.charAt(0).toUpperCase()}${exp.key.slice(1)}`)}
             </button>
           ))}
         </div>

@@ -4,12 +4,16 @@ import { Search, SlidersHorizontal, MapPin, Star, Wifi, DollarSign } from "lucid
 import { api } from "../lib/api";
 import { computeMatch } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import MatchIndicator from "../components/ui/MatchIndicator";
 import StatusBadge from "../components/ui/StatusBadge";
 import VerifiedBadge from "../components/ui/VerifiedBadge";
+import { useT } from "../context/I18nContext";
 
 export default function Specialists() {
   const { user } = useAuth();
+  const { t } = useT();
+  const showToast = useToast();
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({ category: "", experience: "", city: "", priceMin: "", priceMax: "" });
@@ -54,6 +58,7 @@ export default function Specialists() {
       setSpecialists(list);
     } catch (err) {
       console.error(err);
+      showToast(err.message || t("pages.specialists.loadError"), "error");
     } finally {
       setLoading(false);
     }
@@ -73,7 +78,7 @@ export default function Specialists() {
               value === opt ? "bg-ink text-white" : "bg-surface text-ink-2 hover:bg-border-soft"
             }`}
           >
-            {opt || "Barchasi"}
+            {opt || t("common.all")}
           </button>
         ))}
       </div>
@@ -82,17 +87,17 @@ export default function Specialists() {
 
   const FilterPanel = () => (
     <div className="space-y-6">
-      <FilterGroup label="Kategoriya" options={["", "IT", "Ta'lim"]} value={filters.category} onChange={(v) => setFilters({ ...filters, category: v })} />
-      <FilterGroup label="Tajriba" options={["", "Junior", "Middle", "Senior", "Expert"]} value={filters.experience} onChange={(v) => setFilters({ ...filters, experience: v })} />
-      <FilterGroup label="Shahar" options={["", "Toshkent", "Samarqand", "Buxoro", "Farg'ona", "Namangan", "Xiva"]} value={filters.city} onChange={(v) => setFilters({ ...filters, city: v })} />
+      <FilterGroup label={t("pages.specialists.filterCategory")} options={["", "IT", "Ta'lim"]} value={filters.category} onChange={(v) => setFilters({ ...filters, category: v })} />
+      <FilterGroup label={t("pages.specialists.filterExperience")} options={["", "Junior", "Middle", "Senior", "Expert"]} value={filters.experience} onChange={(v) => setFilters({ ...filters, experience: v })} />
+      <FilterGroup label={t("pages.specialists.filterCity")} options={["", "Toshkent", "Samarqand", "Buxoro", "Farg'ona", "Namangan", "Xiva"]} value={filters.city} onChange={(v) => setFilters({ ...filters, city: v })} />
       <div>
-        <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-2.5">Narx diapazoni (soatlik, so'm)</label>
+        <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-2.5">{t("pages.specialists.filterPriceRange")}</label>
         <div className="flex gap-2 items-center">
           <input type="number" value={filters.priceMin} onChange={(e) => setFilters({ ...filters, priceMin: e.target.value })}
-            placeholder="Min" className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:border-ink/30 outline-none" />
+            placeholder={t("pages.specialists.priceMinPlaceholder")} className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:border-ink/30 outline-none" />
           <span className="text-ink-3">—</span>
           <input type="number" value={filters.priceMax} onChange={(e) => setFilters({ ...filters, priceMax: e.target.value })}
-            placeholder="Max" className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:border-ink/30 outline-none" />
+            placeholder={t("pages.specialists.priceMaxPlaceholder")} className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:border-ink/30 outline-none" />
         </div>
       </div>
     </div>
@@ -101,8 +106,8 @@ export default function Specialists() {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="mb-8">
-        <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight mb-1.5">Mutaxassislar bazasi</h1>
-        <p className="text-ink-3 text-sm">{filtered.length} ta mutaxassis topildi</p>
+        <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight mb-1.5">{t("pages.specialists.title")}</h1>
+        <p className="text-ink-3 text-sm">{t("pages.specialists.count", { count: filtered.length })}</p>
       </div>
 
       <div className="flex gap-3 mb-6">
@@ -110,7 +115,7 @@ export default function Specialists() {
           <Search className="w-4 h-4 text-ink-3 absolute left-4 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Ism yoki kasb qidirish..."
+            placeholder={t("pages.specialists.searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-11 pr-4 py-3 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors bg-white text-sm"
@@ -132,7 +137,7 @@ export default function Specialists() {
         </div>
       )}
 
-      {loading && <div className="text-center py-20 text-ink-3 text-sm">Yuklanmoqda...</div>}
+      {loading && <div className="text-center py-20 text-ink-3 text-sm">{t("common.loading")}</div>}
 
       {!loading && (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -187,13 +192,13 @@ export default function Specialists() {
                   </div>
                   {!!s.online && (
                     <span className="flex items-center gap-1 text-xs text-accent font-medium">
-                      <Wifi className="w-3 h-3" /> Online
+                      <Wifi className="w-3 h-3" /> {t("pages.specialists.online")}
                     </span>
                   )}
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-ink-3 flex items-center gap-1">
-                    {s.hourly_price && <><DollarSign className="w-3 h-3" /> {s.hourly_price} so'm/soat</>}
+                    {s.hourly_price && <><DollarSign className="w-3 h-3" /> {t("pages.specialists.perHour", { price: s.hourly_price })}</>}
                   </span>
                   <span className="text-sm font-medium text-ink">{s.salary}</span>
                 </div>
@@ -206,8 +211,8 @@ export default function Specialists() {
       {!loading && filtered.length === 0 && (
         <div className="text-center py-20">
           <div className="w-14 h-14 mx-auto flex items-center justify-center rounded-full bg-surface border border-border text-2xl mb-5">👤</div>
-          <h3 className="text-base font-semibold text-ink mb-1.5">Mutaxassis topilmadi</h3>
-          <p className="text-ink-3 text-sm">Filtrlarni o'zgartirib ko'ring</p>
+          <h3 className="text-base font-semibold text-ink mb-1.5">{t("pages.specialists.emptyTitle")}</h3>
+          <p className="text-ink-3 text-sm">{t("pages.specialists.emptySubtitle")}</p>
         </div>
       )}
     </div>

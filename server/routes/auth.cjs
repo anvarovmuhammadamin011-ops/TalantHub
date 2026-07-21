@@ -287,6 +287,36 @@ router.post("/change-password", authMiddleware, (req, res) => {
   }
 });
 
+// Soft delete: blocks the account, invalidates its sessions, and frees up the email/phone
+// so the person can register again later. Deliberately does NOT hard-delete the row —
+// this account is referenced by other users' chats, orders, and applications, and a hard
+// delete would either violate those foreign keys or silently break their history.
+router.post("/delete-account", authMiddleware, (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password) return res.status(400).json({ error: "Parolni kiriting" });
+
+    const user = db.prepare("SELECT id, role, password FROM users WHERE id = ?").get(req.userId);
+    if (!user) return res.status(404).json({ error: "Foydalanuvchi topilmadi" });
+    if (user.role === "admin") return res.status(403).json({ error: "Admin akkauntini shu yerdan o'chirib bo'lmaydi" });
+    if (!bcrypt.compareSync(password, user.password)) {
+      return res.status(401).json({ error: "Parol noto'g'ri" });
+    }
+
+    const anonymizedEmail = `deleted_${user.id}_${Date.now()}@deleted.talenthub`;
+    db.prepare(`
+      UPDATE users
+      SET blocked = 1, blocked_reason = ?, email = ?, phone = '', password = '', token_version = token_version + 1
+      WHERE id = ?
+    `).run("Foydalanuvchi tomonidan o'chirilgan", anonymizedEmail, user.id);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Delete account error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
 const SWITCHABLE_ROLES = ["specialist", "employer"];
 
 function currentRoles(userId) {

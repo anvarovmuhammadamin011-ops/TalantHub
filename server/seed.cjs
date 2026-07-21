@@ -169,15 +169,47 @@ function seed() {
   const insertChat = db.prepare(`INSERT INTO chats (user1_id, user2_id) VALUES (?, ?)`);
   const insertMsg = db.prepare(`INSERT INTO messages (chat_id, sender_id, text) VALUES (?, ?, ?)`);
 
+  // Backdates a row into a past month (relative to seed time) so admin dashboard charts that
+  // group by month ("Oylik faollik") have real spread instead of every row landing in one bucket.
+  const updateVacancyCreatedAt = db.prepare("UPDATE vacancies SET created_at = ? WHERE id = ?");
+  const updateAppCreatedAt = db.prepare("UPDATE applications SET created_at = ? WHERE id = ?");
+  function monthsAgoTimestamp(monthsBack, day) {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - monthsBack);
+    d.setDate(day);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} 10:00:00`;
+  }
+  function daysAgoTimestamp(daysBack) {
+    const d = new Date();
+    d.setDate(d.getDate() - daysBack);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} 10:00:00`;
+  }
+  // Recent enough that active listings still look "live" (max ~6 weeks old) while still
+  // varying enough for the admin monthly chart to show more than a single bucket.
+  const VACANCY_DAYS_AGO = [0, 1, 2, 4, 6, 9, 13, 18, 23, 29, 35, 42];
+
   const transaction = db.transaction(() => {
     for (const u of users) insertUser.run(...u);
     for (const v of vacancies) insertVacancy.run(...v);
+
+    // Ids are sequential 1..12 here since the table was empty before this seed run.
+    vacancies.forEach((_, i) => {
+      updateVacancyCreatedAt.run(daysAgoTimestamp(VACANCY_DAYS_AGO[i] ?? 0), i + 1);
+    });
 
     insertApp.run(1, 1, "Ko'rib chiqilmoqda", 87);
     insertApp.run(2, 1, "Interview", 92);
     insertApp.run(3, 1, "Yuborildi", 78);
     insertApp.run(4, 2, "Qabul qilindi", 95);
     insertApp.run(5, 2, "Ko'rib chiqilmoqda", 82);
+
+    // Spread applications across several months too, instead of all sharing the seed timestamp.
+    [9, 6, 4, 2, 0].forEach((monthsBack, i) => {
+      updateAppCreatedAt.run(monthsAgoTimestamp(monthsBack, 15), i + 1);
+    });
 
     insertOrder.run(7, 1, "TexnoLabs veb-sayti qayta ishlash", "React asosida yangi veb-sayt yaratish. 10 sahifa, responsive dizayn.", "3 500 000 so'm", "2026-08-01", "Jarayonda", "Yuqori");
     insertOrder.run(7, 3, "CRM tizimi backend qismi", "Node.js + PostgreSQL asosida CRM tizimi API yaratish.", "5 000 000 so'm", "2026-08-15", "Qabul qilindi", "O'rta");

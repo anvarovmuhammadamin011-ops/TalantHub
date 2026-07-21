@@ -2,17 +2,15 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Search, Users as UsersIcon } from "lucide-react";
 import { api } from "../lib/api";
+import { formatDate } from "../lib/format";
+import { useT } from "../context/I18nContext";
 
-const ROLE_OPTIONS = [
-  { value: "", label: "Hammasi" },
-  { value: "specialist", label: "Ish qidiruvchi" },
-  { value: "employer", label: "Ish beruvchi" },
-  { value: "admin", label: "Admin" },
-];
-const roleLabels = { specialist: "Ish qidiruvchi", employer: "Ish beruvchi", admin: "Admin" };
+const ROLE_VALUES = ["", "specialist", "employer", "admin"];
 const roleColors = { specialist: "bg-blue-50 text-blue-600", employer: "bg-purple-50 text-purple-600", admin: "bg-amber-50 text-amber-600" };
 
 export default function AdminUsersPage() {
+  const { t } = useT();
+  const roleLabel = (role) => (role === "admin" ? t("admin.roleAdmin") : role ? t(`role.${role}`) : t("common.all"));
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
@@ -31,7 +29,7 @@ export default function AdminUsersPage() {
       setUsers(data.users);
       setTotal(data.total ?? data.users.length);
     } catch (err) {
-      setError(err.message || "Xatolik yuz berdi");
+      setError(err.message || t("common.error"));
     } finally {
       setLoading(false);
     }
@@ -53,33 +51,33 @@ export default function AdminUsersPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <h1 className="text-2xl font-semibold text-ink tracking-tight mb-6">Foydalanuvchilar</h1>
+      <h1 className="text-2xl font-semibold text-ink tracking-tight mb-6">{t("admin.users")}</h1>
 
       <div className="flex gap-3 mb-6 flex-wrap">
         <div className="flex-1 min-w-[200px] relative">
           <Search className="w-4 h-4 text-ink-3 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Ism yoki email..."
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("pages.adminUsers.searchPlaceholder")}
             className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border text-sm focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none bg-white" />
         </div>
         <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}
           className="px-3 py-2.5 rounded-lg border border-border text-sm bg-white focus:border-accent outline-none">
-          {ROLE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+          {ROLE_VALUES.map((v) => <option key={v} value={v}>{roleLabel(v)}</option>)}
         </select>
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-ink-3 text-sm">Yuklanmoqda...</div>
+        <div className="text-center py-16 text-ink-3 text-sm">{t("common.loading")}</div>
       ) : error ? (
         <div className="text-center py-16">
           <div className="inline-block bg-danger-soft text-danger text-sm px-4 py-3 rounded-lg mb-4">{error}</div>
-          <div><button onClick={load} className="text-sm font-medium text-accent hover:underline">Qayta urinish</button></div>
+          <div><button onClick={load} className="text-sm font-medium text-accent hover:underline">{t("common.retry")}</button></div>
         </div>
       ) : users.length === 0 ? (
         <div className="text-center py-16">
           <div className="w-14 h-14 mx-auto flex items-center justify-center rounded-full bg-surface border border-border mb-4">
             <UsersIcon className="w-6 h-6 text-ink-3" strokeWidth={1.5} />
           </div>
-          <p className="text-sm text-ink-3">Foydalanuvchi topilmadi</p>
+          <p className="text-sm text-ink-3">{t("pages.adminUsers.noUsers")}</p>
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
@@ -87,12 +85,12 @@ export default function AdminUsersPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-4 py-3">Foydalanuvchi</th>
-                  <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-4 py-3 hidden sm:table-cell">Email</th>
-                  <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-4 py-3">Rol</th>
-                  <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-4 py-3 hidden md:table-cell">Ro'yxatdan o'tgan</th>
-                  <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-4 py-3">Holat</th>
-                  <th className="text-right text-xs font-medium text-ink-3 uppercase tracking-wide px-4 py-3">Amallar</th>
+                  <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-4 py-3">{t("pages.adminUsers.colUser")}</th>
+                  <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-4 py-3 hidden sm:table-cell">{t("auth.email")}</th>
+                  <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-4 py-3">{t("pages.adminUsers.colRole")}</th>
+                  <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-4 py-3 hidden md:table-cell">{t("pages.adminUsers.colRegistered")}</th>
+                  <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-4 py-3">{t("common.status")}</th>
+                  <th className="text-right text-xs font-medium text-ink-3 uppercase tracking-wide px-4 py-3">{t("common.actions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-soft">
@@ -111,20 +109,20 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="px-4 py-3 text-sm text-ink-3 hidden sm:table-cell">{u.email}</td>
                     <td className="px-4 py-3">
-                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${roleColors[u.role] || ""}`}>{roleLabels[u.role] || u.role}</span>
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${roleColors[u.role] || ""}`}>{roleLabel(u.role)}</span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-ink-3 hidden md:table-cell">{new Date(u.created_at).toLocaleDateString("uz-UZ")}</td>
+                    <td className="px-4 py-3 text-sm text-ink-3 hidden md:table-cell">{formatDate(u.created_at)}</td>
                     <td className="px-4 py-3">
                       <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${u.blocked ? "bg-danger-soft text-danger" : "bg-success-soft text-success"}`}>
-                        {u.blocked ? "Bloklangan" : "Faol"}
+                        {u.blocked ? t("pages.adminUsers.blocked") : t("status.Faol")}
                       </span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
-                        <Link to={`/admin/users/${u.id}`} className="text-xs font-medium text-ink-2 hover:text-ink">Ko'rish</Link>
+                        <Link to={`/admin/users/${u.id}`} className="text-xs font-medium text-ink-2 hover:text-ink">{t("common.view")}</Link>
                         <button onClick={() => toggleBlock(u)} disabled={updatingId === u.id}
                           className={`text-xs font-medium disabled:opacity-50 ${u.blocked ? "text-success hover:underline" : "text-danger hover:underline"}`}>
-                          {u.blocked ? "Blokdan chiqarish" : "Bloklash"}
+                          {u.blocked ? t("pages.adminUsers.unblock") : t("pages.adminUsers.block")}
                         </button>
                       </div>
                     </td>
@@ -133,7 +131,7 @@ export default function AdminUsersPage() {
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-3 border-t border-border text-xs text-ink-3">{total} ta foydalanuvchi</div>
+          <div className="px-4 py-3 border-t border-border text-xs text-ink-3">{t("pages.adminUsers.totalCount", { count: total })}</div>
         </div>
       )}
     </div>

@@ -3,6 +3,7 @@ const db = require("../db.cjs");
 const { authMiddleware } = require("../middleware/auth.cjs");
 const { validateBody } = require("../middleware/validate.cjs");
 const { applicationCreateSchema } = require("../schemas.cjs");
+const { emitAdminUpdate } = require("../lib/adminEvents.cjs");
 
 const router = express.Router();
 
@@ -141,6 +142,8 @@ router.post("/", authMiddleware, validateBody(applicationCreateSchema), (req, re
       }
     }
 
+    emitAdminUpdate(req.app.get("io"), "application");
+
     res.json({ application });
   } catch (err) {
     console.error("Application create error:", err);
@@ -175,6 +178,8 @@ router.patch("/:id/status", authMiddleware, (req, res) => {
         type: "application", title: "Ariza yangilandi", description: `Arizangiz holati "${status}" ga o'zgartirildi`
       });
     }
+
+    emitAdminUpdate(req.app.get("io"), "application");
 
     res.json({ success: true });
   } catch (err) {

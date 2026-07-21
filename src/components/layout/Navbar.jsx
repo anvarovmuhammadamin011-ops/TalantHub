@@ -1,10 +1,8 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Briefcase, Users, MessageSquare, BarChart3, LogOut, Package, LayoutDashboard, TrendingUp, Shield, Wallet as WalletIcon, Heart } from "lucide-react";
+import { Briefcase, Users, MessageSquare, BarChart3, LogOut, Package, LayoutDashboard, TrendingUp, Shield } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useT } from "../../context/I18nContext";
 import Notifications from "../ui/Notifications";
-import RoleSwitcher from "../ui/RoleSwitcher";
-import LanguageSwitcher from "../ui/LanguageSwitcher";
 
 export default function Navbar() {
   const location = useLocation();
@@ -13,18 +11,19 @@ export default function Navbar() {
   const { t } = useT();
   const isEmployer = user?.role === "employer";
   const isAdmin = user?.role === "admin";
-  const isSpecialist = user?.role === "specialist";
 
-  const navLinks = isAdmin
-    ? [{ to: "/admin", label: "Admin panel", icon: Shield }]
+  const navLinks = !user
+    ? [{ to: "/vacancies", label: t("nav.vacancies"), icon: Briefcase }]
+    : isAdmin
+    ? [{ to: "/admin", label: t("nav.adminPanel"), icon: Shield }]
     : [
         { to: "/vacancies", label: t("nav.vacancies"), icon: Briefcase },
-        { to: "/specialists", label: "Mutaxassislar", icon: Users },
+        { to: "/specialists", label: t("nav.specialists"), icon: Users },
         ...(isEmployer
           ? [{ to: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard }]
           : [
               { to: "/applications", label: t("nav.applications"), icon: BarChart3 },
-              { to: "/statistics", label: "Statistika", icon: TrendingUp },
+              { to: "/statistics", label: t("nav.statistics"), icon: TrendingUp },
             ]),
         { to: "/orders", label: t("nav.orders"), icon: Package },
         { to: "/chat", label: t("nav.chat"), icon: MessageSquare },
@@ -54,28 +53,29 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            {isEmployer && (
-              <Link to="/wallet" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-surface text-ink-2 border border-border hover:text-ink">
-                <WalletIcon className="w-3.5 h-3.5" /> {t("nav.wallet")}
-              </Link>
+            {user ? (
+              <>
+                <Notifications />
+                <Link to="/profile" className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-md hover:bg-surface transition-colors ml-1">
+                  <div className="w-7 h-7 bg-ink rounded-full flex items-center justify-center">
+                    <span className="text-white text-[10px] font-semibold">{initials}</span>
+                  </div>
+                  <span className="text-sm font-medium text-ink whitespace-nowrap">{user?.name?.split(" ")[0] || "Foydalanuvchi"}</span>
+                </Link>
+                <button onClick={handleLogout} className="w-9 h-9 rounded-md text-ink-2 hover:bg-red-50 hover:text-red-500 transition-colors flex items-center justify-center ml-1" title={t("nav.logout")}>
+                  <LogOut className="w-[18px] h-[18px]" />
+                </button>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className="px-3 py-1.5 rounded-md text-sm font-medium text-ink-2 hover:text-ink transition-colors">
+                  {t("nav.login")}
+                </Link>
+                <Link to="/register" className="px-3 py-1.5 rounded-md text-sm font-medium bg-ink text-white hover:bg-ink/90 transition-colors">
+                  {t("nav.register")}
+                </Link>
+              </>
             )}
-            {isSpecialist && (
-              <Link to="/saved" title="Saqlangan ishlar" className={`w-9 h-9 rounded-md flex items-center justify-center transition-colors ${location.pathname === "/saved" ? "text-ink bg-surface" : "text-ink-2 hover:bg-surface hover:text-ink"}`}>
-                <Heart className="w-[18px] h-[18px]" />
-              </Link>
-            )}
-            <RoleSwitcher />
-            <LanguageSwitcher />
-            <Notifications />
-            <Link to="/profile" className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-md hover:bg-surface transition-colors ml-1">
-              <div className="w-7 h-7 bg-ink rounded-full flex items-center justify-center">
-                <span className="text-white text-[10px] font-semibold">{initials}</span>
-              </div>
-              <span className="text-sm font-medium text-ink whitespace-nowrap">{user?.name?.split(" ")[0] || "Foydalanuvchi"}</span>
-            </Link>
-            <button onClick={handleLogout} className="w-9 h-9 rounded-md text-ink-2 hover:bg-red-50 hover:text-red-500 transition-colors flex items-center justify-center ml-1" title={t("nav.logout")}>
-              <LogOut className="w-[18px] h-[18px]" />
-            </button>
           </div>
         </div>
       </div>

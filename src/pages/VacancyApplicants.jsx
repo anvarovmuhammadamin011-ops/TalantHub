@@ -2,16 +2,8 @@ import { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronDown, Paperclip, Phone, Send, Mail, Users } from "lucide-react";
 import { api } from "../lib/api";
-import { timeAgo } from "../lib/format";
-
-const STATUS_TABS = [
-  { value: "", label: "Barchasi" },
-  { value: "Yuborildi", label: "Yangi" },
-  { value: "Ko'rib chiqilmoqda", label: "Ko'rib chiqilmoqda" },
-  { value: "Interview", label: "Suhbatga taklif" },
-  { value: "Rad etildi", label: "Rad etildi" },
-  { value: "Qabul qilindi", label: "Qabul qilindi" },
-];
+import { useT } from "../context/I18nContext";
+import { timeAgo, formatDateTime } from "../lib/format";
 
 const STATUS_SELECT_CLASS = {
   Yuborildi: "bg-surface text-ink-2 border-border",
@@ -24,6 +16,7 @@ const STATUS_SELECT_CLASS = {
 export default function VacancyApplicants() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t } = useT();
   const [vacancy, setVacancy] = useState(null);
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -32,6 +25,15 @@ export default function VacancyApplicants() {
   const [updatingId, setUpdatingId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
 
+  const STATUS_TABS = [
+    { value: "", label: t("common.all") },
+    { value: "Yuborildi", label: t("pages.vacancyApplicants.tabNew") },
+    { value: "Ko'rib chiqilmoqda", label: t("status.Ko'rib chiqilmoqda") },
+    { value: "Interview", label: t("status.Interview") },
+    { value: "Rad etildi", label: t("status.Rad etildi") },
+    { value: "Qabul qilindi", label: t("status.Qabul qilindi") },
+  ];
+
   const load = async () => {
     setError("");
     try {
@@ -39,7 +41,7 @@ export default function VacancyApplicants() {
       setVacancy(data.vacancy);
       setApplications(data.applications);
     } catch (err) {
-      setError(err.message || "Xatolik yuz berdi");
+      setError(err.message || t("common.error"));
     } finally {
       setLoading(false);
     }
@@ -62,14 +64,14 @@ export default function VacancyApplicants() {
   const filtered = statusFilter ? applications.filter((a) => a.status === statusFilter) : applications;
 
   if (loading) {
-    return <div className="max-w-4xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">Yuklanmoqda...</div>;
+    return <div className="max-w-4xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">{t("common.loading")}</div>;
   }
 
   if (error) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center">
         <div className="inline-block bg-danger-soft text-danger text-sm px-4 py-3 rounded-lg mb-4">{error}</div>
-        <div><button onClick={load} className="text-sm font-medium text-accent hover:underline">Qayta urinish</button></div>
+        <div><button onClick={load} className="text-sm font-medium text-accent hover:underline">{t("common.retry")}</button></div>
       </div>
     );
   }
@@ -77,12 +79,12 @@ export default function VacancyApplicants() {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-ink-3 hover:text-ink mb-6 text-sm font-medium transition-colors">
-        <ArrowLeft className="w-4 h-4" /> Orqaga
+        <ArrowLeft className="w-4 h-4" /> {t("common.back")}
       </button>
 
       <div className="mb-6">
         <h1 className="text-xl md:text-2xl font-semibold text-ink tracking-tight">{vacancy?.title}</h1>
-        <p className="text-ink-3 text-sm mt-1">{applications.length} ta ariza</p>
+        <p className="text-ink-3 text-sm mt-1">{t("pages.vacancyApplicants.applicationsCount", { count: applications.length })}</p>
       </div>
 
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
@@ -101,7 +103,7 @@ export default function VacancyApplicants() {
           <div className="w-14 h-14 mx-auto flex items-center justify-center rounded-full bg-surface border border-border mb-5">
             <Users className="w-6 h-6 text-ink-3" strokeWidth={1.5} />
           </div>
-          <h3 className="text-base font-semibold text-ink mb-1.5">Hozircha arizalar yo'q</h3>
+          <h3 className="text-base font-semibold text-ink mb-1.5">{t("pages.vacancyApplicants.noApplications")}</h3>
         </div>
       ) : (
         <div className="space-y-3">
@@ -122,7 +124,7 @@ export default function VacancyApplicants() {
                           {app.specialist_category && <span>{app.specialist_category}</span>}
                           {app.specialist_experience_level && <><span>·</span><span>{app.specialist_experience_level}</span></>}
                           <span>·</span>
-                          <span title={new Date(app.created_at + "Z").toLocaleString("uz-UZ")}>{timeAgo(app.created_at)}</span>
+                          <span title={formatDateTime(app.created_at + "Z")}>{timeAgo(app.created_at)}</span>
                         </div>
                       </div>
                       <select
@@ -131,8 +133,8 @@ export default function VacancyApplicants() {
                         disabled={updatingId === app.id}
                         className={`px-3 py-1.5 rounded-lg text-xs font-medium border outline-none disabled:opacity-50 ${STATUS_SELECT_CLASS[app.status] || "bg-surface text-ink-2 border-border"}`}
                       >
-                        {STATUS_TABS.filter((t) => t.value).map((t) => (
-                          <option key={t.value} value={t.value}>{t.label}</option>
+                        {STATUS_TABS.filter((tab) => tab.value).map((tab) => (
+                          <option key={tab.value} value={tab.value}>{tab.label}</option>
                         ))}
                       </select>
                     </div>
@@ -145,14 +147,14 @@ export default function VacancyApplicants() {
                       <div className="mt-2">
                         <button onClick={() => setExpandedId(expandedId === app.id ? null : app.id)}
                           className="inline-flex items-center gap-1 text-xs text-ink-2 hover:text-ink font-medium">
-                          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expandedId === app.id ? "rotate-180" : ""}`} /> Javoblarni ko'rish
+                          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expandedId === app.id ? "rotate-180" : ""}`} /> {t("pages.vacancyApplicants.viewAnswers")}
                         </button>
                         {expandedId === app.id && (
                           <div className="mt-2 space-y-2 bg-surface rounded-lg p-3">
                             {app.screening_answers.map((qa, i) => (
                               <div key={i}>
                                 <div className="text-xs font-medium text-ink-3">{qa.question}</div>
-                                <div className="text-sm text-ink-2 mt-0.5">{qa.answer || "Javob berilmagan"}</div>
+                                <div className="text-sm text-ink-2 mt-0.5">{qa.answer || t("pages.vacancyApplicants.noAnswer")}</div>
                               </div>
                             ))}
                           </div>
@@ -164,7 +166,7 @@ export default function VacancyApplicants() {
                       {app.resume_url && (
                         <a href={app.resume_url} target="_blank" rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-surface text-ink-2 border border-border hover:bg-border-soft transition-colors">
-                          <Paperclip className="w-3.5 h-3.5" /> Rezyume
+                          <Paperclip className="w-3.5 h-3.5" /> {t("pages.vacancyApplicants.resume")}
                         </a>
                       )}
                       {app.specialist_phone && (

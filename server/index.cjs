@@ -48,10 +48,15 @@ const allowedOrigins = [
   ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim()) : []),
 ];
 
+// Vite picks the next free port when 5173 is taken (5174, 5175, ...), so any fixed port
+// allowlist breaks the moment two dev servers run side by side. Any localhost/127.0.0.1
+// origin is safe to allow regardless of port — production never runs on localhost.
+const LOCALHOST_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/;
+
 function corsOriginCheck(origin, callback) {
   // No Origin header (native apps, curl, server-to-server) — nothing for CORS to enforce.
-  if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-  callback(new Error("Not allowed by CORS"));
+  if (!origin || allowedOrigins.includes(origin) || LOCALHOST_ORIGIN.test(origin)) return callback(null, true);
+  callback(null, false);
 }
 
 const app = express();
@@ -110,6 +115,9 @@ io.on("connection", (socket) => {
     const userId = decoded.id;
     socket.join(`user_${userId}`);
     socket.userId = userId;
+
+    const socketUser = db.prepare("SELECT role FROM users WHERE id = ?").get(userId);
+    if (socketUser?.role === "admin") socket.join("admin");
 
     db.prepare("UPDATE users SET online = 1 WHERE id = ?").run(userId);
 
@@ -181,6 +189,13 @@ io.on("connection", (socket) => {
 app.use(express.static(path.join(__dirname, "../dist")));
 app.get("/{*splat}", (req, res) => {
   res.sendFile(path.join(__dirname, "../dist/index.html"));
+});
+
+// Final safety net — without this, an unhandled error in any route reaches Express's
+// default handler, which leaks a stack trace and always responds with a bare 500.
+app.use((err, req, res, _next) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({ error: "Server xatoligi" });
 });
 
 seed();

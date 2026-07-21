@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Search, SlidersHorizontal, MapPin, Heart, Clock, X, Code2, Server, Smartphone, Sparkles, Languages, Calculator, GraduationCap, LayoutGrid, Bell, BellRing } from "lucide-react";
+import { Search, SlidersHorizontal, MapPin, Heart, Clock, Code2, Server, Smartphone, Sparkles, Languages, Calculator, GraduationCap, LayoutGrid, Bell, BellRing } from "lucide-react";
 import { api } from "../lib/api";
-import { timeAgo, computeMatch } from "../lib/format";
+import { timeAgo } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
-import MatchIndicator from "../components/ui/MatchIndicator";
 import StatusBadge from "../components/ui/StatusBadge";
+import SaveButton from "../components/ui/SaveButton";
+import BottomSheet from "../components/ui/BottomSheet";
 import { VacancyCardSkeletonList } from "../components/ui/Skeleton";
+import CompanyLogo from "../components/ui/CompanyLogo";
+import { useT } from "../context/I18nContext";
 
 const SALARY_MIN = 0;
 const SALARY_MAX = 20_000_000;
@@ -21,6 +24,7 @@ function formatSalaryShort(n) {
 
 export default function Vacancies() {
   const { user } = useAuth();
+  const { t } = useT();
   const showToast = useToast();
   const [searchParams] = useSearchParams();
   const isTeacher = user?.role === "specialist" && (user?.category === "Ta'lim" || (user?.fields || []).includes("Ta'lim"));
@@ -37,20 +41,19 @@ export default function Vacancies() {
   });
   const [vacancies, setVacancies] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [savedIds, setSavedIds] = useState(new Set());
   const [alertState, setAlertState] = useState("idle"); // idle | saving | saved
 
   const cities = ["Toshkent", "Samarqand", "Buxoro", "Farg'ona", "Namangan", "Xiva", "Qo'qon"];
 
   const popularCategories = [
-    { label: "Frontend", query: "Frontend Developer", icon: Code2 },
-    { label: "Backend", query: "Backend Developer", icon: Server },
-    { label: "Mobile", query: "Mobile Developer", icon: Smartphone },
-    { label: "AI/ML", query: "AI/ML Engineer", icon: Sparkles },
-    { label: "Ingliz tili", query: "Ingliz tili o'qituvchisi", icon: Languages },
-    { label: "Matematika", query: "Matematika o'qituvchisi", icon: Calculator },
-    { label: "SAT", query: "SAT o'qituvchisi", icon: GraduationCap },
-    { label: "Barchasi", query: "", icon: LayoutGrid },
+    { key: "frontend", query: "Frontend Developer", icon: Code2 },
+    { key: "backend", query: "Backend Developer", icon: Server },
+    { key: "mobile", query: "Mobile Developer", icon: Smartphone },
+    { key: "aiMl", query: "AI/ML Engineer", icon: Sparkles },
+    { key: "english", query: "Ingliz tili o'qituvchisi", icon: Languages },
+    { key: "math", query: "Matematika o'qituvchisi", icon: Calculator },
+    { key: "sat", query: "SAT o'qituvchisi", icon: GraduationCap },
+    { key: "all", query: "", icon: LayoutGrid },
   ];
 
   const teacherSubcategories = [
@@ -75,34 +78,11 @@ export default function Vacancies() {
 
       const data = await api(`/vacancies?${params.toString()}`);
       setVacancies(data.vacancies);
-      setSavedIds(new Set(data.vacancies.filter((v) => v.is_saved).map((v) => v.id)));
     } catch (err) {
       console.error(err);
+      showToast(err.message || t("pages.vacancies.loadError"), "error");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const toggleSave = async (e, vacancyId) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!user) return;
-    const isSaved = savedIds.has(vacancyId);
-    setSavedIds((prev) => {
-      const next = new Set(prev);
-      isSaved ? next.delete(vacancyId) : next.add(vacancyId);
-      return next;
-    });
-    try {
-      await api(`/vacancies/${vacancyId}/save`, { method: isSaved ? "DELETE" : "POST" });
-    } catch (err) {
-      console.error(err);
-      showToast("Saqlashda xatolik yuz berdi", "error");
-      setSavedIds((prev) => {
-        const next = new Set(prev);
-        isSaved ? next.add(vacancyId) : next.delete(vacancyId);
-        return next;
-      });
     }
   };
 
@@ -115,7 +95,7 @@ export default function Vacancies() {
       await api("/saved-searches", {
         method: "POST",
         body: {
-          name: search || filters.subcategory || "Qidiruv",
+          name: search || filters.subcategory || t("pages.vacancies.defaultSearchName"),
           query: search,
           category: filters.category,
           location: filters.city,
@@ -124,11 +104,11 @@ export default function Vacancies() {
         },
       });
       setAlertState("saved");
-      showToast("Qidiruv agenti yaratildi — mos vakansiya chiqqanda xabar beramiz", "success");
+      showToast(t("pages.vacancies.alertCreatedToast"), "success");
       setTimeout(() => setAlertState("idle"), 2500);
     } catch (err) {
       console.error(err);
-      showToast(err.message || "Ogohlantirish yaratishda xatolik", "error");
+      showToast(err.message || t("pages.vacancies.alertError"), "error");
       setAlertState("idle");
     }
   };
@@ -140,10 +120,7 @@ export default function Vacancies() {
     }));
   };
 
-  let filtered = vacancies.map((v) => ({
-    ...v,
-    matchPercent: computeMatch(user?.skills, v.tags),
-  }));
+  let filtered = vacancies;
 
   if (filters.subcategory) {
     const q = filters.subcategory.toLowerCase();
@@ -184,7 +161,7 @@ export default function Vacancies() {
               value === opt ? "bg-ink text-white" : "bg-surface text-ink-2 hover:bg-border-soft"
             }`}
           >
-            {opt || "Barchasi"}
+            {opt || t("common.all")}
           </button>
         ))}
       </div>
@@ -216,7 +193,7 @@ export default function Vacancies() {
     return (
       <div>
         <div className="flex items-center justify-between mb-2.5">
-          <label className="text-xs font-medium text-ink-3 uppercase tracking-wide">Maosh (so'm)</label>
+          <label className="text-xs font-medium text-ink-3 uppercase tracking-wide">{t("pages.vacancies.filterSalary")}</label>
           <span className="text-xs font-medium text-ink">{formatSalaryShort(filters.salaryMin)} – {formatSalaryShort(filters.salaryMax)}</span>
         </div>
         <div className="relative h-5 flex items-center">
@@ -243,16 +220,16 @@ export default function Vacancies() {
     <div className="space-y-6">
       {isTeacher && (
         <FilterGroup
-          label="Yo'nalish"
+          label={t("pages.vacancies.filterDirection")}
           options={["", ...teacherSubcategories]}
           value={filters.subcategory}
           onChange={(v) => setFilters({ ...filters, subcategory: v })}
         />
       )}
-      <FilterGroup label="Kategoriya" options={["", "IT", "Ta'lim"]} value={filters.category} onChange={(v) => setFilters({ ...filters, category: v })} />
-      <FilterGroup label="Shahar" options={["", ...cities]} value={filters.city} onChange={(v) => setFilters({ ...filters, city: v })} />
-      <CheckboxGroup label="Tajriba" options={["Junior", "Middle", "Senior"]} values={filters.experience} onToggle={(v) => toggleMulti("experience", v)} />
-      <CheckboxGroup label="Ish formati" options={["Ofis", "Masofaviy", "Gibrid"]} values={filters.format} onToggle={(v) => toggleMulti("format", v)} />
+      <FilterGroup label={t("pages.vacancies.filterCategory")} options={["", "IT", "Ta'lim"]} value={filters.category} onChange={(v) => setFilters({ ...filters, category: v })} />
+      <FilterGroup label={t("pages.vacancies.filterCity")} options={["", ...cities]} value={filters.city} onChange={(v) => setFilters({ ...filters, city: v })} />
+      <CheckboxGroup label={t("pages.vacancies.filterExperience")} options={["Junior", "Middle", "Senior"]} values={filters.experience} onToggle={(v) => toggleMulti("experience", v)} />
+      <CheckboxGroup label={t("pages.vacancies.filterFormat")} options={["Ofis", "Masofaviy", "Gibrid"]} values={filters.format} onToggle={(v) => toggleMulti("format", v)} />
       <SalaryRangeSlider />
     </div>
   );
@@ -262,18 +239,20 @@ export default function Vacancies() {
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight mb-1.5">
-            {isTeacher ? "O'qituvchilar uchun ishlar" : "Vakansiyalar"}
+            {filters.category === "Ta'lim" ? t("pages.vacancies.titleTeacher") : filters.category === "IT" ? t("pages.vacancies.titleIt") : t("pages.vacancies.titleAll")}
           </h1>
           <p className="text-ink-3 text-sm">
-            {isTeacher
-              ? `${filtered.length} ta o'qituvchilik vakansiyasi topildi`
-              : `${filtered.length} ta vakansiya topildi`
+            {filters.category === "Ta'lim"
+              ? t("pages.vacancies.countTeacher", { count: filtered.length })
+              : filters.category === "IT"
+              ? t("pages.vacancies.countIt", { count: filtered.length })
+              : t("pages.vacancies.countAll", { count: filtered.length })
             }
           </p>
         </div>
         {user?.role === "specialist" && (
           <Link to="/saved" className="md:hidden flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-ink-2 text-xs font-medium hover:border-ink/30 hover:text-ink transition-colors">
-            <Heart className="w-3.5 h-3.5" /> Saqlangan
+            <Heart className="w-3.5 h-3.5" /> {t("nav.savedShort")}
           </Link>
         )}
       </div>
@@ -284,7 +263,7 @@ export default function Vacancies() {
           <Search className="w-4 h-4 text-ink-3 absolute left-4 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Vakansiya yoki kompaniya qidirish..."
+            placeholder={t("pages.vacancies.searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-11 pr-4 py-3 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors bg-white text-sm"
@@ -297,30 +276,30 @@ export default function Vacancies() {
           }`}
         >
           <SlidersHorizontal className="w-4 h-4" />
-          <span className="hidden sm:inline">Filtrlar</span>
+          <span className="hidden sm:inline">{t("common.filter")}</span>
         </button>
         {user?.role === "specialist" && hasActiveSearch && (
           <button
             onClick={createAlert}
             disabled={alertState === "saving"}
-            title="Ushbu qidiruv bo'yicha yangi vakansiyalar chiqqanda xabar berish"
+            title={t("pages.vacancies.alertTooltip")}
             className={`flex items-center gap-2 px-4 py-3 rounded-lg border font-medium text-sm transition-colors flex-shrink-0 ${
               alertState === "saved" ? "bg-success-soft text-success border-success/10" : "bg-white border-border text-ink-2 hover:border-ink/30"
             }`}
           >
             {alertState === "saved" ? <BellRing className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
-            <span className="hidden sm:inline">{alertState === "saved" ? "Ogohlantirish yaratildi" : "Ogohlantirish yarat"}</span>
+            <span className="hidden sm:inline">{alertState === "saved" ? t("pages.vacancies.alertCreated") : t("pages.vacancies.alertCreate")}</span>
           </button>
         )}
       </div>
 
       {/* Popular categories */}
       <div className="mb-6">
-        <h2 className="text-sm font-semibold text-ink mb-3">Mashhur yo'nalishlar</h2>
+        <h2 className="text-sm font-semibold text-ink mb-3">{t("pages.vacancies.popularCategoriesTitle")}</h2>
         <div className="grid grid-cols-4 gap-2 sm:gap-3">
           {popularCategories.map((cat) => (
             <button
-              key={cat.label}
+              key={cat.key}
               onClick={() => {
                 if (!cat.query) {
                   setShowFilters(true);
@@ -337,7 +316,7 @@ export default function Vacancies() {
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-accent-soft flex items-center justify-center">
                 <cat.icon className="w-4 h-4 sm:w-5 sm:h-5 text-accent" />
               </div>
-              <span className="text-[11px] sm:text-xs font-medium text-ink-2 text-center leading-tight">{cat.label}</span>
+              <span className="text-[11px] sm:text-xs font-medium text-ink-2 text-center leading-tight">{t(`pages.vacancies.category.${cat.key}`)}</span>
             </button>
           ))}
         </div>
@@ -354,7 +333,7 @@ export default function Vacancies() {
         {/* Desktop sidebar filters */}
         <div className="hidden lg:block w-64 flex-shrink-0">
           <div className="border border-border rounded-xl p-6 sticky top-24">
-            <h3 className="font-semibold text-ink text-sm mb-5">Filtrlar</h3>
+            <h3 className="font-semibold text-ink text-sm mb-5">{t("common.filter")}</h3>
             <FilterPanel />
           </div>
         </div>
@@ -366,23 +345,18 @@ export default function Vacancies() {
           {!loading && filtered.map((v) => (
             <div key={v.id} className="bg-white rounded-xl border border-border p-6 hover:border-ink/20 transition-colors">
               <div className="flex items-start gap-4">
-                <div className="w-11 h-11 bg-surface rounded-lg flex items-center justify-center text-xl flex-shrink-0">
-                  {v.company_logo || "🏢"}
-                </div>
+                <CompanyLogo name={v.company} logo={v.company_logo} size="ml" />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <Link to={`/vacancies/${v.id}`} className="text-base font-semibold text-ink hover:text-accent transition-colors">
-                        {v.title}
-                      </Link>
-                      <div className="flex items-center gap-1.5 mt-1 text-sm text-ink-3">
-                        <Link to={`/companies/${v.employer_id}`} onClick={(e) => e.stopPropagation()} className="hover:text-ink hover:underline">{v.company}</Link>
-                        <span>·</span>
-                        <MapPin className="w-3.5 h-3.5" />
-                        <span>{v.location}</span>
-                      </div>
+                  <div>
+                    <Link to={`/vacancies/${v.id}`} className="text-base font-semibold text-ink hover:text-accent transition-colors">
+                      {v.title}
+                    </Link>
+                    <div className="flex items-center gap-1.5 mt-1 text-sm text-ink-3">
+                      <Link to={`/companies/${v.employer_id}`} onClick={(e) => e.stopPropagation()} className="hover:text-ink hover:underline">{v.company}</Link>
+                      <span>·</span>
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span>{v.location}</span>
                     </div>
-                    <MatchIndicator percent={v.matchPercent} />
                   </div>
 
                   <p className="text-ink-2 text-sm mt-3 line-clamp-2 leading-relaxed">{v.description}</p>
@@ -409,21 +383,13 @@ export default function Vacancies() {
                     </div>
                     <div className="flex items-center gap-1">
                       {user?.role === "specialist" && (
-                        <button
-                          onClick={(e) => toggleSave(e, v.id)}
-                          className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors ${
-                            savedIds.has(v.id) ? "text-danger hover:bg-danger-soft" : "text-ink-3 hover:text-ink hover:bg-surface"
-                          }`}
-                          title={savedIds.has(v.id) ? "Saqlangandan olib tashlash" : "Saqlash"}
-                        >
-                          <Heart className="w-[18px] h-[18px]" fill={savedIds.has(v.id) ? "currentColor" : "none"} />
-                        </button>
+                        <SaveButton vacancyId={v.id} initialSaved={v.is_saved} size="lg" />
                       )}
                       <Link
                         to={`/vacancies/${v.id}`}
                         className="px-4 py-2 bg-ink text-white rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors"
                       >
-                        Ariza yuborish
+                        {t("common.apply")}
                       </Link>
                     </div>
                   </div>
@@ -435,34 +401,30 @@ export default function Vacancies() {
           {!loading && filtered.length === 0 && (
             <div className="text-center py-20">
               <div className="w-14 h-14 mx-auto flex items-center justify-center rounded-full bg-surface border border-border text-2xl mb-5">🔍</div>
-              <h3 className="text-base font-semibold text-ink mb-1.5">Vakansiya topilmadi</h3>
-              <p className="text-ink-3 text-sm">Filtrlarni o'zgartirib ko'ring</p>
+              <h3 className="text-base font-semibold text-ink mb-1.5">{t("pages.vacancies.emptyTitle")}</h3>
+              <p className="text-ink-3 text-sm">{t("pages.vacancies.emptySubtitle")}</p>
             </div>
           )}
         </div>
       </div>
 
       {/* Mobile filter sheet */}
-      {showFilters && (
-        <div className="md:hidden fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowFilters(false)} />
-          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl p-6 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="font-semibold text-ink">Filtrlar</h3>
-              <button onClick={() => setShowFilters(false)} className="p-1">
-                <X className="w-5 h-5 text-ink-3" />
-              </button>
-            </div>
-            <FilterPanel />
-            <button
-              onClick={() => setShowFilters(false)}
-              className="w-full mt-6 bg-ink text-white py-3 rounded-lg font-medium hover:bg-ink/90 transition-colors"
-            >
-              Natijalarni ko'rish ({filtered.length})
-            </button>
-          </div>
-        </div>
-      )}
+      <BottomSheet
+        open={showFilters}
+        onClose={() => setShowFilters(false)}
+        title={t("common.filter")}
+        mobileOnly
+        footer={
+          <button
+            onClick={() => setShowFilters(false)}
+            className="w-full min-h-11 bg-ink text-white py-3 rounded-lg font-medium hover:bg-ink/90 transition-colors"
+          >
+            {t("pages.vacancies.viewResults", { count: filtered.length })}
+          </button>
+        }
+      >
+        <FilterPanel />
+      </BottomSheet>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, X, Save, Briefcase, Eye } from "lucide-react";
 import { api } from "../lib/api";
 import VacancyPreviewModal from "../components/ui/VacancyPreviewModal";
 import { REGIONS, REGION_NAMES } from "../lib/uzbekistanRegions";
+import { useT } from "../context/I18nContext";
 
 const categories = ["IT", "Ta'lim"];
 const itDirections = [
@@ -61,7 +62,18 @@ const chipBase = "px-3 py-1.5 rounded-lg text-xs font-medium border transition-c
 const chipOn = "bg-accent text-white border-accent";
 const chipOff = "bg-white text-ink-2 border-border hover:border-accent/40";
 
+const techGroupKeys = {
+  "Tillar": "techStackLanguages",
+  "Frontend": "techStackFrontend",
+  "Backend": "techStackBackend",
+  "Mobile": "techStackMobile",
+  "Ma'lumotlar bazasi": "techStackDatabase",
+  "DevOps/Cloud": "techStackDevops",
+  "Boshqa": "techStackOther",
+};
+
 export default function VacancyCreate() {
+  const { t } = useT();
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = Boolean(id);
@@ -130,10 +142,10 @@ export default function VacancyCreate() {
   };
 
   const addTag = () => {
-    const t = newTag.trim();
-    if (t && !tags.includes(t)) { setTags([...tags, t]); setNewTag(""); }
+    const tagValue = newTag.trim();
+    if (tagValue && !tags.includes(tagValue)) { setTags([...tags, tagValue]); setNewTag(""); }
   };
-  const removeTag = (t) => setTags(tags.filter((x) => x !== t));
+  const removeTag = (tagValue) => setTags(tags.filter((x) => x !== tagValue));
 
   const addReq = () => {
     const r = newReq.trim();
@@ -198,13 +210,13 @@ export default function VacancyCreate() {
   const directionOptions = isTeacherCategory ? teacherSubjects : itDirections;
 
   if (loading) {
-    return <div className="max-w-3xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">Yuklanmoqda...</div>;
+    return <div className="max-w-3xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">{t("common.loading")}</div>;
   }
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 space-y-4">
       <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-ink-3 hover:text-ink mb-2 text-sm font-medium transition-colors">
-        <ArrowLeft className="w-4 h-4" /> Orqaga
+        <ArrowLeft className="w-4 h-4" /> {t("common.back")}
       </button>
 
       <div className="flex items-center gap-3 mb-2">
@@ -212,39 +224,39 @@ export default function VacancyCreate() {
           <Briefcase className="w-5 h-5 text-accent" />
         </div>
         <div>
-          <h1 className="text-lg font-semibold text-ink">{isEdit ? "Vakansiyani tahrirlash" : "Yangi vakansiya"}</h1>
-          <p className="text-xs text-ink-3">Vakansiya ma'lumotlarini to'ldiring</p>
+          <h1 className="text-lg font-semibold text-ink">{isEdit ? t("pages.vacancyCreate.pageTitleEdit") : t("pages.vacancyCreate.pageTitleNew")}</h1>
+          <p className="text-xs text-ink-3">{t("pages.vacancyCreate.pageSubtitle")}</p>
         </div>
       </div>
 
       {/* 1. Asosiy */}
       <div className={cardClass}>
-        <h2 className="text-sm font-semibold text-ink mb-4">1. Asosiy</h2>
+        <h2 className="text-sm font-semibold text-ink mb-4">{t("pages.vacancyCreate.section1Title")}</h2>
         <div className="space-y-5">
           <div>
-            <label className={labelClass}>Sarlavha *</label>
+            <label className={labelClass}>{t("pages.vacancyCreate.titleLabel")}</label>
             <input value={form.title} onChange={(e) => update("title", e.target.value)}
-              placeholder="masalan: Senior Frontend Developer"
+              placeholder={t("pages.vacancyCreate.titlePlaceholder")}
               className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>Kompaniya *</label>
+            <label className={labelClass}>{t("pages.vacancyCreate.companyLabel")}</label>
             <input value={form.company} onChange={(e) => update("company", e.target.value)}
-              placeholder="Kompaniya nomi"
+              placeholder={t("pages.vacancyCreate.companyPlaceholder")}
               className={inputClass} />
           </div>
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className={labelClass + " mb-0"}>Tavsif *</label>
+              <label className={labelClass + " mb-0"}>{t("pages.vacancyCreate.descriptionLabel")}</label>
               <span className={`text-xs ${descriptionValid ? "text-success" : "text-ink-3"}`}>
-                {descriptionLength}/{DESCRIPTION_MIN_LENGTH}+ belgi
+                {t("pages.vacancyCreate.descriptionCharCount", { count: descriptionLength, min: DESCRIPTION_MIN_LENGTH })}
               </span>
             </div>
             <textarea value={form.description} onChange={(e) => update("description", e.target.value)} rows={6}
-              placeholder="Vakansiya haqida batafsil — talablar, vazifalar, sharoitlar... (kamida 100 belgi)"
+              placeholder={t("pages.vacancyCreate.descriptionPlaceholder")}
               className={inputClass + " resize-none"} />
             {!descriptionValid && descriptionLength > 0 && (
-              <p className="text-xs text-ink-3 mt-1">Ko'rib chiqishga yuborish uchun yana {DESCRIPTION_MIN_LENGTH - descriptionLength} belgi kerak.</p>
+              <p className="text-xs text-ink-3 mt-1">{t("pages.vacancyCreate.descriptionHint", { count: DESCRIPTION_MIN_LENGTH - descriptionLength })}</p>
             )}
           </div>
         </div>
@@ -252,12 +264,12 @@ export default function VacancyCreate() {
 
       {/* 2. Yo'nalish */}
       <div className={cardClass}>
-        <h2 className="text-sm font-semibold text-ink mb-1">2. Yo'nalish</h2>
-        <p className="text-xs text-ink-3 mb-4">Kategoriya va aniq yo'nalish(lar)ni tanlang{!isTeacherCategory && ` (${MAX_IT_DIRECTIONS} tagacha)`}.</p>
+        <h2 className="text-sm font-semibold text-ink mb-1">{t("pages.vacancyCreate.section2Title")}</h2>
+        <p className="text-xs text-ink-3 mb-4">{t("pages.vacancyCreate.section2Subtitle")}{!isTeacherCategory && t("pages.vacancyCreate.upToDirectionsSuffix", { count: MAX_IT_DIRECTIONS })}.</p>
         <div className="space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Kategoriya</label>
+              <label className={labelClass}>{t("pages.vacancyCreate.categoryLabel")}</label>
               <div className="flex gap-2">
                 {categories.map((c) => (
                   <button key={c} onClick={() => { update("category", c); setDirections([]); }}
@@ -268,7 +280,7 @@ export default function VacancyCreate() {
               </div>
             </div>
             <div>
-              <label className={labelClass}>Viloyat</label>
+              <label className={labelClass}>{t("pages.vacancyCreate.regionLabel")}</label>
               <select value={region} onChange={(e) => {
                 const nextRegion = e.target.value;
                 setRegion(nextRegion);
@@ -281,19 +293,19 @@ export default function VacancyCreate() {
           </div>
 
           <div>
-            <label className={labelClass}>Tuman / shahar</label>
+            <label className={labelClass}>{t("pages.vacancyCreate.districtLabel")}</label>
             <select value={district} onChange={(e) => {
               const nextDistrict = e.target.value;
               setDistrict(nextDistrict);
               update("location", nextDistrict ? `${nextDistrict}, ${region}` : region);
             }} className={inputClass + " bg-white"}>
-              <option value="">Tanlanmagan</option>
+              <option value="">{t("pages.vacancyCreate.districtNotSelected")}</option>
               {(REGIONS[region] || []).map((d) => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
 
           <div>
-            <label className={labelClass}>{isTeacherCategory ? "Fan / Yo'nalish" : "IT yo'nalishi"}</label>
+            <label className={labelClass}>{isTeacherCategory ? t("pages.vacancyCreate.directionLabelSubject") : t("pages.vacancyCreate.directionLabelIt")}</label>
             <div className="flex flex-wrap gap-2">
               {directionOptions.map((d) => {
                 const selected = directions.includes(d);
@@ -313,20 +325,20 @@ export default function VacancyCreate() {
       {/* 3. Texnologiyalar / Stack */}
       {!isTeacherCategory && (
         <div className={cardClass}>
-          <h2 className="text-sm font-semibold text-ink mb-1">3. Texnologiyalar / Stack</h2>
-          <p className="text-xs text-ink-3 mb-4">Kerakli texnologiyalarni tanlang — istagancha tanlash mumkin.</p>
+          <h2 className="text-sm font-semibold text-ink mb-1">{t("pages.vacancyCreate.section3Title")}</h2>
+          <p className="text-xs text-ink-3 mb-4">{t("pages.vacancyCreate.section3Subtitle")}</p>
 
           <div className="space-y-4">
             {Object.entries(techStackGroups).map(([group, items]) => (
               <div key={group}>
-                <div className="text-xs font-medium text-ink-3 mb-1.5">{group}</div>
+                <div className="text-xs font-medium text-ink-3 mb-1.5">{t(`pages.vacancyCreate.${techGroupKeys[group]}`)}</div>
                 <div className="flex flex-wrap gap-2">
-                  {items.map((t) => {
-                    const selected = tags.includes(t);
+                  {items.map((item) => {
+                    const selected = tags.includes(item);
                     return (
-                      <button key={t} onClick={() => (selected ? removeTag(t) : setTags([...tags, t]))}
+                      <button key={item} onClick={() => (selected ? removeTag(item) : setTags([...tags, item]))}
                         className={`${chipBase} ${selected ? chipOn : chipOff}`}>
-                        {t}
+                        {item}
                       </button>
                     );
                   })}
@@ -335,13 +347,13 @@ export default function VacancyCreate() {
             ))}
           </div>
 
-          {tags.filter((t) => !Object.values(techStackGroups).flat().includes(t)).length > 0 && (
+          {tags.filter((tg) => !Object.values(techStackGroups).flat().includes(tg)).length > 0 && (
             <div className="mt-4">
-              <div className="text-xs font-medium text-ink-3 mb-1.5">Qo'shimcha</div>
+              <div className="text-xs font-medium text-ink-3 mb-1.5">{t("pages.vacancyCreate.additionalLabel")}</div>
               <div className="flex flex-wrap gap-2">
-                {tags.filter((t) => !Object.values(techStackGroups).flat().includes(t)).map((t) => (
-                  <span key={t} className="px-3 py-1.5 bg-surface text-ink rounded-lg text-xs font-medium border border-border flex items-center gap-2">
-                    {t} <button onClick={() => removeTag(t)} className="text-ink-3 hover:text-red-500"><X className="w-3 h-3" /></button>
+                {tags.filter((tg) => !Object.values(techStackGroups).flat().includes(tg)).map((tg) => (
+                  <span key={tg} className="px-3 py-1.5 bg-surface text-ink rounded-lg text-xs font-medium border border-border flex items-center gap-2">
+                    {tg} <button onClick={() => removeTag(tg)} className="text-ink-3 hover:text-red-500"><X className="w-3 h-3" /></button>
                   </span>
                 ))}
               </div>
@@ -351,7 +363,7 @@ export default function VacancyCreate() {
           <div className="flex gap-2 mt-4 pt-4 border-t border-border-soft">
             <input value={newTag} onChange={(e) => setNewTag(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addTag()}
-              placeholder="+ Boshqa texnologiya qo'shish..."
+              placeholder={t("pages.vacancyCreate.addTechPlaceholder")}
               className={inputClass + " flex-1"} />
             <button onClick={addTag} className="px-4 py-2.5 bg-surface rounded-lg text-sm font-medium text-ink-2 hover:bg-border-soft transition-colors border border-border">
               <Plus className="w-4 h-4" />
@@ -362,28 +374,28 @@ export default function VacancyCreate() {
 
       {/* 4. Ish sharoitlari */}
       <div className={cardClass}>
-        <h2 className="text-sm font-semibold text-ink mb-4">4. Ish sharoitlari</h2>
+        <h2 className="text-sm font-semibold text-ink mb-4">{t("pages.vacancyCreate.section4Title")}</h2>
         <div className="space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className={labelClass}>Ish tartibi</label>
+              <label className={labelClass}>{t("pages.vacancyCreate.workFormatLabel")}</label>
               <select value={form.format} onChange={(e) => update("format", e.target.value)}
                 className={inputClass + " bg-white"}>
                 {formats.map((f) => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
             <div>
-              <label className={labelClass}>Tajriba</label>
+              <label className={labelClass}>{t("pages.vacancyCreate.experienceLabel")}</label>
               <select value={form.experience} onChange={(e) => update("experience", e.target.value)}
                 className={inputClass + " bg-white"}>
                 {experienceLevels.map((e) => <option key={e} value={e}>{e}</option>)}
               </select>
             </div>
             <div>
-              <label className={labelClass}>Ingliz tili</label>
+              <label className={labelClass}>{t("pages.vacancyCreate.englishLabel")}</label>
               <select value={form.english_level} onChange={(e) => update("english_level", e.target.value)}
                 className={inputClass + " bg-white"}>
-                <option value="">Ko'rsatilmagan</option>
+                <option value="">{t("pages.vacancyCreate.englishNotSpecified")}</option>
                 {englishLevels.map((e) => <option key={e} value={e}>{e}</option>)}
               </select>
             </div>
@@ -391,21 +403,21 @@ export default function VacancyCreate() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className={labelClass}>Bandlik turi</label>
+              <label className={labelClass}>{t("pages.vacancyCreate.employmentTypeLabel")}</label>
               <select value={form.employment_type} onChange={(e) => update("employment_type", e.target.value)}
                 className={inputClass + " bg-white"}>
                 {employmentTypes.map((f) => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
             <div>
-              <label className={labelClass}>Jadval</label>
+              <label className={labelClass}>{t("pages.vacancyCreate.scheduleLabel")}</label>
               <select value={form.schedule} onChange={(e) => update("schedule", e.target.value)}
                 className={inputClass + " bg-white"}>
                 {scheduleOptions.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div>
-              <label className={labelClass}>Jins</label>
+              <label className={labelClass}>{t("pages.vacancyCreate.genderLabel")}</label>
               <select value={form.gender} onChange={(e) => update("gender", e.target.value)}
                 className={inputClass + " bg-white"}>
                 {genderOptions.map((g) => <option key={g} value={g}>{g}</option>)}
@@ -415,12 +427,12 @@ export default function VacancyCreate() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Bo'sh o'rinlar soni</label>
+              <label className={labelClass}>{t("pages.vacancyCreate.openingsCountLabel")}</label>
               <input type="number" min="1" value={form.openings_count} onChange={(e) => update("openings_count", e.target.value)}
                 className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>Nomzodlar bilan aloqa</label>
+              <label className={labelClass}>{t("pages.vacancyCreate.contactMethodLabel")}</label>
               <select value={form.contact_method} onChange={(e) => update("contact_method", e.target.value)}
                 className={inputClass + " bg-white"}>
                 {contactMethods.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -430,14 +442,14 @@ export default function VacancyCreate() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Dam olish kuni</label>
+              <label className={labelClass}>{t("pages.vacancyCreate.dayOffLabel")}</label>
               <select value={form.day_off} onChange={(e) => update("day_off", e.target.value)}
                 className={inputClass + " bg-white"}>
                 {weekdays.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
             <div>
-              <label className={labelClass}>Ish boshlanish sanasi</label>
+              <label className={labelClass}>{t("pages.vacancyCreate.startDateLabel")}</label>
               <input type="date" value={form.start_date} onChange={(e) => update("start_date", e.target.value)}
                 className={inputClass} />
             </div>
@@ -447,43 +459,43 @@ export default function VacancyCreate() {
 
       {/* 5. Maosh */}
       <div className={cardClass}>
-        <h2 className="text-sm font-semibold text-ink mb-4">5. Maosh</h2>
+        <h2 className="text-sm font-semibold text-ink mb-4">{t("pages.vacancyCreate.section5Title")}</h2>
         <div className="space-y-4">
           <div className="flex gap-2">
-            {salaryTypes.map((t) => (
-              <button key={t} onClick={() => update("salary_type", t)}
+            {salaryTypes.map((st) => (
+              <button key={st} onClick={() => update("salary_type", st)}
                 className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-colors ${
-                  form.salary_type === t ? "bg-accent text-white border-accent" : "bg-white text-ink-2 border-border hover:border-accent/40"
-                }`}>{t}</button>
+                  form.salary_type === st ? "bg-accent text-white border-accent" : "bg-white text-ink-2 border-border hover:border-accent/40"
+                }`}>{st}</button>
             ))}
           </div>
           {form.salary_type === "Aniq" && (
             <input value={form.salary} onChange={(e) => update("salary", e.target.value)}
-              placeholder="masalan: $700"
+              placeholder={t("pages.vacancyCreate.salaryPlaceholder")}
               className={inputClass} />
           )}
           {form.salary_type === "Diapazon" && (
             <div className="grid grid-cols-2 gap-4">
               <input type="number" value={form.salary_min} onChange={(e) => update("salary_min", e.target.value)}
-                placeholder="Min (so'm)"
+                placeholder={t("pages.vacancyCreate.salaryMinPlaceholder")}
                 className={inputClass} />
               <input type="number" value={form.salary_max} onChange={(e) => update("salary_max", e.target.value)}
-                placeholder="Max (so'm)"
+                placeholder={t("pages.vacancyCreate.salaryMaxPlaceholder")}
                 className={inputClass} />
             </div>
           )}
           <input value={form.salary_details} onChange={(e) => update("salary_details", e.target.value)}
-            placeholder="Maosh tafsiloti — masalan: oylik o'z vaqtida, bonus tizimi mavjud"
+            placeholder={t("pages.vacancyCreate.salaryDetailsPlaceholder")}
             className={inputClass} />
         </div>
       </div>
 
       {/* 6. Vazifalar, talablar, imtiyozlar */}
       <div className={cardClass}>
-        <h2 className="text-sm font-semibold text-ink mb-4">6. Vazifalar, talablar, imtiyozlar</h2>
+        <h2 className="text-sm font-semibold text-ink mb-4">{t("pages.vacancyCreate.section6Title")}</h2>
         <div className="space-y-6">
           <div>
-            <label className={labelClass}>Vazifalar</label>
+            <label className={labelClass}>{t("pages.vacancyCreate.responsibilitiesLabel")}</label>
             <div className="space-y-2 mb-2">
               {responsibilities.map((r, i) => (
                 <div key={i} className="flex items-center gap-2">
@@ -495,7 +507,7 @@ export default function VacancyCreate() {
             <div className="flex gap-2">
               <input value={newResp} onChange={(e) => setNewResp(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addResp()}
-                placeholder="Vazifa qo'shing..."
+                placeholder={t("pages.vacancyCreate.responsibilityPlaceholder")}
                 className={inputClass + " flex-1"} />
               <button onClick={addResp} className="px-4 py-2.5 bg-surface rounded-lg text-sm font-medium text-ink-2 hover:bg-border-soft transition-colors border border-border">
                 <Plus className="w-4 h-4" />
@@ -504,7 +516,7 @@ export default function VacancyCreate() {
           </div>
 
           <div>
-            <label className={labelClass}>Talablar</label>
+            <label className={labelClass}>{t("pages.vacancyCreate.requirementsLabel")}</label>
             <div className="space-y-2 mb-2">
               {requirements.map((r, i) => (
                 <div key={i} className="flex items-center gap-2">
@@ -516,7 +528,7 @@ export default function VacancyCreate() {
             <div className="flex gap-2">
               <input value={newReq} onChange={(e) => setNewReq(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addReq()}
-                placeholder="Talab qo'shing..."
+                placeholder={t("pages.vacancyCreate.requirementPlaceholder")}
                 className={inputClass + " flex-1"} />
               <button onClick={addReq} className="px-4 py-2.5 bg-surface rounded-lg text-sm font-medium text-ink-2 hover:bg-border-soft transition-colors border border-border">
                 <Plus className="w-4 h-4" />
@@ -525,7 +537,7 @@ export default function VacancyCreate() {
           </div>
 
           <div>
-            <label className={labelClass}>Imtiyozlar</label>
+            <label className={labelClass}>{t("pages.vacancyCreate.benefitsLabel")}</label>
             <div className="space-y-2 mb-2">
               {conditions.map((c, i) => (
                 <div key={i} className="flex items-center gap-2">
@@ -537,7 +549,7 @@ export default function VacancyCreate() {
             <div className="flex gap-2">
               <input value={newCond} onChange={(e) => setNewCond(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addCond()}
-                placeholder="Imtiyoz qo'shing..."
+                placeholder={t("pages.vacancyCreate.benefitPlaceholder")}
                 className={inputClass + " flex-1"} />
               <button onClick={addCond} className="px-4 py-2.5 bg-surface rounded-lg text-sm font-medium text-ink-2 hover:bg-border-soft transition-colors border border-border">
                 <Plus className="w-4 h-4" />
@@ -549,8 +561,8 @@ export default function VacancyCreate() {
 
       {/* 7. Saralash savollari */}
       <div className={cardClass}>
-        <h2 className="text-sm font-semibold text-ink mb-1">7. Saralash savollari</h2>
-        <p className="text-xs text-ink-3 mb-4">Nomzodlar ariza yuborishda shu savollarga javob berishadi.</p>
+        <h2 className="text-sm font-semibold text-ink mb-1">{t("pages.vacancyCreate.section7Title")}</h2>
+        <p className="text-xs text-ink-3 mb-4">{t("pages.vacancyCreate.section7Subtitle")}</p>
         <div className="space-y-2 mb-2">
           {screeningQuestions.map((q, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -562,7 +574,7 @@ export default function VacancyCreate() {
         <div className="flex gap-2">
           <input value={newQuestion} onChange={(e) => setNewQuestion(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addQuestion()}
-            placeholder="Savol qo'shing..."
+            placeholder={t("pages.vacancyCreate.questionPlaceholder")}
             className={inputClass + " flex-1"} />
           <button onClick={addQuestion} className="px-4 py-2.5 bg-surface rounded-lg text-sm font-medium text-ink-2 hover:bg-border-soft transition-colors border border-border">
             <Plus className="w-4 h-4" />
@@ -573,20 +585,20 @@ export default function VacancyCreate() {
       <div className="flex flex-wrap gap-3 sticky bottom-0 bg-bg/95 backdrop-blur-sm pt-4 pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
         <button onClick={() => navigate(-1)}
           className="flex-1 min-w-[100px] py-3 rounded-lg border border-border bg-white text-ink-2 text-sm font-medium hover:bg-surface transition-colors">
-          Bekor qilish
+          {t("common.cancel")}
         </button>
         <button onClick={() => setShowPreview(true)} disabled={!form.title.trim()}
           className="flex-1 min-w-[100px] py-3 rounded-lg border border-border bg-white text-ink-2 text-sm font-medium hover:bg-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-          <Eye className="w-4 h-4" /> Ko'rib chiqish
+          <Eye className="w-4 h-4" /> {t("pages.vacancyCreate.previewButton")}
         </button>
         <button onClick={() => save("draft")} disabled={saving || !form.title.trim() || !form.company.trim()}
           className="flex-1 min-w-[100px] py-3 rounded-lg border border-border bg-white text-ink-2 text-sm font-medium hover:bg-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-          <Save className="w-4 h-4" /> Qoralama
+          <Save className="w-4 h-4" /> {t("status.Qoralama")}
         </button>
         <button onClick={() => save("submit")} disabled={saving || !canSubmitForReview}
-          title={!descriptionValid ? `Tavsif kamida ${DESCRIPTION_MIN_LENGTH} belgidan iborat bo'lishi kerak` : undefined}
+          title={!descriptionValid ? t("pages.vacancyCreate.descriptionTooltip", { min: DESCRIPTION_MIN_LENGTH }) : undefined}
           className="flex-1 min-w-[140px] py-3 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-hover transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-          <Save className="w-4 h-4" /> {saving ? "Saqlanmoqda..." : "Ko'rib chiqishga yuborish"}
+          <Save className="w-4 h-4" /> {saving ? t("pages.vacancyCreate.savingText") : t("pages.vacancyCreate.submitForReviewButton")}
         </button>
       </div>
 

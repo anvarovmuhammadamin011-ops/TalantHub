@@ -1,27 +1,29 @@
 import { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Clock, Star, CheckCircle, XCircle, Building, Briefcase, Send, TrendingUp, Paperclip, X, Heart } from "lucide-react";
+import { ArrowLeft, MapPin, Clock, Star, CheckCircle, XCircle, Building, Briefcase, Send, TrendingUp, Paperclip, X } from "lucide-react";
 import { api } from "../lib/api";
-import { timeAgo, computeMatch, formatSalary } from "../lib/format";
+import { timeAgo, formatSalary, formatDate } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
-import { useToast } from "../context/ToastContext";
-import MatchIndicator from "../components/ui/MatchIndicator";
 import StatusBadge from "../components/ui/StatusBadge";
 import ReportButton from "../components/ui/ReportButton";
+import SaveButton from "../components/ui/SaveButton";
+import CompanyLogo from "../components/ui/CompanyLogo";
+import { useT } from "../context/I18nContext";
 
 export default function VacancyDetail() {
   const { id } = useParams();
   const { user } = useAuth();
+  const { t } = useT();
   const navigate = useNavigate();
-  const showToast = useToast();
   const [vacancy, setVacancy] = useState(null);
   const [similar, setSimilar] = useState([]);
   const [marketSalary, setMarketSalary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [applied, setApplied] = useState(false);
   const [applying, setApplying] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [resumeUrl, setResumeUrl] = useState("");
   const [coverLetter, setCoverLetter] = useState("");
@@ -34,13 +36,13 @@ export default function VacancyDetail() {
   useEffect(() => {
     async function load() {
       setLoading(true);
+      setLoadError("");
       try {
         const [{ vacancy }, { applications }] = await Promise.all([
           api(`/vacancies/${id}`),
           api("/applications").catch(() => ({ applications: [] })),
         ]);
         setVacancy(vacancy);
-        setSaved(!!vacancy.is_saved);
         setApplied(applications.some((a) => String(a.vacancy_id) === String(id)));
         setAppliedVacancyIds(new Set(applications.map((a) => Number(a.vacancy_id))));
 
@@ -61,25 +63,13 @@ export default function VacancyDetail() {
         }
       } catch (err) {
         console.error(err);
+        setLoadError(err.message || t("common.error"));
       } finally {
         setLoading(false);
       }
     }
     load();
-  }, [id]);
-
-  const toggleSave = async () => {
-    if (!user) { navigate("/login"); return; }
-    const next = !saved;
-    setSaved(next);
-    try {
-      await api(`/vacancies/${id}/save`, { method: next ? "POST" : "DELETE" });
-    } catch (err) {
-      console.error(err);
-      showToast("Saqlashda xatolik yuz berdi", "error");
-      setSaved(!next);
-    }
-  };
+  }, [id, reloadKey]);
 
   const openApplyModal = () => {
     if (applied || applying) return;
@@ -113,7 +103,7 @@ export default function VacancyDetail() {
         setAppliedVacancyIds((prev) => new Set(prev).add(Number(id)));
         setShowApplyModal(false);
       } else {
-        setError(err.message || "Xatolik yuz berdi");
+        setError(err.message || t("common.error"));
       }
     } finally {
       setApplying(false);
@@ -147,29 +137,35 @@ export default function VacancyDetail() {
   };
 
   if (loading) {
-    return <div className="max-w-4xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">Yuklanmoqda...</div>;
+    return <div className="max-w-4xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">{t("common.loading")}</div>;
+  }
+
+  if (loadError) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-20 text-center">
+        <div className="inline-block bg-danger-soft text-danger text-sm px-4 py-3 rounded-lg mb-4">{loadError}</div>
+        <div><button onClick={() => setReloadKey((k) => k + 1)} className="text-sm font-medium text-accent hover:underline">{t("common.retry")}</button></div>
+      </div>
+    );
   }
 
   if (!vacancy) {
-    return <div className="max-w-4xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">Vakansiya topilmadi</div>;
+    return <div className="max-w-4xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">{t("pages.vacancyDetail.notFound")}</div>;
   }
 
-  const matchPercent = computeMatch(user?.skills, vacancy.tags);
   const matchedTags = vacancy.tags.filter((t) => (user?.skills || []).some((s) => s.toLowerCase().includes(t.toLowerCase()) || t.toLowerCase().includes(s.toLowerCase())));
   const unmatchedTags = vacancy.tags.filter((t) => !matchedTags.includes(t));
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-28 md:pb-10">
       <Link to="/vacancies" className="inline-flex items-center gap-2 text-ink-3 hover:text-ink mb-6 text-sm font-medium transition-colors">
-        <ArrowLeft className="w-4 h-4" /> Vakansiyalar
+        <ArrowLeft className="w-4 h-4" /> {t("nav.vacancies")}
       </Link>
 
       {/* Header */}
       <div className="bg-white rounded-xl border border-border p-6 md:p-8 mb-4">
         <div className="flex items-start gap-4">
-          <div className="w-14 h-14 bg-surface rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
-            {vacancy.company_logo || "🏢"}
-          </div>
+          <CompanyLogo name={vacancy.company} logo={vacancy.company_logo} size="lg" />
           <div className="flex-1">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -181,17 +177,8 @@ export default function VacancyDetail() {
                 </div>
               </div>
               <div className="hidden sm:flex items-center gap-2">
-                <MatchIndicator percent={matchPercent} size="lg" />
                 {user?.role === "specialist" && (
-                  <button
-                    onClick={toggleSave}
-                    className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-colors ${
-                      saved ? "text-danger bg-danger-soft border-danger/10" : "text-ink-3 border-border hover:text-ink hover:bg-surface"
-                    }`}
-                    title={saved ? "Saqlangandan olib tashlash" : "Saqlash"}
-                  >
-                    <Heart className="w-[18px] h-[18px]" fill={saved ? "currentColor" : "none"} />
-                  </button>
+                  <SaveButton vacancyId={id} initialSaved={vacancy.is_saved} size="lg" />
                 )}
               </div>
             </div>
@@ -212,17 +199,8 @@ export default function VacancyDetail() {
         </div>
 
         <div className="sm:hidden flex justify-center items-center gap-2 mt-6">
-          <MatchIndicator percent={matchPercent} size="lg" />
           {user?.role === "specialist" && (
-            <button
-              onClick={toggleSave}
-              className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-colors ${
-                saved ? "text-danger bg-danger-soft border-danger/10" : "text-ink-3 border-border hover:text-ink hover:bg-surface"
-              }`}
-              title={saved ? "Saqlangandan olib tashlash" : "Saqlash"}
-            >
-              <Heart className="w-[18px] h-[18px]" fill={saved ? "currentColor" : "none"} />
-            </button>
+            <SaveButton vacancyId={id} initialSaved={vacancy.is_saved} size="lg" />
           )}
         </div>
 
@@ -233,14 +211,14 @@ export default function VacancyDetail() {
           </div>
           <div className="flex items-center gap-1 text-sm text-ink-3">
             <Star className="w-3.5 h-3.5 text-ink fill-ink" />
-            {vacancy.company_rating} ({vacancy.company_reviews} sharh)
+            {vacancy.company_rating} ({t("pages.vacancyDetail.reviewsCount", { count: vacancy.company_reviews })})
           </div>
         </div>
 
         {(!!vacancy.day_off || !!vacancy.start_date) && (
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-3">
-            {!!vacancy.day_off && <span>Dam olish kuni: <span className="text-ink-2 font-medium">{vacancy.day_off}</span></span>}
-            {!!vacancy.start_date && <span>Ish boshlanishi: <span className="text-ink-2 font-medium">{new Date(vacancy.start_date).toLocaleDateString("uz-UZ")}</span></span>}
+            {!!vacancy.day_off && <span>{t("pages.vacancyDetail.dayOffLabel")} <span className="text-ink-2 font-medium">{vacancy.day_off}</span></span>}
+            {!!vacancy.start_date && <span>{t("pages.vacancyDetail.startDateLabel")} <span className="text-ink-2 font-medium">{formatDate(vacancy.start_date)}</span></span>}
           </div>
         )}
       </div>
@@ -250,14 +228,14 @@ export default function VacancyDetail() {
         <div className="md:col-span-2 space-y-4">
           {/* Description */}
           <div className="bg-white rounded-xl border border-border p-6">
-            <h2 className="text-base font-semibold text-ink mb-3">Vakansiya haqida</h2>
+            <h2 className="text-base font-semibold text-ink mb-3">{t("pages.vacancyDetail.aboutTitle")}</h2>
             <p className="text-ink-2 text-sm leading-relaxed">{vacancy.description}</p>
           </div>
 
           {/* Responsibilities */}
           {vacancy.responsibilities && vacancy.responsibilities.length > 0 && (
             <div className="bg-white rounded-xl border border-border p-6">
-              <h2 className="text-base font-semibold text-ink mb-3">Vazifalar</h2>
+              <h2 className="text-base font-semibold text-ink mb-3">{t("pages.vacancyDetail.responsibilitiesTitle")}</h2>
               <ul className="space-y-2.5">
                 {vacancy.responsibilities.map((r, i) => (
                   <li key={i} className="flex items-start gap-2.5">
@@ -272,7 +250,7 @@ export default function VacancyDetail() {
           {/* Requirements */}
           {vacancy.requirements.length > 0 && (
             <div className="bg-white rounded-xl border border-border p-6">
-              <h2 className="text-base font-semibold text-ink mb-3">Talablar</h2>
+              <h2 className="text-base font-semibold text-ink mb-3">{t("pages.vacancyDetail.requirementsTitle")}</h2>
               <ul className="space-y-2.5">
                 {vacancy.requirements.map((req, i) => (
                   <li key={i} className="flex items-start gap-2.5">
@@ -287,7 +265,7 @@ export default function VacancyDetail() {
           {/* Conditions */}
           {vacancy.conditions.length > 0 && (
             <div className="bg-white rounded-xl border border-border p-6">
-              <h2 className="text-base font-semibold text-ink mb-3">Imtiyozlar</h2>
+              <h2 className="text-base font-semibold text-ink mb-3">{t("pages.vacancyDetail.benefitsTitle")}</h2>
               <ul className="space-y-2.5">
                 {vacancy.conditions.map((cond, i) => (
                   <li key={i} className="flex items-start gap-2.5">
@@ -302,12 +280,12 @@ export default function VacancyDetail() {
           {/* Similar vacancies */}
           {similar.length > 0 && (
             <div className="bg-white rounded-xl border border-border p-6">
-              <h2 className="text-base font-semibold text-ink mb-1">O'xshash vakansiyalar</h2>
+              <h2 className="text-base font-semibold text-ink mb-1">{t("pages.vacancyDetail.similarTitle")}</h2>
               {applied && (
                 <p className="text-xs text-ink-3 mb-3">
                   {bulkResult !== null
-                    ? `${bulkResult} ta vakansiyaga shu CV bilan ariza yuborildi.`
-                    : "Xohlasangiz, shu CV bilan quyidagilarga ham tezkor ariza yuboring."}
+                    ? t("pages.vacancyDetail.bulkAppliedMsg", { count: bulkResult })
+                    : t("pages.vacancyDetail.bulkApplyHint")}
                 </p>
               )}
               <div className="space-y-1">
@@ -324,9 +302,7 @@ export default function VacancyDetail() {
                         />
                       )}
                       <Link to={`/vacancies/${v.id}`} className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-10 h-10 bg-surface rounded-lg flex items-center justify-center text-lg flex-shrink-0">
-                          {v.company_logo || "🏢"}
-                        </div>
+                        <CompanyLogo name={v.company} logo={v.company_logo} size="md" />
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-ink text-sm truncate">{v.title}</div>
                           <div className="text-xs text-ink-3">{v.company} · {v.location}</div>
@@ -344,7 +320,7 @@ export default function VacancyDetail() {
                   disabled={bulkApplying}
                   className="w-full mt-4 py-2.5 bg-ink text-white rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  <Send className="w-4 h-4" /> {bulkApplying ? "Yuborilmoqda..." : `Tanlangan ${selectedSimilar.size} taga ariza yuborish`}
+                  <Send className="w-4 h-4" /> {bulkApplying ? t("pages.vacancyDetail.sending") : t("pages.vacancyDetail.bulkApplyButton", { count: selectedSimilar.size })}
                 </button>
               )}
             </div>
@@ -357,21 +333,21 @@ export default function VacancyDetail() {
           {marketSalary && (
             <div className="bg-white rounded-xl border border-border p-6">
               <h3 className="font-semibold text-ink text-sm mb-1 flex items-center gap-1.5">
-                <TrendingUp className="w-4 h-4 text-ink-3" /> Bu lavozim uchun odatdagi maosh
+                <TrendingUp className="w-4 h-4 text-ink-3" /> {t("pages.vacancyDetail.marketSalaryTitle")}
               </h3>
-              <p className="text-xs text-ink-3 mb-4">Shu kategoriyadagi vakansiyalar asosida</p>
+              <p className="text-xs text-ink-3 mb-4">{t("pages.vacancyDetail.marketSalarySubtitle")}</p>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div>
                   <div className="text-sm font-semibold text-ink">{formatSalary(marketSalary.min)}</div>
-                  <div className="text-[10px] text-ink-3 mt-0.5">minimum</div>
+                  <div className="text-[10px] text-ink-3 mt-0.5">{t("pages.vacancyDetail.min")}</div>
                 </div>
                 <div>
                   <div className="text-sm font-semibold text-accent">{formatSalary(marketSalary.avg)}</div>
-                  <div className="text-[10px] text-ink-3 mt-0.5">o'rtacha</div>
+                  <div className="text-[10px] text-ink-3 mt-0.5">{t("pages.vacancyDetail.avg")}</div>
                 </div>
                 <div>
                   <div className="text-sm font-semibold text-ink">{formatSalary(marketSalary.max)}</div>
-                  <div className="text-[10px] text-ink-3 mt-0.5">maksimum</div>
+                  <div className="text-[10px] text-ink-3 mt-0.5">{t("pages.vacancyDetail.max")}</div>
                 </div>
               </div>
             </div>
@@ -379,15 +355,11 @@ export default function VacancyDetail() {
 
           {/* Match details */}
           <div className="bg-white rounded-xl border border-border p-6">
-            <h3 className="font-semibold text-ink text-sm mb-4 text-center">Moslik tahlili</h3>
-            <div className="flex justify-center mb-4">
-              <MatchIndicator percent={matchPercent} size="lg" />
-            </div>
-            <div className="text-center text-sm text-ink-3 mb-5">Sizga {matchPercent}% mos</div>
+            <h3 className="font-semibold text-ink text-sm mb-4 text-center">{t("pages.vacancyDetail.matchAnalysisTitle")}</h3>
             <div className="space-y-4">
               {matchedTags.length > 0 && (
                 <div>
-                  <div className="text-xs font-medium text-ink-3 uppercase tracking-wide mb-2">Mos ko'nikmalar</div>
+                  <div className="text-xs font-medium text-ink-3 uppercase tracking-wide mb-2">{t("pages.vacancyDetail.matchedSkillsLabel")}</div>
                   <div className="flex flex-wrap gap-1.5">
                     {matchedTags.map((tag) => (
                       <span key={tag} className="px-2 py-1 bg-success-soft text-success rounded-md text-xs font-medium flex items-center gap-1">
@@ -399,7 +371,7 @@ export default function VacancyDetail() {
               )}
               {unmatchedTags.length > 0 && (
                 <div>
-                  <div className="text-xs font-medium text-ink-3 uppercase tracking-wide mb-2">Yo'q ko'nikmalar</div>
+                  <div className="text-xs font-medium text-ink-3 uppercase tracking-wide mb-2">{t("pages.vacancyDetail.missingSkillsLabel")}</div>
                   <div className="flex flex-wrap gap-1.5">
                     {unmatchedTags.map((tag) => (
                       <span key={tag} className="px-2 py-1 bg-danger-soft text-danger rounded-md text-xs font-medium flex items-center gap-1">
@@ -414,21 +386,19 @@ export default function VacancyDetail() {
 
           {/* Company */}
           <div className="bg-white rounded-xl border border-border p-6">
-            <h3 className="font-semibold text-ink text-sm mb-4">Kompaniya</h3>
+            <h3 className="font-semibold text-ink text-sm mb-4">{t("pages.vacancyDetail.companyTitle")}</h3>
             <Link to={`/companies/${vacancy.author_id}`} className="flex items-center gap-3 group">
-              <div className="w-11 h-11 bg-surface rounded-lg flex items-center justify-center text-xl">
-                {vacancy.company_logo || "🏢"}
-              </div>
+              <CompanyLogo name={vacancy.company} logo={vacancy.company_logo} size="ml" />
               <div>
                 <div className="font-medium text-ink text-sm group-hover:text-accent transition-colors">{vacancy.company}</div>
                 <div className="flex items-center gap-1 text-sm text-ink-3">
                   <Star className="w-3.5 h-3.5 text-ink fill-ink" />
-                  {vacancy.company_rating} · {vacancy.company_reviews} sharh
+                  {vacancy.company_rating} · {t("pages.vacancyDetail.reviewsCount", { count: vacancy.company_reviews })}
                 </div>
               </div>
             </Link>
             <Link to={`/companies/${vacancy.author_id}`} className="mt-3 inline-block text-xs font-medium text-accent hover:underline">
-              Kompaniya profilini ko'rish →
+              {t("pages.vacancyDetail.viewCompanyProfile")} →
             </Link>
             <div className="mt-4 pt-4 border-t border-border-soft flex justify-end">
               <ReportButton targetType="vacancy" targetId={Number(id)} />
@@ -441,7 +411,7 @@ export default function VacancyDetail() {
       <div className="fixed bottom-16 md:bottom-0 left-0 right-0 bg-white border-t border-border p-4 z-40">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
           <div>
-            <div className="text-xs text-ink-3">Maosh</div>
+            <div className="text-xs text-ink-3">{t("pages.vacancyDetail.salaryLabel")}</div>
             <div className="font-semibold text-ink text-sm">{vacancy.salary}</div>
           </div>
           {error && !showApplyModal && <div className="text-xs text-red-500 flex-1 text-right">{error}</div>}
@@ -458,13 +428,13 @@ export default function VacancyDetail() {
           >
             {applied ? (
               <>
-                <CheckCircle className="w-4 h-4" /> Yuborildi
+                <CheckCircle className="w-4 h-4" /> {t("status.Yuborildi")}
               </>
             ) : applying ? (
-              "Yuborilmoqda..."
+              t("pages.vacancyDetail.sending")
             ) : (
               <>
-                <Send className="w-4 h-4" /> Ariza yuborish
+                <Send className="w-4 h-4" /> {t("common.apply")}
               </>
             )}
           </button>
@@ -477,7 +447,7 @@ export default function VacancyDetail() {
           <div className="absolute inset-0 bg-black/40" onClick={() => !applying && setShowApplyModal(false)} />
           <div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md p-6 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="font-semibold text-ink text-base">Ariza yuborish</h3>
+              <h3 className="font-semibold text-ink text-base">{t("common.apply")}</h3>
               <button onClick={() => !applying && setShowApplyModal(false)} className="p-1 text-ink-3 hover:text-ink">
                 <X className="w-5 h-5" />
               </button>
@@ -485,26 +455,26 @@ export default function VacancyDetail() {
             <p className="text-sm text-ink-3 mb-5">{vacancy.title} — {vacancy.company}</p>
 
             <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-2">
-              CV / rezyume havolasi (ixtiyoriy)
+              {t("pages.vacancyDetail.resumeLinkLabel")}
             </label>
             <div className="relative mb-1.5">
               <Paperclip className="w-4 h-4 text-ink-3 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Google Drive, PDF yoki boshqa havola"
+                placeholder={t("pages.vacancyDetail.resumeLinkPlaceholder")}
                 value={resumeUrl}
                 onChange={(e) => setResumeUrl(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors bg-white text-sm"
               />
             </div>
-            <p className="text-xs text-ink-3 mb-5">Havola qo'shsangiz, ish beruvchi CV'ingizni to'g'ridan-to'g'ri ko'ra oladi.</p>
+            <p className="text-xs text-ink-3 mb-5">{t("pages.vacancyDetail.resumeLinkHint")}</p>
 
             <label className="block text-xs font-medium text-ink-3 uppercase tracking-wide mb-2">
-              Xat (ixtiyoriy)
+              {t("pages.vacancyDetail.coverLetterLabel")}
             </label>
             <textarea
               rows={3}
-              placeholder="Nega aynan siz bu lavozimga mos ekanligingizni qisqacha yozing..."
+              placeholder={t("pages.vacancyDetail.coverLetterPlaceholder")}
               value={coverLetter}
               onChange={(e) => setCoverLetter(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors bg-white text-sm resize-none mb-5"
@@ -534,14 +504,14 @@ export default function VacancyDetail() {
                 disabled={applying}
                 className="flex-1 px-4 py-2.5 rounded-lg border border-border text-ink-2 text-sm font-medium hover:bg-surface transition-colors"
               >
-                Bekor qilish
+                {t("common.cancel")}
               </button>
               <button
                 onClick={handleApply}
                 disabled={applying}
                 className="flex-1 px-4 py-2.5 rounded-lg bg-ink text-white text-sm font-medium hover:bg-ink/90 transition-colors flex items-center justify-center gap-2"
               >
-                {applying ? "Yuborilmoqda..." : (<><Send className="w-4 h-4" /> Yuborish</>)}
+                {applying ? t("pages.vacancyDetail.sending") : (<><Send className="w-4 h-4" /> {t("common.submit")}</>)}
               </button>
             </div>
           </div>

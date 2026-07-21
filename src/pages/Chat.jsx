@@ -4,21 +4,25 @@ import { Send, Calendar, Search, MoreVertical, Phone, Video, ArrowLeft, CheckChe
 import { api } from "../lib/api";
 import { useSocket } from "../context/SocketContext";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import { useT } from "../context/I18nContext";
 import AiChatPanel from "../components/chat/AiChatPanel";
 
-async function reportMessage(messageId) {
-  const reason = prompt("Shikoyat sababini kiriting:");
+async function reportMessage(messageId, t) {
+  const reason = prompt(t("pages.chat.reportReasonPrompt"));
   if (!reason || !reason.trim()) return;
   try {
     await api("/reports", { method: "POST", body: { target_type: "chat", target_id: messageId, reason: reason.trim() } });
-    alert("Shikoyatingiz qabul qilindi. Administrator tez orada ko'rib chiqadi.");
+    alert(t("pages.chat.reportSuccess"));
   } catch (err) {
-    alert(err.message || "Xatolik yuz berdi");
+    alert(err.message || t("common.error"));
   }
 }
 
 export default function Chat() {
   const { user } = useAuth();
+  const showToast = useToast();
+  const { t } = useT();
   const { sendMessage, joinChat, leaveChat, startTyping, stopTyping, onlineUsers, typingUsers } = useSocket();
   const [searchParams] = useSearchParams();
   const [chats, setChats] = useState([]);
@@ -48,6 +52,7 @@ export default function Chat() {
         }
       } catch (err) {
         console.error("Chats load error:", err);
+        showToast(err.message || t("pages.chat.loadChatsError"), "error");
       } finally {
         setLoading(false);
       }
@@ -73,6 +78,7 @@ export default function Chat() {
         joinChat(activeChat.id);
       } catch (err) {
         console.error("Messages load error:", err);
+        showToast(err.message || t("pages.chat.loadMessagesError"), "error");
       }
     }
     loadMessages();
@@ -117,7 +123,7 @@ export default function Chat() {
 
   const getOtherName = (chat) => {
     if (chat.other_name) return chat.other_name;
-    return "Foydalanuvchi";
+    return t("pages.chat.defaultUserName");
   };
 
   const isOnline = (chat) => onlineUsers.has(chat.other_id);
@@ -147,10 +153,10 @@ export default function Chat() {
           {/* Chat list */}
           <div className={`w-full md:w-80 border-r border-border flex flex-col ${showMobileChat ? "hidden md:flex" : "flex"}`}>
             <div className="p-4 border-b border-border">
-              <h2 className="font-semibold text-ink text-sm mb-3">Xabarlar</h2>
+              <h2 className="font-semibold text-ink text-sm mb-3">{t("nav.chat")}</h2>
               <div className="relative">
                 <Search className="w-4 h-4 text-ink-3 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input type="text" placeholder="Suhbat qidirish..."
+                <input type="text" placeholder={t("pages.chat.searchPlaceholder")}
                   value={chatSearch} onChange={(e) => setChatSearch(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 rounded-lg border border-border text-sm focus:border-ink/30 outline-none transition-colors" />
               </div>
@@ -164,15 +170,15 @@ export default function Chat() {
                   <Sparkles className="w-5 h-5 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className="font-medium text-ink text-sm">AI yordamchi</span>
-                  <p className="text-xs text-ink-3 truncate mt-0.5">Kerakli mutaxassisni qidiring</p>
+                  <span className="font-medium text-ink text-sm">{t("pages.chat.aiAssistant")}</span>
+                  <p className="text-xs text-ink-3 truncate mt-0.5">{t("pages.chat.aiAssistantDesc")}</p>
                 </div>
               </button>
-              {loading && <div className="p-4 text-sm text-ink-3">Yuklanmoqda...</div>}
+              {loading && <div className="p-4 text-sm text-ink-3">{t("common.loading")}</div>}
               {!loading && chats.length === 0 && (
                 <div className="p-6 text-center">
                   <div className="text-3xl mb-3">💬</div>
-                  <p className="text-sm text-ink-3">Hozircha suhbatlar yo'q</p>
+                  <p className="text-sm text-ink-3">{t("pages.chat.emptyChats")}</p>
                 </div>
               )}
               {chats.map((chat) => (
@@ -192,7 +198,7 @@ export default function Chat() {
                       <span className="text-[10px] text-ink-3 flex-shrink-0">{formatTime(chat.last_message_at)}</span>
                     </div>
                     <p className="text-xs text-ink-3 truncate mt-0.5">
-                      {isTyping(chat) ? <span className="text-accent italic">Yozmoqda...</span> : (chat.last_message || "Suhbatni boshlang")}
+                      {isTyping(chat) ? <span className="text-accent italic">{t("pages.chat.typing")}</span> : (chat.last_message || t("pages.chat.startChat"))}
                     </p>
                   </div>
                   {chat.unread_count > 0 && (
@@ -217,8 +223,8 @@ export default function Chat() {
                     <Sparkles className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <div className="font-medium text-ink text-sm">AI yordamchi</div>
-                    <div className="text-xs text-ink-3">Kadrlar bo'yicha yordamchi</div>
+                    <div className="font-medium text-ink text-sm">{t("pages.chat.aiAssistant")}</div>
+                    <div className="text-xs text-ink-3">{t("pages.chat.aiAssistantSubtitle")}</div>
                   </div>
                 </div>
                 <AiChatPanel />
@@ -239,7 +245,7 @@ export default function Chat() {
                     <div>
                       <div className="font-medium text-ink text-sm">{getOtherName(activeChat)}</div>
                       <div className={`text-xs font-medium ${isOnline(activeChat) ? "text-accent" : "text-ink-3"}`}>
-                        {isOnline(activeChat) ? "Onlayn" : "Oflayn"}
+                        {isOnline(activeChat) ? t("pages.chat.online") : t("pages.chat.offline")}
                       </div>
                     </div>
                   </div>
@@ -260,7 +266,7 @@ export default function Chat() {
                   {messages.map((msg) => (
                     <div key={msg.id} className={`group flex items-end gap-1 ${msg.sender_id === user?.id ? "justify-end" : "justify-start"}`}>
                       {msg.sender_id !== user?.id && (
-                        <button onClick={() => reportMessage(msg.id)} title="Shikoyat qilish"
+                        <button onClick={() => reportMessage(msg.id, t)} title={t("pages.chat.reportTooltip")}
                           className="opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 flex items-center justify-center rounded-md text-ink-3 hover:text-red-500 hover:bg-red-50 flex-shrink-0">
                           <Flag className="w-3 h-3" />
                         </button>
@@ -290,7 +296,7 @@ export default function Chat() {
                       className="w-10 h-10 flex items-center justify-center rounded-lg bg-surface text-ink-2 hover:bg-border-soft transition-colors">
                       <Calendar className="w-[18px] h-[18px]" />
                     </button>
-                    <input type="text" placeholder="Xabar yozing..." value={newMessage} onChange={handleTyping}
+                    <input type="text" placeholder={t("pages.chat.messagePlaceholder")} value={newMessage} onChange={handleTyping}
                       onKeyDown={(e) => e.key === "Enter" && handleSend()}
                       className="flex-1 px-4 py-2.5 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors text-sm" />
                     <button onClick={handleSend} disabled={sending || !newMessage.trim()}
@@ -300,18 +306,18 @@ export default function Chat() {
                   </div>
                   {showSchedule && (
                     <div className="mt-3 bg-surface rounded-xl p-4">
-                      <h4 className="font-medium text-ink text-sm mb-3">Intervyu taklif qilish</h4>
+                      <h4 className="font-medium text-ink text-sm mb-3">{t("pages.chat.scheduleInterview")}</h4>
                       <div className="grid grid-cols-2 gap-3 mb-3">
                         <input type="date" value={scheduleForm.date} onChange={(e) => setScheduleForm({ ...scheduleForm, date: e.target.value })}
                           className="px-3 py-2 rounded-lg border border-border text-sm focus:border-ink/30 outline-none bg-white" />
                         <input type="time" value={scheduleForm.time} onChange={(e) => setScheduleForm({ ...scheduleForm, time: e.target.value })}
                           className="px-3 py-2 rounded-lg border border-border text-sm focus:border-ink/30 outline-none bg-white" />
                       </div>
-                      <input type="text" placeholder="Izoh (ixtiyoriy)" value={scheduleForm.note}
+                      <input type="text" placeholder={t("pages.chat.notePlaceholder")} value={scheduleForm.note}
                         onChange={(e) => setScheduleForm({ ...scheduleForm, note: e.target.value })}
                         className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:border-ink/30 outline-none mb-3 bg-white" />
                       <button className="w-full py-2 bg-ink text-white rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors">
-                        Taklif yuborish
+                        {t("pages.chat.sendProposal")}
                       </button>
                     </div>
                   )}
@@ -321,8 +327,8 @@ export default function Chat() {
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center">
                   <div className="w-14 h-14 mx-auto flex items-center justify-center rounded-full bg-surface border border-border text-2xl mb-5">💬</div>
-                  <h3 className="font-semibold text-ink text-sm mb-1.5">Suhbatni tanlang</h3>
-                  <p className="text-ink-3 text-sm">Chap tomondagi suhbatlar ro'yxatidan birini tanlang</p>
+                  <h3 className="font-semibold text-ink text-sm mb-1.5">{t("pages.chat.selectChatTitle")}</h3>
+                  <p className="text-ink-3 text-sm">{t("pages.chat.selectChatDesc")}</p>
                 </div>
               </div>
             )}

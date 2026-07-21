@@ -2,12 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, Shield, Star, Globe, Monitor, Flag, ClipboardCheck, Briefcase, Package, Wallet } from "lucide-react";
 import { api } from "../lib/api";
-import { timeAgo } from "../lib/format";
+import { timeAgo, formatDate } from "../lib/format";
 import StatusBadge from "../components/ui/StatusBadge";
 import VerifiedBadge from "../components/ui/VerifiedBadge";
 import EmptyState from "../components/ui/EmptyState";
-
-const roleLabels = { specialist: "Mutaxassis", employer: "Ish beruvchi", admin: "Admin" };
+import { useT } from "../context/I18nContext";
 
 function Section({ title, icon: Icon, children, count }) {
   return (
@@ -23,30 +22,32 @@ function Section({ title, icon: Icon, children, count }) {
 }
 
 export default function AdminUserDetail() {
+  const { t } = useT();
   const { id } = useParams();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const roleLabels = { specialist: t("role.specialist"), employer: t("role.employer"), admin: t("admin.roleAdmin") };
 
   const load = useCallback(() => {
     setLoading(true);
     api(`/admin/users/${id}/detail`)
       .then(setData)
-      .catch((err) => setError(err.message || "Xatolik yuz berdi"))
+      .catch((err) => setError(err.message || t("common.error")))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, t]);
 
   useEffect(() => { load(); }, [load]);
 
-  if (loading) return <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-center text-ink-3 text-sm">Yuklanmoqda...</div>;
-  if (error || !data) return <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10"><EmptyState icon="⚠️" title="Topilmadi" description={error || "Foydalanuvchi topilmadi"} /></div>;
+  if (loading) return <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-center text-ink-3 text-sm">{t("common.loading")}</div>;
+  if (error || !data) return <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10"><EmptyState icon="⚠️" title={t("pages.adminUserDetail.notFoundTitle")} description={error || t("pages.adminUserDetail.notFoundDescription")} /></div>;
 
   const { user, applications, orders, vacancies, reportsFiled, reportsReceived, verification, lastLogin, loginHistory, transactions, balance } = data;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <Link to="/admin" className="inline-flex items-center gap-1.5 text-sm text-ink-3 hover:text-ink mb-6 transition-colors">
-        <ArrowLeft className="w-4 h-4" /> Admin panelga qaytish
+        <ArrowLeft className="w-4 h-4" /> {t("pages.adminUserDetail.backToAdmin")}
       </Link>
 
       <div className="bg-white rounded-xl border border-border p-6 mb-6">
@@ -59,9 +60,9 @@ export default function AdminUserDetail() {
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-semibold text-ink">{user.name}</h1>
                 {!!user.verified && <VerifiedBadge size="sm" />}
-                {!!user.blocked && <span className="text-[11px] text-red-500 font-medium px-2 py-0.5 rounded-full bg-red-50">Bloklangan{user.blocked_reason ? `: ${user.blocked_reason}` : ""}</span>}
+                {!!user.blocked && <span className="text-[11px] text-red-500 font-medium px-2 py-0.5 rounded-full bg-red-50">{t("pages.adminUsers.blocked")}{user.blocked_reason ? `: ${user.blocked_reason}` : ""}</span>}
               </div>
-              <p className="text-sm text-ink-3">{user.email} · {user.phone || "telefon yo'q"} · {user.city || "—"}</p>
+              <p className="text-sm text-ink-3">{user.email} · {user.phone || t("pages.adminUserDetail.noPhone")} · {user.city || "—"}</p>
               <div className="flex items-center gap-2 mt-2">
                 <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-ink/5 text-ink-2">{roleLabels[user.role] || user.role}</span>
                 {user.role === "admin" && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">{user.admin_role || "super_admin"}</span>}
@@ -70,8 +71,8 @@ export default function AdminUserDetail() {
             </div>
           </div>
           <div className="text-right text-xs text-ink-3 space-y-1">
-            <div>Ro'yxatdan o'tgan: {user.created_at ? new Date(user.created_at + "Z").toLocaleDateString("uz-UZ") : "—"}</div>
-            <div>Oxirgi kirish: {lastLogin ? timeAgo(lastLogin.created_at) : "—"}</div>
+            <div>{t("pages.adminUserDetail.registeredLabel")}: {user.created_at ? formatDate(user.created_at + "Z") : "—"}</div>
+            <div>{t("pages.adminUserDetail.lastLoginLabel")}: {lastLogin ? timeAgo(lastLogin.created_at) : "—"}</div>
             {lastLogin?.ip && <div className="flex items-center gap-1 justify-end"><Globe className="w-3 h-3" /> {lastLogin.ip}</div>}
             <div className="font-semibold text-ink text-sm pt-1">{balance.toLocaleString("ru-RU")} so'm</div>
           </div>
@@ -81,8 +82,8 @@ export default function AdminUserDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {user.role === "specialist" && (
-          <Section title="Arizalar" icon={ClipboardCheck} count={applications.length}>
-            {applications.length === 0 ? <p className="text-xs text-ink-3">Arizalar yo'q</p> : (
+          <Section title={t("nav.applications")} icon={ClipboardCheck} count={applications.length}>
+            {applications.length === 0 ? <p className="text-xs text-ink-3">{t("pages.adminUserDetail.noApplications")}</p> : (
               <div className="space-y-2">
                 {applications.map((a) => (
                   <div key={a.id} className="flex items-center justify-between text-sm border-b border-border-soft pb-2 last:border-0 last:pb-0">
@@ -96,13 +97,13 @@ export default function AdminUserDetail() {
         )}
 
         {user.role === "employer" && (
-          <Section title="Vakansiyalar" icon={Briefcase} count={vacancies.length}>
-            {vacancies.length === 0 ? <p className="text-xs text-ink-3">Vakansiyalar yo'q</p> : (
+          <Section title={t("nav.vacancies")} icon={Briefcase} count={vacancies.length}>
+            {vacancies.length === 0 ? <p className="text-xs text-ink-3">{t("pages.adminUserDetail.noVacancies")}</p> : (
               <div className="space-y-2">
                 {vacancies.map((v) => (
                   <div key={v.id} className="flex items-center justify-between text-sm border-b border-border-soft pb-2 last:border-0 last:pb-0">
                     <Link to={`/admin/vacancies/${v.id}`} className="text-ink-2 hover:underline truncate">{v.title}</Link>
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${v.status === "Faol" ? "bg-emerald-50 text-emerald-600" : v.status === "Kutilmoqda" ? "bg-amber-50 text-amber-600" : "bg-gray-100 text-gray-500"}`}>{v.status}</span>
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${v.status === "Faol" ? "bg-emerald-50 text-emerald-600" : v.status === "Kutilmoqda" ? "bg-amber-50 text-amber-600" : "bg-gray-100 text-gray-500"}`}>{t(`status.${v.status}`)}</span>
                   </div>
                 ))}
               </div>
@@ -110,8 +111,8 @@ export default function AdminUserDetail() {
           </Section>
         )}
 
-        <Section title="Buyurtmalar" icon={Package} count={orders.length}>
-          {orders.length === 0 ? <p className="text-xs text-ink-3">Buyurtmalar yo'q</p> : (
+        <Section title={t("nav.orders")} icon={Package} count={orders.length}>
+          {orders.length === 0 ? <p className="text-xs text-ink-3">{t("pages.adminUserDetail.noOrders")}</p> : (
             <div className="space-y-2">
               {orders.map((o) => (
                 <div key={o.id} className="flex items-center justify-between text-sm border-b border-border-soft pb-2 last:border-0 last:pb-0">
@@ -123,14 +124,14 @@ export default function AdminUserDetail() {
           )}
         </Section>
 
-        <Section title="Verifikatsiya tarixi" icon={Shield} count={verification.length}>
-          {verification.length === 0 ? <p className="text-xs text-ink-3">So'rovlar yo'q</p> : (
+        <Section title={t("pages.adminUserDetail.verificationHistory")} icon={Shield} count={verification.length}>
+          {verification.length === 0 ? <p className="text-xs text-ink-3">{t("pages.adminUserDetail.noRequests")}</p> : (
             <div className="space-y-2">
               {verification.map((v) => (
                 <div key={v.id} className="text-sm border-b border-border-soft pb-2 last:border-0 last:pb-0">
                   <div className="flex items-center justify-between">
-                    <span className="text-ink-2">{v.type === "specialist" ? "Diplom/sertifikat" : "STIR"}</span>
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${v.status === "Tasdiqlangan" ? "bg-emerald-50 text-emerald-600" : v.status === "Rad etildi" ? "bg-red-50 text-red-500" : "bg-amber-50 text-amber-600"}`}>{v.status}</span>
+                    <span className="text-ink-2">{v.type === "specialist" ? t("pages.adminUserDetail.diplomaCert") : t("pages.adminUserDetail.taxId")}</span>
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${v.status === "Tasdiqlangan" ? "bg-emerald-50 text-emerald-600" : v.status === "Rad etildi" ? "bg-red-50 text-red-500" : "bg-amber-50 text-amber-600"}`}>{t(`status.${v.status}`)}</span>
                   </div>
                   {v.reject_reason && <p className="text-xs text-red-500 mt-0.5">{v.reject_reason}</p>}
                 </div>
@@ -139,14 +140,14 @@ export default function AdminUserDetail() {
           )}
         </Section>
 
-        <Section title="Shikoyatlar (qabul qilingan)" icon={Flag} count={reportsReceived.length}>
-          {reportsReceived.length === 0 ? <p className="text-xs text-ink-3">Shikoyatlar yo'q</p> : (
+        <Section title={t("pages.adminUserDetail.reportsReceivedTitle")} icon={Flag} count={reportsReceived.length}>
+          {reportsReceived.length === 0 ? <p className="text-xs text-ink-3">{t("pages.adminUserDetail.noReports")}</p> : (
             <div className="space-y-2">
               {reportsReceived.map((f) => (
                 <div key={f.id} className="text-sm border-b border-border-soft pb-2 last:border-0 last:pb-0">
                   <div className="flex items-center justify-between">
-                    <span className="text-ink-2 truncate">{f.reason || "Sabab ko'rsatilmagan"}</span>
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${f.status === "Tasdiqlangan" ? "bg-emerald-50 text-emerald-600" : f.status === "Rad etilgan" ? "bg-red-50 text-red-500" : "bg-amber-50 text-amber-600"}`}>{f.status}</span>
+                    <span className="text-ink-2 truncate">{f.reason || t("pages.adminUserDetail.noReasonGiven")}</span>
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${f.status === "Tasdiqlangan" ? "bg-emerald-50 text-emerald-600" : f.status === "Rad etilgan" ? "bg-red-50 text-red-500" : "bg-amber-50 text-amber-600"}`}>{t(`status.${f.status}`)}</span>
                   </div>
                 </div>
               ))}
@@ -154,8 +155,8 @@ export default function AdminUserDetail() {
           )}
         </Section>
 
-        <Section title="Shikoyatlar (yozgan)" icon={Flag} count={reportsFiled.length}>
-          {reportsFiled.length === 0 ? <p className="text-xs text-ink-3">Shikoyatlar yo'q</p> : (
+        <Section title={t("pages.adminUserDetail.reportsFiledTitle")} icon={Flag} count={reportsFiled.length}>
+          {reportsFiled.length === 0 ? <p className="text-xs text-ink-3">{t("pages.adminUserDetail.noReports")}</p> : (
             <div className="space-y-2">
               {reportsFiled.map((f) => (
                 <div key={f.id} className="text-sm border-b border-border-soft pb-2 last:border-0 last:pb-0">
@@ -166,17 +167,17 @@ export default function AdminUserDetail() {
           )}
         </Section>
 
-        <Section title="To'lovlar" icon={Wallet} count={transactions.length}>
-          {transactions.length === 0 ? <p className="text-xs text-ink-3">Tranzaksiyalar yo'q</p> : (
+        <Section title={t("pages.adminUserDetail.paymentsTitle")} icon={Wallet} count={transactions.length}>
+          {transactions.length === 0 ? <p className="text-xs text-ink-3">{t("pages.adminUserDetail.noTransactions")}</p> : (
             <div className="space-y-2">
-              {transactions.map((t) => (
-                <div key={t.id} className="flex items-center justify-between text-sm border-b border-border-soft pb-2 last:border-0 last:pb-0">
+              {transactions.map((tx) => (
+                <div key={tx.id} className="flex items-center justify-between text-sm border-b border-border-soft pb-2 last:border-0 last:pb-0">
                   <div className="min-w-0">
-                    <div className="text-ink-2 truncate">{t.description || t.type}</div>
-                    <div className="text-[10px] text-ink-3">{t.method} · {timeAgo(t.created_at)}</div>
+                    <div className="text-ink-2 truncate">{tx.description || tx.type}</div>
+                    <div className="text-[10px] text-ink-3">{tx.method} · {timeAgo(tx.created_at)}</div>
                   </div>
-                  <span className={`text-xs font-medium flex-shrink-0 ml-2 ${t.amount < 0 ? "text-danger" : "text-success"}`}>
-                    {t.amount > 0 ? "+" : ""}{t.amount.toLocaleString("ru-RU")}
+                  <span className={`text-xs font-medium flex-shrink-0 ml-2 ${tx.amount < 0 ? "text-danger" : "text-success"}`}>
+                    {tx.amount > 0 ? "+" : ""}{tx.amount.toLocaleString("ru-RU")}
                   </span>
                 </div>
               ))}
@@ -184,16 +185,16 @@ export default function AdminUserDetail() {
           )}
         </Section>
 
-        <Section title="Kirish tarixi" icon={Monitor} count={loginHistory.length}>
-          {loginHistory.length === 0 ? <p className="text-xs text-ink-3">Kirishlar qayd etilmagan</p> : (
+        <Section title={t("pages.adminUserDetail.loginHistoryTitle")} icon={Monitor} count={loginHistory.length}>
+          {loginHistory.length === 0 ? <p className="text-xs text-ink-3">{t("pages.adminUserDetail.noLoginRecords")}</p> : (
             <div className="space-y-2">
               {loginHistory.map((l, i) => (
                 <div key={i} className="text-xs text-ink-3 border-b border-border-soft pb-2 last:border-0 last:pb-0">
                   <div className="flex items-center justify-between">
-                    <span>{l.ip || "IP noma'lum"}</span>
+                    <span>{l.ip || t("pages.adminUserDetail.unknownIp")}</span>
                     <span>{timeAgo(l.created_at)}</span>
                   </div>
-                  <div className="truncate text-ink-3/80">{l.user_agent || "Qurilma noma'lum"}</div>
+                  <div className="truncate text-ink-3/80">{l.user_agent || t("pages.adminUserDetail.unknownDevice")}</div>
                 </div>
               ))}
             </div>

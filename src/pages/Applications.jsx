@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { Briefcase, Clock, ChevronRight, Award, TrendingUp, CheckCircle, XCircle, MessageSquare, X, Paperclip, Search, ChevronDown } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import { useT } from "../context/I18nContext";
 import { timeAgo } from "../lib/format";
 import StatusBadge from "../components/ui/StatusBadge";
 import MatchIndicator from "../components/ui/MatchIndicator";
@@ -10,6 +12,8 @@ import MatchIndicator from "../components/ui/MatchIndicator";
 export default function Applications() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const showToast = useToast();
+  const { t } = useT();
   const isEmployer = user?.role === "employer";
   const [applications, setApplications] = useState([]);
   const [stats, setStats] = useState({});
@@ -34,6 +38,7 @@ export default function Applications() {
       if (data.stats) setStats(data.stats);
     } catch (err) {
       console.error(err);
+      showToast(err.message || t("pages.applications.loadError"), "error");
     } finally {
       setLoading(false);
     }
@@ -46,19 +51,21 @@ export default function Applications() {
       await loadApps();
     } catch (err) {
       console.error(err);
+      showToast(err.message || t("pages.applications.statusUpdateError"), "error");
     } finally {
       setUpdatingId(null);
     }
   };
 
   const withdrawApp = async (id) => {
-    if (!confirm("Arizani qaytarib olishni xohlaysizmi?")) return;
+    if (!confirm(t("pages.applications.confirmWithdraw"))) return;
     setUpdatingId(id);
     try {
       await api(`/applications/${id}`, { method: "DELETE" });
       await loadApps();
     } catch (err) {
       console.error(err);
+      showToast(err.message || t("pages.applications.withdrawError"), "error");
     } finally {
       setUpdatingId(null);
     }
@@ -71,6 +78,7 @@ export default function Applications() {
       navigate("/chat");
     } catch (err) {
       console.error(err);
+      showToast(err.message || t("pages.applications.chatError"), "error");
     } finally {
       setContactingId(null);
     }
@@ -94,24 +102,24 @@ export default function Applications() {
     : null;
 
   if (loading) {
-    return <div className="max-w-6xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">Yuklanmoqda...</div>;
+    return <div className="max-w-6xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">{t("common.loading")}</div>;
   }
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="mb-8">
         <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight mb-1.5">
-          {isEmployer ? "Kelgan arizalar" : "Arizalar kuzatuvi"}
+          {isEmployer ? t("pages.applications.titleEmployer") : t("pages.applications.titleSpecialist")}
         </h1>
-        <p className="text-ink-3 text-sm">{applications.length} ta ariza</p>
+        <p className="text-ink-3 text-sm">{t("pages.applications.applicationsCount", { count: applications.length })}</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
         {[
-          { label: "Jami arizalar", value: stats.total || applications.length, icon: Briefcase, color: "bg-blue-50 text-blue-600" },
-          { label: "Intervyu", value: stats.interview || grouped["Interview"]?.length || 0, icon: Clock, color: "bg-amber-50 text-amber-600" },
-          { label: "Qabul qilindi", value: stats.accepted || grouped["Qabul qilindi"]?.length || 0, icon: Award, color: "bg-green-50 text-green-600" },
-          { label: "O'rtacha moslik", value: avgMatch === null ? "—" : `${avgMatch}%`, icon: TrendingUp, color: "bg-purple-50 text-purple-600" },
+          { label: t("pages.applications.statTotal"), value: stats.total || applications.length, icon: Briefcase, color: "bg-blue-50 text-blue-600" },
+          { label: t("status.Interview"), value: stats.interview || grouped["Interview"]?.length || 0, icon: Clock, color: "bg-amber-50 text-amber-600" },
+          { label: t("status.Qabul qilindi"), value: stats.accepted || grouped["Qabul qilindi"]?.length || 0, icon: Award, color: "bg-green-50 text-green-600" },
+          { label: t("pages.applications.statAvgMatch"), value: avgMatch === null ? "—" : `${avgMatch}%`, icon: TrendingUp, color: "bg-purple-50 text-purple-600" },
         ].map((stat) => (
           <div key={stat.label} className="bg-white rounded-xl border border-border p-4">
             <div className="flex items-center gap-3">
@@ -130,9 +138,9 @@ export default function Applications() {
       {applications.length === 0 ? (
         <div className="text-center py-20">
           <div className="w-14 h-14 mx-auto flex items-center justify-center rounded-full bg-surface border border-border text-2xl mb-5">📋</div>
-          <h3 className="text-base font-semibold text-ink mb-1.5">Hozircha arizalar yo'q</h3>
+          <h3 className="text-base font-semibold text-ink mb-1.5">{t("pages.applications.noApplications")}</h3>
           <p className="text-ink-3 text-sm">
-            <Link to="/vacancies" className="text-ink font-medium hover:underline">Vakansiyalar</Link>ga ariza yuboring
+            <Link to="/vacancies" className="text-ink font-medium hover:underline">{t("pages.applications.applyToVacancies")}</Link>
           </p>
         </div>
       ) : (
@@ -141,18 +149,18 @@ export default function Applications() {
             <div className="flex-1 min-w-[200px] relative">
               <Search className="w-4 h-4 text-ink-3 absolute left-3 top-1/2 -translate-y-1/2" />
               <input value={search} onChange={(e) => setSearch(e.target.value)}
-                placeholder={isEmployer ? "Vakansiya yoki nomzod qidirish..." : "Vakansiya yoki kompaniya qidirish..."}
+                placeholder={isEmployer ? t("pages.applications.searchPlaceholderEmployer") : t("pages.applications.searchPlaceholderSpecialist")}
                 className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border text-sm focus:border-ink/30 outline-none bg-white" />
             </div>
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
               className="px-3 py-2.5 rounded-lg border border-border text-sm bg-white focus:border-ink/30 outline-none">
-              <option value="">Barcha holatlar</option>
-              {statusOrder.map((s) => <option key={s} value={s}>{s}</option>)}
+              <option value="">{t("pages.applications.allStatuses")}</option>
+              {statusOrder.map((s) => <option key={s} value={s}>{t(`status.${s}`)}</option>)}
             </select>
           </div>
 
           {filtered.length === 0 && (
-            <div className="text-center py-10 text-ink-3 text-sm mb-6">Qidiruv bo'yicha ariza topilmadi</div>
+            <div className="text-center py-10 text-ink-3 text-sm mb-6">{t("pages.applications.noSearchResults")}</div>
           )}
 
           <div className="flex gap-2 mb-6 overflow-x-auto pb-2 md:grid md:grid-cols-5 md:gap-4">
@@ -191,19 +199,19 @@ export default function Applications() {
                               onClick={(e) => e.stopPropagation()}
                               className="inline-flex items-center gap-1 text-[11px] text-accent hover:underline font-medium"
                             >
-                              <Paperclip className="w-3 h-3" /> CV ko'rish
+                              <Paperclip className="w-3 h-3" /> {t("pages.applications.viewCv")}
                             </a>
                           )}
                           <button onClick={() => contactSpecialist(app.user_id)} disabled={contactingId === app.user_id}
                             className="inline-flex items-center gap-1 text-[11px] text-ink-2 hover:text-ink font-medium disabled:opacity-50">
-                            <MessageSquare className="w-3 h-3" /> Bog'lanish
+                            <MessageSquare className="w-3 h-3" /> {t("pages.applications.contact")}
                           </button>
                           {app.specialist_phone && <span className="text-[11px] text-ink-3">{app.specialist_phone}</span>}
                           {app.specialist_telegram && <span className="text-[11px] text-ink-3">@{app.specialist_telegram.replace(/^@/, "")}</span>}
                           {(app.screening_answers?.length > 0 || app.cover_letter) && (
                             <button onClick={() => setExpandedId(expandedId === app.id ? null : app.id)}
                               className="inline-flex items-center gap-1 text-[11px] text-ink-2 hover:text-ink font-medium">
-                              <ChevronDown className={`w-3 h-3 transition-transform ${expandedId === app.id ? "rotate-180" : ""}`} /> Batafsil
+                              <ChevronDown className={`w-3 h-3 transition-transform ${expandedId === app.id ? "rotate-180" : ""}`} /> {t("pages.applications.details")}
                             </button>
                           )}
                         </div>
@@ -212,14 +220,14 @@ export default function Applications() {
                         <div className="space-y-2 mb-3 bg-surface rounded-lg p-3">
                           {!!app.cover_letter && (
                             <div>
-                              <div className="text-[11px] font-medium text-ink-3">Xat</div>
+                              <div className="text-[11px] font-medium text-ink-3">{t("pages.applications.coverLetterLabel")}</div>
                               <div className="text-xs text-ink-2 mt-0.5">{app.cover_letter}</div>
                             </div>
                           )}
                           {app.screening_answers?.map((qa, i) => (
                             <div key={i}>
                               <div className="text-[11px] font-medium text-ink-3">{qa.question}</div>
-                              <div className="text-xs text-ink-2 mt-0.5">{qa.answer || "Javob berilmagan"}</div>
+                              <div className="text-xs text-ink-2 mt-0.5">{qa.answer || t("pages.applications.noAnswer")}</div>
                             </div>
                           ))}
                         </div>
@@ -233,17 +241,17 @@ export default function Applications() {
                             <>
                               <button onClick={() => updateStatus(app.id, "Interview")} disabled={updatingId === app.id}
                                 className="w-7 h-7 flex items-center justify-center rounded-md bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors disabled:opacity-50"
-                                title="Intervyuga taklif qilish">
+                                title={t("pages.applications.inviteInterviewTooltip")}>
                                 <MessageSquare className="w-3.5 h-3.5" />
                               </button>
                               <button onClick={() => updateStatus(app.id, "Qabul qilindi")} disabled={updatingId === app.id}
                                 className="w-7 h-7 flex items-center justify-center rounded-md bg-green-50 text-green-600 hover:bg-green-100 transition-colors disabled:opacity-50"
-                                title="Qabul qilish">
+                                title={t("pages.applications.acceptTooltip")}>
                                 <CheckCircle className="w-3.5 h-3.5" />
                               </button>
                               <button onClick={() => updateStatus(app.id, "Rad etildi")} disabled={updatingId === app.id}
                                 className="w-7 h-7 flex items-center justify-center rounded-md bg-red-50 text-red-500 hover:bg-red-100 transition-colors disabled:opacity-50"
-                                title="Rad etish">
+                                title={t("common.reject")}>
                                 <XCircle className="w-3.5 h-3.5" />
                               </button>
                             </>
@@ -251,7 +259,7 @@ export default function Applications() {
                           {!isEmployer && (status === "Yuborildi" || status === "Ko'rib chiqilmoqda") && (
                             <button onClick={() => withdrawApp(app.id)} disabled={updatingId === app.id}
                               className="text-[10px] text-red-500 hover:text-red-600 font-medium disabled:opacity-50 px-2 py-1 rounded hover:bg-red-50 transition-colors">
-                              Qaytarish
+                              {t("pages.applications.withdraw")}
                             </button>
                           )}
                         </div>
@@ -260,7 +268,7 @@ export default function Applications() {
                   ))}
                   {(!grouped[status] || grouped[status].length === 0) && (
                     <div className="bg-surface rounded-xl border border-dashed border-border p-4 text-center">
-                      <p className="text-xs text-ink-3">Bo'sh</p>
+                      <p className="text-xs text-ink-3">{t("pages.applications.emptyColumn")}</p>
                     </div>
                   )}
                 </div>
@@ -272,12 +280,12 @@ export default function Applications() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-6 py-4">Vakansiya</th>
-                  <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-6 py-4">{isEmployer ? "Mutaxassis" : "Kompaniya"}</th>
-                  {!isEmployer && <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-6 py-4">Moslik</th>}
-                  <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-6 py-4">Sana</th>
-                  <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-6 py-4">Holat</th>
-                  {isEmployer && <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-6 py-4">Amallar</th>}
+                  <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-6 py-4">{t("pages.applications.colVacancy")}</th>
+                  <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-6 py-4">{isEmployer ? t("pages.applications.colSpecialist") : t("pages.applications.colCompany")}</th>
+                  {!isEmployer && <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-6 py-4">{t("pages.applications.colMatch")}</th>}
+                  <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-6 py-4">{t("common.date")}</th>
+                  <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-6 py-4">{t("common.status")}</th>
+                  {isEmployer && <th className="text-left text-xs font-medium text-ink-3 uppercase tracking-wide px-6 py-4">{t("common.actions")}</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-soft">
@@ -304,12 +312,12 @@ export default function Applications() {
                               rel="noopener noreferrer"
                               className="flex items-center gap-1 text-[11px] text-accent hover:underline font-medium"
                             >
-                              <Paperclip className="w-3 h-3" /> CV
+                              <Paperclip className="w-3 h-3" /> {t("pages.applications.cvShort")}
                             </a>
                           )}
                           <button onClick={() => contactSpecialist(app.user_id)} disabled={contactingId === app.user_id}
                             className="flex items-center gap-1 text-[11px] text-ink-2 hover:text-ink font-medium disabled:opacity-50">
-                            <MessageSquare className="w-3 h-3" /> Bog'lanish
+                            <MessageSquare className="w-3 h-3" /> {t("pages.applications.contact")}
                           </button>
                         </div>
                       )}
@@ -325,15 +333,15 @@ export default function Applications() {
                           <div className="flex items-center gap-1">
                             <button onClick={() => updateStatus(app.id, "Interview")} disabled={updatingId === app.id}
                               className="px-2 py-1 text-[10px] font-medium bg-amber-50 text-amber-600 rounded hover:bg-amber-100 transition-colors disabled:opacity-50">
-                              Intervyu
+                              {t("status.Interview")}
                             </button>
                             <button onClick={() => updateStatus(app.id, "Qabul qilindi")} disabled={updatingId === app.id}
                               className="px-2 py-1 text-[10px] font-medium bg-green-50 text-green-600 rounded hover:bg-green-100 transition-colors disabled:opacity-50">
-                              Qabul qilish
+                              {t("pages.applications.acceptTooltip")}
                             </button>
                             <button onClick={() => updateStatus(app.id, "Rad etildi")} disabled={updatingId === app.id}
                               className="px-2 py-1 text-[10px] font-medium bg-red-50 text-red-500 rounded hover:bg-red-100 transition-colors disabled:opacity-50">
-                              Rad etish
+                              {t("common.reject")}
                             </button>
                           </div>
                         )}

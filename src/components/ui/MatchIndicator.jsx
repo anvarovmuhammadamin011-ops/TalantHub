@@ -1,4 +1,7 @@
+import { useT } from "../../context/I18nContext";
+
 export default function MatchIndicator({ percent, size = "md" }) {
+  const { t } = useT();
   const getColor = (p) => {
     if (p >= 80) return { stroke: "#15803D", text: "text-success" };
     if (p >= 50) return { stroke: "#B45309", text: "text-[#B45309]" };
@@ -16,7 +19,7 @@ export default function MatchIndicator({ percent, size = "md" }) {
   const offset = hasValue ? s.dash - (s.dash * percent) / 100 : 0;
 
   return (
-    <div className={`${s.container} relative flex items-center justify-center`} title={hasValue ? undefined : "Hisoblash uchun ko'nikmalar yetarli emas"}>
+    <div className={`${s.container} relative flex items-center justify-center`} title={hasValue ? undefined : t("matchIndicator.notEnoughData")}>
       <svg className="w-full h-full -rotate-90" viewBox={`0 0 ${(s.radius + s.stroke) * 2} ${(s.radius + s.stroke) * 2}`}>
         <circle cx={s.radius + s.stroke} cy={s.radius + s.stroke} r={s.radius} fill="none" stroke="#EEF0F3" strokeWidth={s.stroke} />
         {hasValue && (

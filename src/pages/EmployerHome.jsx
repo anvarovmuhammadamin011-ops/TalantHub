@@ -4,18 +4,18 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recha
 import { Users, Briefcase, Package, TrendingUp, ArrowRight, MessageSquare, Sparkles, Plus, Star, MapPin } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import { useT } from "../context/I18nContext";
 import StatusBadge from "../components/ui/StatusBadge";
 import MatchIndicator from "../components/ui/MatchIndicator";
 import VerifiedBadge from "../components/ui/VerifiedBadge";
 
-const weekdays = ["Yak", "Dush", "Sesh", "Chor", "Pay", "Jum", "Shan"];
-
-function groupByWeekday(items) {
+function groupByWeekday(items, weekdays) {
   const counts = new Array(7).fill(0);
   const now = Date.now();
   for (const item of items) {
-    const t = new Date(item.created_at + "Z").getTime();
-    if (now - t > 7 * 86400000) continue;
+    const ts = new Date(item.created_at + "Z").getTime();
+    if (now - ts > 7 * 86400000) continue;
     counts[new Date(item.created_at + "Z").getDay()] += 1;
   }
   return weekdays.map((day, i) => ({ day, count: counts[i] }));
@@ -23,6 +23,17 @@ function groupByWeekday(items) {
 
 export default function EmployerHome() {
   const { user } = useAuth();
+  const showToast = useToast();
+  const { t } = useT();
+  const weekdays = [
+    t("pages.employerHome.daySun"),
+    t("pages.employerHome.dayMon"),
+    t("pages.employerHome.dayTue"),
+    t("pages.employerHome.dayWed"),
+    t("pages.employerHome.dayThu"),
+    t("pages.employerHome.dayFri"),
+    t("pages.employerHome.daySat"),
+  ];
   const [vacancies, setVacancies] = useState([]);
   const [applications, setApplications] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -47,6 +58,7 @@ export default function EmployerHome() {
         setChats((chatData.chats || []).filter((c) => c.unread_count > 0).slice(0, 3));
       } catch (err) {
         console.error(err);
+        showToast(err.message || t("pages.employerHome.loadError"), "error");
       } finally {
         setLoading(false);
       }
@@ -57,7 +69,7 @@ export default function EmployerHome() {
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="text-center py-20 text-ink-3 text-sm">Yuklanmoqda...</div>
+        <div className="text-center py-20 text-ink-3 text-sm">{t("common.loading")}</div>
       </div>
     );
   }
@@ -68,7 +80,7 @@ export default function EmployerHome() {
   const acceptedCount = applications.filter((a) => a.status === "Qabul qilindi" || a.status === "Interview").length;
   const acceptRate = applications.length > 0 ? Math.round((acceptedCount / applications.length) * 100) : 0;
 
-  const weekData = groupByWeekday(applications);
+  const weekData = groupByWeekday(applications, weekdays);
 
   const topSpecialists = [...specialists]
     .sort((a, b) => (b.rating || 0) - (a.rating || 0))
@@ -81,13 +93,13 @@ export default function EmployerHome() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
         <div>
-          <h1 className="text-xl font-bold text-ink tracking-tight mb-1">Assalomu alaykum, {user?.name?.split(" ")[0]}</h1>
+          <h1 className="text-xl font-bold text-ink tracking-tight mb-1">{t("pages.employerHome.greeting", { name: user?.name?.split(" ")[0] })}</h1>
           <p className="text-sm text-ink-3">
-            {pendingApplications.length > 0 ? `${pendingApplications.length} ta ariza javob kutmoqda` : "Bugungi holatingiz"}
+            {pendingApplications.length > 0 ? t("pages.employerHome.pendingSummary", { count: pendingApplications.length }) : t("pages.employerHome.todayStatus")}
           </p>
         </div>
         <Link to="/vacancies/new" className="flex items-center gap-2 bg-ink text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors">
-          <Plus className="w-4 h-4" /> Yangi vakansiya
+          <Plus className="w-4 h-4" /> {t("pages.employerHome.newVacancy")}
         </Link>
       </div>
 
@@ -98,28 +110,28 @@ export default function EmployerHome() {
             <Briefcase className="w-[18px] h-[18px]" />
           </div>
           <div className="text-2xl font-bold text-ink">{activeVacancies.length}</div>
-          <div className="text-xs text-ink-3 mt-0.5">Faol vakansiyalar</div>
+          <div className="text-xs text-ink-3 mt-0.5">{t("pages.employerHome.statActiveVacancies")}</div>
         </div>
         <div className="bg-white rounded-xl border border-border p-4 hover:shadow-sm transition-shadow">
           <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-amber-50 text-amber-600 mb-2">
             <Users className="w-[18px] h-[18px]" />
           </div>
           <div className="text-2xl font-bold text-ink">{pendingApplications.length}</div>
-          <div className="text-xs text-ink-3 mt-0.5">Ko'rilmagan arizalar</div>
+          <div className="text-xs text-ink-3 mt-0.5">{t("pages.employerHome.statUnseenApplications")}</div>
         </div>
         <div className="bg-white rounded-xl border border-border p-4 hover:shadow-sm transition-shadow">
           <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-purple-50 text-purple-600 mb-2">
             <Package className="w-[18px] h-[18px]" />
           </div>
           <div className="text-2xl font-bold text-ink">{activeOrders.length}</div>
-          <div className="text-xs text-ink-3 mt-0.5">Faol buyurtmalar</div>
+          <div className="text-xs text-ink-3 mt-0.5">{t("pages.employerHome.statActiveOrders")}</div>
         </div>
         <div className="bg-white rounded-xl border border-border p-4 hover:shadow-sm transition-shadow">
           <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-emerald-50 text-emerald-600 mb-2">
             <TrendingUp className="w-[18px] h-[18px]" />
           </div>
           <div className="text-2xl font-bold text-ink">{acceptRate}%</div>
-          <div className="text-xs text-ink-3 mt-0.5">Qabul qilish foizi</div>
+          <div className="text-xs text-ink-3 mt-0.5">{t("pages.employerHome.statAcceptRate")}</div>
         </div>
       </div>
 
@@ -129,13 +141,13 @@ export default function EmployerHome() {
           {/* 2. Pending applications needing action */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-semibold text-ink">Ko'rilmagan arizalar</h2>
-              <Link to="/applications" className="text-xs font-medium text-ink-2 hover:text-ink transition-colors">Hammasini ko'rish <ArrowRight className="w-3 h-3 inline" /></Link>
+              <h2 className="text-base font-semibold text-ink">{t("pages.employerHome.statUnseenApplications")}</h2>
+              <Link to="/applications" className="text-xs font-medium text-ink-2 hover:text-ink transition-colors">{t("common.seeAll")} <ArrowRight className="w-3 h-3 inline" /></Link>
             </div>
             {recentApplications.length === 0 ? (
               <div className="bg-white rounded-xl border border-border p-6 text-center">
                 <Users className="w-8 h-8 text-ink-3 mx-auto mb-2" />
-                <p className="text-sm text-ink-3">Hozircha ariza yo'q</p>
+                <p className="text-sm text-ink-3">{t("pages.employerHome.noApplications")}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -159,12 +171,12 @@ export default function EmployerHome() {
           {/* 3. Top specialists to hire */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-semibold text-ink">Tavsiya etilgan mutaxassislar</h2>
-              <Link to="/specialists" className="text-xs font-medium text-ink-2 hover:text-ink transition-colors">Hammasini ko'rish <ArrowRight className="w-3 h-3 inline" /></Link>
+              <h2 className="text-base font-semibold text-ink">{t("pages.employerHome.recommendedSpecialists")}</h2>
+              <Link to="/specialists" className="text-xs font-medium text-ink-2 hover:text-ink transition-colors">{t("common.seeAll")} <ArrowRight className="w-3 h-3 inline" /></Link>
             </div>
             {topSpecialists.length === 0 ? (
               <div className="bg-white rounded-xl border border-border p-6 text-center">
-                <p className="text-sm text-ink-3">Hozircha mutaxassis topilmadi</p>
+                <p className="text-sm text-ink-3">{t("pages.employerHome.noSpecialists")}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -193,7 +205,7 @@ export default function EmployerHome() {
 
           {/* 6. Weekly Activity */}
           <div>
-            <h2 className="text-base font-semibold text-ink mb-3">Haftalik arizalar</h2>
+            <h2 className="text-base font-semibold text-ink mb-3">{t("pages.employerHome.weeklyApplications")}</h2>
             <div className="bg-white rounded-xl border border-border p-5">
               <ResponsiveContainer width="100%" height={160}>
                 <BarChart data={weekData}>
@@ -212,14 +224,14 @@ export default function EmployerHome() {
           {/* 4. My vacancies */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-semibold text-ink">Vakansiyalarim</h2>
-              <Link to="/vacancies/new" className="text-xs font-medium text-ink-2 hover:text-ink transition-colors">Yangi <Plus className="w-3 h-3 inline" /></Link>
+              <h2 className="text-base font-semibold text-ink">{t("profile.myVacancies")}</h2>
+              <Link to="/vacancies/new" className="text-xs font-medium text-ink-2 hover:text-ink transition-colors">{t("pages.employerHome.addNew")} <Plus className="w-3 h-3 inline" /></Link>
             </div>
             <div className="bg-white rounded-xl border border-border p-5">
               {activeVacancies.length === 0 ? (
                 <div className="text-center py-4">
-                  <p className="text-sm text-ink-3 mb-3">Hali faol vakansiya yo'q</p>
-                  <Link to="/vacancies/new" className="text-sm font-medium text-accent hover:underline">Vakansiya yaratish</Link>
+                  <p className="text-sm text-ink-3 mb-3">{t("pages.employerHome.noActiveVacancies")}</p>
+                  <Link to="/vacancies/new" className="text-sm font-medium text-accent hover:underline">{t("pages.employerHome.createVacancy")}</Link>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -229,7 +241,7 @@ export default function EmployerHome() {
                       <div className="flex items-center gap-2 mt-0.5 text-xs text-ink-3">
                         <span>{v.location}</span>
                         <span>·</span>
-                        <span>{v.applications_count} ta ariza</span>
+                        <span>{t("pages.employerHome.applicationsCount", { count: v.applications_count })}</span>
                       </div>
                     </Link>
                   ))}
@@ -241,13 +253,13 @@ export default function EmployerHome() {
           {/* 5. Recent Chat Messages */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-semibold text-ink">Yangi xabarlar</h2>
-              <Link to="/chat" className="text-xs font-medium text-ink-2 hover:text-ink transition-colors">Hammasini ko'rish <ArrowRight className="w-3 h-3 inline" /></Link>
+              <h2 className="text-base font-semibold text-ink">{t("pages.employerHome.newMessages")}</h2>
+              <Link to="/chat" className="text-xs font-medium text-ink-2 hover:text-ink transition-colors">{t("common.seeAll")} <ArrowRight className="w-3 h-3 inline" /></Link>
             </div>
             {chats.length === 0 ? (
               <div className="bg-white rounded-xl border border-border p-5 text-center">
                 <MessageSquare className="w-7 h-7 text-ink-3 mx-auto mb-2" />
-                <p className="text-xs text-ink-3">O'qilmagan xabarlar yo'q</p>
+                <p className="text-xs text-ink-3">{t("pages.employerHome.noUnreadMessages")}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -276,10 +288,10 @@ export default function EmployerHome() {
             <div className="absolute right-0 top-0 w-24 h-24 bg-white/5 rounded-full -mr-8 -mt-8" />
             <div className="relative">
               <Sparkles className="w-6 h-6 text-white/40 mb-2" />
-              <h3 className="font-semibold text-sm mb-1">AI Kadrlar yordamchisi</h3>
-              <p className="text-xs text-white/60 mb-2">Qanday mutaxassis kerakligini yozing — topib beramiz</p>
+              <h3 className="font-semibold text-sm mb-1">{t("pages.employerHome.aiAssistantTitle")}</h3>
+              <p className="text-xs text-white/60 mb-2">{t("pages.employerHome.aiAssistantDesc")}</p>
               <span className="inline-flex items-center gap-1 text-xs font-medium bg-white/15 px-3 py-1.5 rounded-lg">
-                Sinab ko'ring <ArrowRight className="w-3 h-3" />
+                {t("pages.employerHome.tryIt")} <ArrowRight className="w-3 h-3" />
               </span>
             </div>
           </Link>

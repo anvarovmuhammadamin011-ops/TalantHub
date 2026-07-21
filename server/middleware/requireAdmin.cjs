@@ -21,6 +21,7 @@ const DEFAULT_SECTION_ROLES = {
   reports: ["super_admin", "moderator"],
   verification: ["super_admin", "moderator"],
   categories: ["super_admin", "moderator"],
+  companies: ["super_admin", "moderator", "support"],
   broadcast: ["super_admin", "support"],
   support_tickets: ["super_admin", "support"],
   logs: ["super_admin"],

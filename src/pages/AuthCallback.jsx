@@ -2,8 +2,10 @@ import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { setToken } from "../lib/api";
+import { useT } from "../context/I18nContext";
 
 export default function AuthCallback() {
+  const { t } = useT();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -29,7 +31,7 @@ export default function AuthCallback() {
     <div className="min-h-screen bg-surface flex items-center justify-center">
       <div className="text-center">
         <div className="w-10 h-10 border-2 border-ink border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-sm text-ink-3">Tizimga kirilmoqda...</p>
+        <p className="text-sm text-ink-3">{t("pages.authCallback.loggingIn")}</p>
       </div>
     </div>
   );

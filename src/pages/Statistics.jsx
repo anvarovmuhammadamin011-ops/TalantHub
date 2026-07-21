@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Send, Award, TrendingUp, Briefcase } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { useT } from "../context/I18nContext";
 
 const statusColors = {
   "Yuborildi": "#C7C7CE",
@@ -13,12 +14,17 @@ const statusColors = {
   "Rad etildi": "#B91C1C",
 };
 
-const monthNames = ["Yan", "Fev", "Mar", "Apr", "May", "Iyun", "Iyul", "Avg", "Sen", "Okt", "Noy", "Dek"];
-
 export default function Statistics() {
   const { user } = useAuth();
+  const { t } = useT();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const monthNames = [
+    t("pages.statistics.monthJan"), t("pages.statistics.monthFeb"), t("pages.statistics.monthMar"),
+    t("pages.statistics.monthApr"), t("pages.statistics.monthMay"), t("pages.statistics.monthJun"),
+    t("pages.statistics.monthJul"), t("pages.statistics.monthAug"), t("pages.statistics.monthSep"),
+    t("pages.statistics.monthOct"), t("pages.statistics.monthNov"), t("pages.statistics.monthDec"),
+  ];
 
   useEffect(() => {
     async function load() {
@@ -42,7 +48,7 @@ export default function Statistics() {
   }
 
   if (loading) {
-    return <div className="max-w-6xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">Yuklanmoqda...</div>;
+    return <div className="max-w-6xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">{t("common.loading")}</div>;
   }
 
   const total = applications.length;
@@ -53,28 +59,41 @@ export default function Statistics() {
 
   const statusCounts = {};
   for (const a of applications) statusCounts[a.status] = (statusCounts[a.status] || 0) + 1;
-  const statusData = Object.entries(statusCounts).map(([name, value]) => ({ name, value, color: statusColors[name] || "#8A8A93" }));
+  const statusData = Object.entries(statusCounts).map(([name, value]) => ({ name: t(`status.${name}`), value, color: statusColors[name] || "#8A8A93" }));
 
-  const monthCounts = new Array(12).fill(0);
-  for (const a of applications) {
-    monthCounts[new Date(a.created_at + "Z").getMonth()] += 1;
+  // Last 12 real calendar months in chronological order (not a fixed Jan-Dec bucket) so
+  // applications from different years don't collapse into the same month slot.
+  const now = new Date();
+  const monthKeys = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    monthKeys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
   }
-  const applicationsData = monthNames.map((month, i) => ({ month, count: monthCounts[i] }));
+  const monthCounts = {};
+  for (const a of applications) {
+    const d = new Date(a.created_at + "Z");
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    monthCounts[key] = (monthCounts[key] || 0) + 1;
+  }
+  const applicationsData = monthKeys.map((key) => ({
+    month: monthNames[Number(key.slice(5, 7)) - 1],
+    count: monthCounts[key] || 0,
+  }));
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="mb-8">
-        <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight mb-1.5">Statistika</h1>
-        <p className="text-ink-3 text-sm">Arizalaringiz bo'yicha ko'rsatkichlar</p>
+        <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight mb-1.5">{t("nav.statistics")}</h1>
+        <p className="text-ink-3 text-sm">{t("pages.statistics.subtitle")}</p>
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {[
-          { label: "Jami arizalar", value: total, icon: Send },
-          { label: "Intervyu takliflari", value: interview, icon: TrendingUp },
-          { label: "Qabul qilindi", value: accepted, icon: Award },
-          { label: "O'rtacha moslik", value: `${avgMatch}%`, icon: Briefcase },
+          { label: t("pages.statistics.totalApplications"), value: total, icon: Send },
+          { label: t("pages.statistics.interviewOffers"), value: interview, icon: TrendingUp },
+          { label: t("status.Qabul qilindi"), value: accepted, icon: Award },
+          { label: t("pages.statistics.avgMatch"), value: `${avgMatch}%`, icon: Briefcase },
         ].map((stat) => (
           <div key={stat.label} className="bg-white rounded-xl border border-border p-5">
             <stat.icon className="w-4 h-4 text-ink-3 mb-4" strokeWidth={1.75} />
@@ -86,13 +105,13 @@ export default function Statistics() {
 
       {total === 0 ? (
         <div className="bg-white rounded-xl border border-border p-16 text-center">
-          <p className="text-ink-3 text-sm">Statistikani ko'rish uchun avval vakansiyalarga ariza yuboring</p>
+          <p className="text-ink-3 text-sm">{t("pages.statistics.emptyState")}</p>
         </div>
       ) : (
         <div className="grid lg:grid-cols-2 gap-4">
           {/* Applications by month */}
           <div className="bg-white rounded-xl border border-border p-6">
-            <h2 className="font-semibold text-ink text-sm mb-6">Yuborilgan arizalar (oylik)</h2>
+            <h2 className="font-semibold text-ink text-sm mb-6">{t("pages.statistics.applicationsByMonth")}</h2>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={applicationsData}>
@@ -108,7 +127,7 @@ export default function Statistics() {
 
           {/* Status pie chart */}
           <div className="bg-white rounded-xl border border-border p-6">
-            <h2 className="font-semibold text-ink text-sm mb-6">Ariza holatlari</h2>
+            <h2 className="font-semibold text-ink text-sm mb-6">{t("pages.statistics.applicationStatuses")}</h2>
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -134,7 +153,7 @@ export default function Statistics() {
 
           {/* Response rate */}
           <div className="bg-white rounded-xl border border-border p-6 lg:col-span-2">
-            <h2 className="font-semibold text-ink text-sm mb-6">Javob olish darajasi</h2>
+            <h2 className="font-semibold text-ink text-sm mb-6">{t("pages.statistics.responseRateTitle")}</h2>
             <div className="text-center">
               <div className="relative w-28 h-28 mx-auto mb-4">
                 <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
@@ -146,7 +165,7 @@ export default function Statistics() {
                   <span className="text-xl font-semibold text-ink">{responseRate}%</span>
                 </div>
               </div>
-              <p className="text-sm text-ink-3">Intervyu yoki qabulga o'tgan arizalar ulushi</p>
+              <p className="text-sm text-ink-3">{t("pages.statistics.responseRateDesc")}</p>
             </div>
           </div>
         </div>

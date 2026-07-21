@@ -3,11 +3,15 @@ import { Link } from "react-router-dom";
 import { Briefcase, Users, Package, TrendingUp, Plus, Trash2, Edit3, Eye, EyeOff, Copy, Archive } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import { useT } from "../context/I18nContext";
 import StatusBadge from "../components/ui/StatusBadge";
 import MatchIndicator from "../components/ui/MatchIndicator";
 
 export default function EmployerDashboard() {
   const { user } = useAuth();
+  const showToast = useToast();
+  const { t } = useT();
   const [vacancies, setVacancies] = useState([]);
   const [applications, setApplications] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -28,6 +32,7 @@ export default function EmployerDashboard() {
         setOrders(orderData.orders);
       } catch (err) {
         console.error(err);
+        showToast(err.message || t("pages.employerDashboard.loadError"), "error");
       } finally {
         setLoading(false);
       }
@@ -36,13 +41,14 @@ export default function EmployerDashboard() {
   }, []);
 
   const deleteVacancy = async (id) => {
-    if (!confirm("Vakansiyani o'chirishni xohlaysizmi?")) return;
+    if (!confirm(t("pages.employerDashboard.confirmDelete"))) return;
     setDeletingId(id);
     try {
       await api(`/vacancies/${id}`, { method: "DELETE" });
       setVacancies((prev) => prev.filter((v) => v.id !== id));
     } catch (err) {
       console.error(err);
+      showToast(err.message || t("pages.employerDashboard.deleteError"), "error");
     } finally {
       setDeletingId(null);
     }
@@ -55,16 +61,18 @@ export default function EmployerDashboard() {
       setVacancies((prev) => prev.map((v) => v.id === id ? { ...v, status: newStatus } : v));
     } catch (err) {
       console.error(err);
+      showToast(err.message || t("pages.employerDashboard.statusUpdateError"), "error");
     }
   };
 
   const archiveVacancy = async (id) => {
-    if (!confirm("Vakansiyani arxivlashni xohlaysizmi? Bu qaytarib bo'lmaydi.")) return;
+    if (!confirm(t("pages.employerDashboard.confirmArchive"))) return;
     try {
       await api(`/vacancies/${id}`, { method: "PATCH", body: { status: "Arxivlangan" } });
       setVacancies((prev) => prev.map((v) => v.id === id ? { ...v, status: "Arxivlangan" } : v));
     } catch (err) {
       console.error(err);
+      showToast(err.message || t("pages.employerDashboard.archiveError"), "error");
     }
   };
 
@@ -74,21 +82,22 @@ export default function EmployerDashboard() {
       setVacancies((prev) => [vacancy, ...prev]);
     } catch (err) {
       console.error(err);
+      showToast(err.message || t("pages.employerDashboard.duplicateError"), "error");
     }
   };
 
   if (loading) {
-    return <div className="max-w-6xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">Yuklanmoqda...</div>;
+    return <div className="max-w-6xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">{t("common.loading")}</div>;
   }
 
   const interviewCount = applications.filter((a) => a.status === "Interview").length;
   const activeOrders = orders.filter((o) => o.status === "Jarayonda" || o.status === "Qabul qilindi").length;
 
   const statsCards = [
-    { label: "Faol vakansiyalar", value: vacancies.length, icon: Briefcase, color: "text-primary", bg: "bg-primary/10" },
-    { label: "Kelgan arizalar", value: applications.length, icon: Users, color: "text-accent", bg: "bg-accent-soft" },
-    { label: "Faol buyurtmalar", value: activeOrders, icon: Package, color: "text-purple-600", bg: "bg-purple-100" },
-    { label: "Intervyular", value: interviewCount, icon: TrendingUp, color: "text-amber-600", bg: "bg-amber-100" },
+    { label: t("pages.employerDashboard.statActiveVacancies"), value: vacancies.length, icon: Briefcase, color: "text-primary", bg: "bg-primary/10" },
+    { label: t("pages.employerDashboard.statIncomingApplications"), value: applications.length, icon: Users, color: "text-accent", bg: "bg-accent-soft" },
+    { label: t("pages.employerDashboard.statActiveOrders"), value: activeOrders, icon: Package, color: "text-purple-600", bg: "bg-purple-100" },
+    { label: t("pages.employerDashboard.statInterviews"), value: interviewCount, icon: TrendingUp, color: "text-amber-600", bg: "bg-amber-100" },
   ];
 
   const recentApplications = applications.slice(0, 6);
@@ -97,11 +106,11 @@ export default function EmployerDashboard() {
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Dashboard</h1>
-          <p className="text-ink-3 text-sm mt-1">{user?.name} boshqaruvi</p>
+          <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight">{t("nav.dashboard")}</h1>
+          <p className="text-ink-3 text-sm mt-1">{t("pages.employerDashboard.subtitle", { name: user?.name })}</p>
         </div>
         <Link to="/vacancies/new" className="flex items-center gap-2 bg-ink text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors">
-          <Plus className="w-4 h-4" /> Yangi vakansiya
+          <Plus className="w-4 h-4" /> {t("pages.employerDashboard.newVacancy")}
         </Link>
       </div>
 
@@ -122,11 +131,11 @@ export default function EmployerDashboard() {
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 bg-white rounded-xl border border-border p-5">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="font-semibold text-ink text-sm">So'nggi arizalar</h2>
-            <Link to="/applications" className="text-sm text-ink-3 hover:text-ink font-medium transition-colors">Barchasini ko'rish</Link>
+            <h2 className="font-semibold text-ink text-sm">{t("pages.employerDashboard.recentApplications")}</h2>
+            <Link to="/applications" className="text-sm text-ink-3 hover:text-ink font-medium transition-colors">{t("common.seeAll")}</Link>
           </div>
           {recentApplications.length === 0 ? (
-            <p className="text-sm text-ink-3 text-center py-8">Hozircha arizalar yo'q</p>
+            <p className="text-sm text-ink-3 text-center py-8">{t("pages.employerDashboard.noApplications")}</p>
           ) : (
             <div className="space-y-1">
               {recentApplications.map((app) => (
@@ -147,15 +156,15 @@ export default function EmployerDashboard() {
         </div>
         <div className="bg-white rounded-xl border border-border p-5">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="font-semibold text-ink text-sm">Vakansiyalarim</h2>
+            <h2 className="font-semibold text-ink text-sm">{t("profile.myVacancies")}</h2>
             <Link to="/vacancies/new" className="text-xs text-ink font-medium hover:text-accent transition-colors flex items-center gap-1">
-              <Plus className="w-3 h-3" /> Yangi
+              <Plus className="w-3 h-3" /> {t("pages.employerDashboard.addNew")}
             </Link>
           </div>
           {vacancies.length === 0 ? (
             <div className="text-center py-6">
-              <p className="text-sm text-ink-3 mb-3">Hali vakansiya yo'q</p>
-              <Link to="/vacancies/new" className="text-sm text-ink font-medium hover:underline">Vakansiya yaratish</Link>
+              <p className="text-sm text-ink-3 mb-3">{t("pages.employerDashboard.noVacancies")}</p>
+              <Link to="/vacancies/new" className="text-sm text-ink font-medium hover:underline">{t("pages.employerDashboard.createVacancy")}</Link>
             </div>
           ) : (
             <>
@@ -164,7 +173,7 @@ export default function EmployerDashboard() {
                   <button key={s || "all"} onClick={() => setVacTab(s)}
                     className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
                       vacTab === s ? "bg-accent text-white" : "bg-surface text-ink-2 hover:bg-border-soft"
-                    }`}>{s || "Barchasi"}</button>
+                    }`}>{s ? t(`status.${s}`) : t("common.all")}</button>
                 ))}
               </div>
               <div className="space-y-2">
@@ -179,46 +188,46 @@ export default function EmployerDashboard() {
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-xs text-ink-3">{v.location}</span>
                         <span className="text-xs text-ink-3">·</span>
-                        <span className="text-xs text-ink-3">{v.applications_count} ta ariza</span>
-                        {v.views > 0 && <><span className="text-xs text-ink-3">·</span><span className="text-xs text-ink-3">{v.views} ko'rish</span></>}
+                        <span className="text-xs text-ink-3">{t("pages.employerDashboard.applicationsCount", { count: v.applications_count })}</span>
+                        {v.views > 0 && <><span className="text-xs text-ink-3">·</span><span className="text-xs text-ink-3">{t("pages.employerDashboard.viewsCount", { count: v.views })}</span></>}
                       </div>
                       {v.status === "Tuzatish kerak" && v.reject_reason && (
-                        <div className="text-xs text-red-500 mt-1">Sabab: {v.reject_reason}</div>
+                        <div className="text-xs text-red-500 mt-1">{t("pages.employerDashboard.reasonPrefix")} {v.reject_reason}</div>
                       )}
                     </Link>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Link to={`/vacancies/${v.id}/applicants`}
                         className="w-7 h-7 flex items-center justify-center rounded-md text-ink-3 hover:bg-surface transition-colors"
-                        title="Arizalar">
+                        title={t("nav.applications")}>
                         <Users className="w-3.5 h-3.5" />
                       </Link>
                       <Link to={`/vacancies/${v.id}/edit`}
                         className="w-7 h-7 flex items-center justify-center rounded-md text-ink-3 hover:bg-surface transition-colors"
-                        title="Tahrirlash">
+                        title={t("common.edit")}>
                         <Edit3 className="w-3.5 h-3.5" />
                       </Link>
                       <button onClick={() => duplicateVacancy(v.id)}
                         className="w-7 h-7 flex items-center justify-center rounded-md text-ink-3 hover:bg-surface transition-colors"
-                        title="Nusxalash">
+                        title={t("pages.employerDashboard.duplicateTooltip")}>
                         <Copy className="w-3.5 h-3.5" />
                       </button>
                       {(v.status === "Faol" || v.status === "Nofaol") && (
                         <button onClick={() => toggleVacancyStatus(v.id, v.status || "Faol")}
                           className="w-7 h-7 flex items-center justify-center rounded-md text-ink-3 hover:bg-surface transition-colors"
-                          title={v.status === "Nofaol" ? "Faollashtirish" : "To'xtatish"}>
+                          title={v.status === "Nofaol" ? t("pages.employerDashboard.activate") : t("pages.employerDashboard.deactivate")}>
                           {v.status === "Nofaol" ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                         </button>
                       )}
                       {(v.status === "Faol" || v.status === "Nofaol") && (
                         <button onClick={() => archiveVacancy(v.id)}
                           className="w-7 h-7 flex items-center justify-center rounded-md text-ink-3 hover:bg-surface transition-colors"
-                          title="Arxivlash">
+                          title={t("pages.employerDashboard.archiveTooltip")}>
                           <Archive className="w-3.5 h-3.5" />
                         </button>
                       )}
                       <button onClick={() => deleteVacancy(v.id)} disabled={deletingId === v.id}
                         className="w-7 h-7 flex items-center justify-center rounded-md text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
-                        title="O'chirish">
+                        title={t("common.delete")}>
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>

@@ -1,3 +1,40 @@
+// Explicit Uzbek month names — deliberately not delegated to Intl/toLocaleDateString("uz-UZ"),
+// which falls back to raw ICU skeletons (e.g. "2026 M07 21") when the runtime lacks full uz-UZ CLDR data.
+const MONTH_NAMES_LONG = [
+  "yanvar", "fevral", "mart", "aprel", "may", "iyun",
+  "iyul", "avgust", "sentyabr", "oktyabr", "noyabr", "dekabr",
+];
+
+function toDate(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+// "21.07.2026"
+export function formatDate(value) {
+  const d = toDate(value);
+  if (!d) return "";
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  return `${day}.${month}.${d.getFullYear()}`;
+}
+
+// "2026-yil 21-iyul"
+export function formatDateLong(value) {
+  const d = toDate(value);
+  if (!d) return "";
+  return `${d.getFullYear()}-yil ${d.getDate()}-${MONTH_NAMES_LONG[d.getMonth()]}`;
+}
+
+// "21.07.2026, 14:35"
+export function formatDateTime(value) {
+  const d = toDate(value);
+  if (!d) return "";
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${formatDate(d)}, ${hours}:${minutes}`;
+}
+
 export function timeAgo(dateStr) {
   if (!dateStr) return "";
   const diff = (Date.now() - new Date(dateStr + "Z").getTime()) / 1000;

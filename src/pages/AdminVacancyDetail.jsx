@@ -5,9 +5,11 @@ import { api } from "../lib/api";
 import { timeAgo } from "../lib/format";
 import StatusBadge from "../components/ui/StatusBadge";
 import EmptyState from "../components/ui/EmptyState";
+import { useT } from "../context/I18nContext";
 
 export default function AdminVacancyDetail() {
   const { id } = useParams();
+  const { t } = useT();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -16,21 +18,21 @@ export default function AdminVacancyDetail() {
     setLoading(true);
     api(`/admin/vacancies/${id}/detail`)
       .then(setData)
-      .catch((err) => setError(err.message || "Xatolik yuz berdi"))
+      .catch((err) => setError(err.message || t("common.error")))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, t]);
 
   useEffect(() => { load(); }, [load]);
 
-  if (loading) return <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-center text-ink-3 text-sm">Yuklanmoqda...</div>;
-  if (error || !data) return <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10"><EmptyState icon="⚠️" title="Topilmadi" description={error || "Vakansiya topilmadi"} /></div>;
+  if (loading) return <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-center text-ink-3 text-sm">{t("common.loading")}</div>;
+  if (error || !data) return <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10"><EmptyState icon="⚠️" title={t("pages.adminVacancyDetail.notFoundTitle")} description={error || t("pages.adminVacancyDetail.notFoundDescription")} /></div>;
 
   const { vacancy: v, applications } = data;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <Link to="/admin" className="inline-flex items-center gap-1.5 text-sm text-ink-3 hover:text-ink mb-6 transition-colors">
-        <ArrowLeft className="w-4 h-4" /> Admin panelga qaytish
+        <ArrowLeft className="w-4 h-4" /> {t("pages.adminVacancyDetail.backToAdmin")}
       </Link>
 
       <div className="bg-white rounded-xl border border-border p-6 mb-6">
@@ -45,19 +47,19 @@ export default function AdminVacancyDetail() {
               {v.author_name && <>· <Link to={`/admin/users/${v.employer_id}`} className="hover:underline text-ink-2">{v.author_name}</Link></>}
             </p>
             {v.reject_reason && v.status === "Tuzatish kerak" && (
-              <div className="text-xs text-danger mt-2 bg-danger-soft rounded-lg px-3 py-2 inline-block">Sabab: {v.reject_reason}</div>
+              <div className="text-xs text-danger mt-2 bg-danger-soft rounded-lg px-3 py-2 inline-block">{t("pages.adminVacancyDetail.reasonLabel")} {v.reject_reason}</div>
             )}
           </div>
           <div className="text-right text-xs text-ink-3 space-y-1">
-            <div className="flex items-center gap-1 justify-end"><Eye className="w-3.5 h-3.5" /> {v.views || 0} ko'rish</div>
-            <div className="flex items-center gap-1 justify-end"><Users className="w-3.5 h-3.5" /> {applications.length} ariza</div>
-            <div>Yaratilgan: {timeAgo(v.created_at)}</div>
+            <div className="flex items-center gap-1 justify-end"><Eye className="w-3.5 h-3.5" /> {t("pages.adminVacancyDetail.viewsCount", { count: v.views || 0 })}</div>
+            <div className="flex items-center gap-1 justify-end"><Users className="w-3.5 h-3.5" /> {t("pages.adminVacancyDetail.applicationsCount", { count: applications.length })}</div>
+            <div>{t("pages.adminVacancyDetail.createdLabel")} {timeAgo(v.created_at)}</div>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-1.5 mt-4">
-          {[v.format, v.experience, v.employment_type, v.english_level, ...(v.directions || [])].filter(Boolean).map((t) => (
-            <span key={t} className="px-2.5 py-1 rounded-full text-xs font-medium bg-surface text-ink-2 border border-border">{t}</span>
+          {[v.format, v.experience, v.employment_type, v.english_level, ...(v.directions || [])].filter(Boolean).map((tag) => (
+            <span key={tag} className="px-2.5 py-1 rounded-full text-xs font-medium bg-surface text-ink-2 border border-border">{tag}</span>
           ))}
         </div>
 
@@ -67,9 +69,9 @@ export default function AdminVacancyDetail() {
       </div>
 
       <div className="bg-white rounded-xl border border-border p-5">
-        <h2 className="text-sm font-semibold text-ink mb-4">Arizalar ({applications.length})</h2>
+        <h2 className="text-sm font-semibold text-ink mb-4">{t("pages.adminVacancyDetail.applicationsHeader", { count: applications.length })}</h2>
         {applications.length === 0 ? (
-          <p className="text-xs text-ink-3">Hozircha arizalar yo'q</p>
+          <p className="text-xs text-ink-3">{t("pages.adminVacancyDetail.noApplications")}</p>
         ) : (
           <div className="space-y-2">
             {applications.map((a) => (

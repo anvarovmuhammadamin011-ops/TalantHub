@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
 import { api } from "../lib/api";
-import { timeAgo } from "../lib/format";
+import { timeAgo, formatDateTime } from "../lib/format";
 import { getNotificationIcon, getNotificationColor } from "../lib/notificationTypes";
+import { useT } from "../context/I18nContext";
 
 export default function NotificationsPage() {
+  const { t } = useT();
   const navigate = useNavigate();
   const [notifs, setNotifs] = useState([]);
   const [unread, setUnread] = useState(0);
@@ -19,7 +21,7 @@ export default function NotificationsPage() {
       setNotifs(data.notifications);
       setUnread(data.unread);
     } catch (err) {
-      setError(err.message || "Xatolik yuz berdi");
+      setError(err.message || t("common.error"));
     } finally {
       setLoading(false);
     }
@@ -43,14 +45,14 @@ export default function NotificationsPage() {
   };
 
   if (loading) {
-    return <div className="max-w-2xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">Yuklanmoqda...</div>;
+    return <div className="max-w-2xl mx-auto px-4 py-20 text-center text-ink-3 text-sm">{t("common.loading")}</div>;
   }
 
   if (error) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-20 text-center">
         <div className="inline-block bg-danger-soft text-danger text-sm px-4 py-3 rounded-lg mb-4">{error}</div>
-        <div><button onClick={load} className="text-sm font-medium text-accent hover:underline">Qayta urinish</button></div>
+        <div><button onClick={load} className="text-sm font-medium text-accent hover:underline">{t("common.retry")}</button></div>
       </div>
     );
   }
@@ -59,12 +61,12 @@ export default function NotificationsPage() {
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-ink tracking-tight">Bildirishnomalar</h1>
-          <p className="text-ink-3 text-sm mt-1">{unread > 0 ? `${unread} ta o'qilmagan` : "Barchasi o'qilgan"}</p>
+          <h1 className="text-2xl font-semibold text-ink tracking-tight">{t("profile.notifications")}</h1>
+          <p className="text-ink-3 text-sm mt-1">{unread > 0 ? t("pages.notificationsPage.unreadCount", { count: unread }) : t("pages.notificationsPage.allRead")}</p>
         </div>
         {unread > 0 && (
           <button onClick={markAll} className="text-sm font-medium text-accent hover:underline">
-            Hammasini o'qilgan deb belgilash
+            {t("pages.notificationsPage.markAllRead")}
           </button>
         )}
       </div>
@@ -74,7 +76,7 @@ export default function NotificationsPage() {
           <div className="w-14 h-14 mx-auto flex items-center justify-center rounded-full bg-surface border border-border mb-5">
             <Bell className="w-6 h-6 text-ink-3" strokeWidth={1.5} />
           </div>
-          <h3 className="text-base font-semibold text-ink mb-1.5">Bildirishnomalar yo'q</h3>
+          <h3 className="text-base font-semibold text-ink mb-1.5">{t("pages.notificationsPage.empty")}</h3>
         </div>
       ) : (
         <div className="space-y-2">
@@ -96,7 +98,7 @@ export default function NotificationsPage() {
                     {isUnread && <div className="w-1.5 h-1.5 bg-accent rounded-full flex-shrink-0" />}
                   </div>
                   {n.description && <p className="text-xs text-ink-3 mt-0.5">{n.description}</p>}
-                  <span className="text-[11px] text-ink-3 mt-1 block" title={new Date(n.created_at + "Z").toLocaleString("uz-UZ")}>
+                  <span className="text-[11px] text-ink-3 mt-1 block" title={formatDateTime(n.created_at + "Z")}>
                     {timeAgo(n.created_at)}
                   </span>
                 </div>

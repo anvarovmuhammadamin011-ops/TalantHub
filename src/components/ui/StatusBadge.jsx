@@ -1,3 +1,5 @@
+import { useT } from "../../context/I18nContext";
+
 const statusTone = {
   Junior: "neutral",
   Middle: "neutral",
@@ -19,12 +21,9 @@ const statusTone = {
   Nofaol: "neutral",
   Qoralama: "neutral",
   Arxivlangan: "neutral",
-};
-
-// Display-only overrides — the underlying value (used in every status comparison across the
-// app) stays untouched; only what's shown to the user changes.
-const statusLabel = {
-  Interview: "Intervyu",
+  Jarayonda: "accent",
+  Tugatildi: "success",
+  "Bekor qilindi": "danger",
 };
 
 const toneClasses = {
@@ -36,12 +35,19 @@ const toneClasses = {
 };
 
 export default function StatusBadge({ status }) {
+  const { t } = useT();
   const tone = toneClasses[statusTone[status] || "neutral"];
+  // Some status values (e.g. experience levels, work formats) aren't translated by design and
+  // are shown as-is — t() returns the lookup key itself when no dictionary entry exists, so
+  // that case falls back to the raw value instead of leaking a "status.Xyz" key into the UI.
+  const translationKey = `status.${status}`;
+  const translated = t(translationKey);
+  const label = translated === translationKey ? status : translated;
 
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${tone.badge}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${tone.dot}`} />
-      {statusLabel[status] || status}
+      {label}
     </span>
   );
 }

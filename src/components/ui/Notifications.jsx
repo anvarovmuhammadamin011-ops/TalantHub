@@ -5,8 +5,10 @@ import { api } from "../../lib/api";
 import { useSocket } from "../../context/SocketContext";
 import { getNotificationIcon, getNotificationColor } from "../../lib/notificationTypes";
 import { timeAgo } from "../../lib/format";
+import { useT } from "../../context/I18nContext";
 
 export default function Notifications() {
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const [notifs, setNotifs] = useState([]);
   const [unread, setUnread] = useState(0);
@@ -67,16 +69,16 @@ export default function Notifications() {
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl border border-border shadow-lg z-50 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <h3 className="font-semibold text-ink text-sm">Bildirishnomalar</h3>
+              <h3 className="font-semibold text-ink text-sm">{t("profile.notifications")}</h3>
               {unread > 0 && (
                 <button onClick={markAll} className="text-xs text-ink-3 hover:text-ink transition-colors">
-                  Barchasini o'qilgan deb belgilash
+                  {t("notifications.markAllRead")}
                 </button>
               )}
             </div>
             <div className="max-h-80 overflow-y-auto">
               {notifs.length === 0 && (
-                <div className="p-6 text-center text-sm text-ink-3">Bildirishnomalar yo'q</div>
+                <div className="p-6 text-center text-sm text-ink-3">{t("notifications.empty")}</div>
               )}
               {notifs.map((n) => {
                 const Icon = getNotificationIcon(n.type);
@@ -102,7 +104,7 @@ export default function Notifications() {
             </div>
             <div className="border-t border-border px-4 py-2.5 text-center">
               <Link to="/notifications" onClick={() => setOpen(false)} className="text-xs font-medium text-ink-2 hover:text-ink transition-colors">
-                Barchasini ko'rish
+                {t("common.seeAll")}
               </Link>
             </div>
           </div>

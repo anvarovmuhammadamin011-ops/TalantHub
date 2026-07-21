@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -n server,client -c yellow,cyan \"npm:server\" \"npm:dev:client\"",
+    "dev:client": "vite",
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
@@ -50,6 +51,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "concurrently": "^10.0.3",
     "oxlint": "^1.71.0",
     "playwright": "^1.61.1",
     "tailwindcss": "^4.3.2",

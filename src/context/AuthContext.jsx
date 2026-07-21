@@ -104,8 +104,19 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const deleteAccount = async (password) => {
+    try {
+      await api("/auth/delete-account", { method: "POST", body: { password } });
+      setToken(null);
+      setUser(null);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message || "Xatolik yuz berdi" };
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, register, login, logout, updateProfile, completeOnboarding, unlockRole, switchRole, changePassword, isLoggedIn: !!user, loading }}>
+    <AuthContext.Provider value={{ user, register, login, logout, updateProfile, completeOnboarding, unlockRole, switchRole, changePassword, deleteAccount, isLoggedIn: !!user, loading }}>
       {children}
     </AuthContext.Provider>
   );

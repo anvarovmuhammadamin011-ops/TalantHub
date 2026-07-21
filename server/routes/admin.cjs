@@ -3,6 +3,7 @@ const db = require("../db.cjs");
 const { authMiddleware } = require("../middleware/auth.cjs");
 const { requireAdmin, requireSection, DEFAULT_SECTION_ROLES, RBAC_SETTINGS_KEY, getSectionRoles } = require("../middleware/requireAdmin.cjs");
 const { notifySavedSearches } = require("../lib/savedSearchAgent.cjs");
+const { emitAdminUpdate } = require("../lib/adminEvents.cjs");
 
 const router = express.Router();
 
@@ -120,11 +121,94 @@ router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), (req
     `).all();
     const analytics = { pageviews_7d, applications_7d, new_users_7d, top_pages };
 
+    function periodTrend(table, whereExtra = "") {
+      const extra = whereExtra ? `AND ${whereExtra}` : "";
+      const current = db.prepare(`SELECT COUNT(*) as c FROM ${table} WHERE created_at >= datetime('now','-7 days') ${extra}`).get().c;
+      const prev = db.prepare(`SELECT COUNT(*) as c FROM ${table} WHERE created_at >= datetime('now','-14 days') AND created_at < datetime('now','-7 days') ${extra}`).get().c;
+      const pct = prev === 0 ? null : Math.round(((current - prev) / prev) * 1000) / 10;
+      return { current, prev, pct };
+    }
+    const trend = {
+      users_total: periodTrend("users"),
+      vacancies_active: periodTrend("vacancies", "status='Faol'"),
+      applications_total: periodTrend("applications"),
+      orders_completed: periodTrend("orders", "status='Tugatildi'"),
+    };
+
+    const applicationsByMonth = db.prepare(`
+      SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as count
+      FROM applications
+      WHERE created_at >= datetime('now','-5 months','start of month')
+      GROUP BY strftime('%Y-%m', created_at)
+    `).all();
+    const applicationsByMonthMap = Object.fromEntries(applicationsByMonth.map((r) => [r.month, r.count]));
+    const applications_monthly_series = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(1);
+      d.setMonth(d.getMonth() - i);
+      const key = d.toISOString().slice(0, 7);
+      applications_monthly_series.push({ month: key, count: applicationsByMonthMap[key] || 0 });
+    }
+
+    const upcomingVacancies = db.prepare(`
+      SELECT id, title, company, start_date as date
+      FROM vacancies
+      WHERE status='Faol' AND start_date IS NOT NULL AND start_date != '' AND date(start_date) >= date('now')
+      ORDER BY date(start_date) ASC LIMIT 8
+    `).all().map((v) => ({ type: "vacancy", id: v.id, title: v.title, subtitle: v.company, date: v.date }));
+
+    const candidateOrders = db.prepare(`
+      SELECT o.id, o.title, o.deadline, e.name as employer_name
+      FROM orders o LEFT JOIN users e ON o.employer_id = e.id
+      WHERE o.status IN ('Yangi','Qabul qilindi','Jarayonda') AND o.deadline IS NOT NULL AND o.deadline != ''
+    `).all();
+    const upcomingOrders = candidateOrders
+      .map((o) => {
+        const parsed = new Date(o.deadline);
+        return Number.isNaN(parsed.getTime()) ? null : { type: "order", id: o.id, title: o.title, subtitle: o.employer_name, date: parsed.toISOString().slice(0, 10) };
+      })
+      .filter((o) => o && o.date >= new Date().toISOString().slice(0, 10));
+
+    const upcoming = [...upcomingVacancies, ...upcomingOrders].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 8);
+
+    const APPLICATION_STATUSES = ["Yuborildi", "Ko'rib chiqilmoqda", "Interview", "Qabul qilindi", "Rad etildi"];
+    const statusCounts = db.prepare(`SELECT status, COUNT(*) as count FROM applications GROUP BY status`).all();
+    const statusCountMap = Object.fromEntries(statusCounts.map((r) => [r.status, r.count]));
+    const application_status_breakdown = APPLICATION_STATUSES.map((status) => ({ status, count: statusCountMap[status] || 0 }));
+
+    const avg_match_percent = Math.round(
+      (db.prepare("SELECT AVG(match_percent) as avg FROM applications WHERE match_percent > 0").get().avg || 0) * 10
+    ) / 10;
+
+    const appsByMonth12 = db.prepare(`
+      SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as count
+      FROM applications WHERE created_at >= datetime('now','-11 months','start of month')
+      GROUP BY strftime('%Y-%m', created_at)
+    `).all();
+    const appsByMonth12Map = Object.fromEntries(appsByMonth12.map((r) => [r.month, r.count]));
+    const vacsByMonth12 = db.prepare(`
+      SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as count
+      FROM vacancies WHERE created_at >= datetime('now','-11 months','start of month')
+      GROUP BY strftime('%Y-%m', created_at)
+    `).all();
+    const vacsByMonth12Map = Object.fromEntries(vacsByMonth12.map((r) => [r.month, r.count]));
+    const monthly_activity = [];
+    const nowLocal = new Date();
+    for (let i = 11; i >= 0; i--) {
+      let y = nowLocal.getFullYear();
+      let m = nowLocal.getMonth() - i;
+      while (m < 0) { m += 12; y -= 1; }
+      const key = `${y}-${String(m + 1).padStart(2, "0")}`;
+      monthly_activity.push({ month: key, applications: appsByMonth12Map[key] || 0, vacancies: vacsByMonth12Map[key] || 0 });
+    }
+
     res.json({
       users_total, specialists, employers, admins, vacancies_total, vacancies_active, vacancies_pending, vacancies_needs_fix,
       orders_total, orders_active, orders_completed,
       applications_total, messages_total, new_users_7d, verified_users, blocked_users, featured_users, signups_series, users_by_city,
-      vacancies_30d_series, top_directions, conversion, analytics,
+      vacancies_30d_series, top_directions, conversion, analytics, trend, applications_monthly_series, upcoming,
+      application_status_breakdown, avg_match_percent, monthly_activity,
     });
   } catch (err) {
     console.error("Admin stats error:", err);
@@ -132,10 +216,44 @@ router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), (req
   }
 });
 
+router.get("/companies", authMiddleware, requireAdmin, requireSection("companies"), (req, res) => {
+  try {
+    const { search, page = 1, limit = 20 } = req.query;
+    let sql = `
+      SELECT u.id, u.name, u.company_name, u.company_logo, u.industry, u.employee_count, u.website,
+             u.city, u.verified, u.blocked, u.created_at,
+             (SELECT COUNT(*) FROM vacancies v WHERE v.employer_id = u.id) as vacancies_count,
+             (SELECT COUNT(*) FROM vacancies v WHERE v.employer_id = u.id AND v.status = 'Faol') as active_vacancies_count,
+             (SELECT AVG(rating) FROM users WHERE id = u.id) as rating
+      FROM users u WHERE u.role = 'employer'
+    `;
+    const params = [];
+    if (search) {
+      sql += ` AND (u.name LIKE ? OR u.company_name LIKE ?)`;
+      params.push(`%${search}%`, `%${search}%`);
+    }
+
+    const countSql = sql.replace(/SELECT[\s\S]*?FROM users u/, "SELECT COUNT(*) as total FROM users u");
+    const total = db.prepare(countSql).get(...params).total;
+
+    sql += ` ORDER BY vacancies_count DESC, u.created_at DESC LIMIT ? OFFSET ?`;
+    params.push(Number(limit), (Number(page) - 1) * Number(limit));
+
+    const companies = db.prepare(sql).all(...params).map((c) => ({
+      ...c,
+      display_name: c.company_name || c.name,
+    }));
+    res.json({ companies, total, page: Number(page), limit: Number(limit) });
+  } catch (err) {
+    console.error("Admin companies list error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
 router.get("/users", authMiddleware, requireAdmin, requireSection("users"), (req, res) => {
   try {
     const { search, role, status, page = 1, limit = 20 } = req.query;
-    let sql = `SELECT id,name,email,phone,city,role,admin_role,verified,blocked,blocked_reason,featured,rating,reviews_count,orders_count,created_at FROM users WHERE 1=1`;
+    let sql = `SELECT id,name,email,phone,city,role,admin_role,verified,blocked,blocked_reason,featured,rating,reviews_count,orders_count,created_at,avatar,categories FROM users WHERE 1=1`;
     const params = [];
 
     if (search) {
@@ -154,7 +272,7 @@ router.get("/users", authMiddleware, requireAdmin, requireSection("users"), (req
       sql += ` AND featured = 1`;
     }
 
-    const countSql = sql.replace("SELECT id,name,email,phone,city,role,admin_role,verified,blocked,blocked_reason,featured,rating,reviews_count,orders_count,created_at", "SELECT COUNT(*) as total");
+    const countSql = sql.replace("SELECT id,name,email,phone,city,role,admin_role,verified,blocked,blocked_reason,featured,rating,reviews_count,orders_count,created_at,avatar,categories", "SELECT COUNT(*) as total");
     const total = db.prepare(countSql).get(...params).total;
 
     sql += ` ORDER BY featured DESC, created_at DESC LIMIT ? OFFSET ?`;
@@ -343,6 +461,8 @@ router.patch("/vacancies/:id/status", authMiddleware, requireAdmin, requireSecti
       }
     }
 
+    emitAdminUpdate(req.app.get("io"), "vacancy");
+
     res.json({ success: true });
   } catch (err) {
     console.error("Admin vacancy status error:", err);
@@ -378,6 +498,7 @@ router.delete("/vacancies/:id", authMiddleware, requireAdmin, requireSection("va
     db.prepare("DELETE FROM applications WHERE vacancy_id = ?").run(req.params.id);
     db.prepare("DELETE FROM vacancies WHERE id = ?").run(req.params.id);
     logAdmin(req.userId, "vacancy_delete", "vacancy", req.params.id, vacancy.title);
+    emitAdminUpdate(req.app.get("io"), "vacancy");
     res.json({ success: true });
   } catch (err) {
     console.error("Admin vacancy delete error:", err);
@@ -634,6 +755,8 @@ router.patch("/applications/:id/status", authMiddleware, requireAdmin, requireSe
       });
     }
 
+    emitAdminUpdate(req.app.get("io"), "application");
+
     res.json({ success: true });
   } catch (err) {
     console.error("Admin application status error:", err);
@@ -647,6 +770,7 @@ router.delete("/applications/:id", authMiddleware, requireAdmin, requireSection(
     if (!application) return res.status(404).json({ error: "Ariza topilmadi" });
     db.prepare("DELETE FROM applications WHERE id = ?").run(req.params.id);
     logAdmin(req.userId, "application_delete", "application", req.params.id, "");
+    emitAdminUpdate(req.app.get("io"), "application");
     res.json({ success: true });
   } catch (err) {
     console.error("Admin application delete error:", err);
@@ -728,6 +852,7 @@ router.patch("/flags/:id", authMiddleware, requireAdmin, requireSection("reports
     }
 
     logAdmin(req.userId, "flag_update", "content_flag", req.params.id, `status=${status || ""}${blocked ? ", user blocked" : ""}`);
+    emitAdminUpdate(req.app.get("io"), "flag");
     res.json({ success: true, blocked });
   } catch (err) {
     console.error("Admin flag update error:", err);
@@ -739,6 +864,7 @@ router.delete("/flags/:id", authMiddleware, requireAdmin, requireSection("report
   try {
     db.prepare("DELETE FROM content_flags WHERE id = ?").run(req.params.id);
     logAdmin(req.userId, "flag_delete", "content_flag", req.params.id, "");
+    emitAdminUpdate(req.app.get("io"), "flag");
     res.json({ success: true });
   } catch (err) {
     console.error("Admin flag delete error:", err);
@@ -784,6 +910,7 @@ router.patch("/disputes/:id", authMiddleware, requireAdmin, requireSection("disp
 
     db.prepare(`UPDATE disputes SET ${sets.join(", ")} WHERE id = ?`).run(...params);
     logAdmin(req.userId, "dispute_update", "dispute", req.params.id, `status=${status || ""}`);
+    emitAdminUpdate(req.app.get("io"), "dispute");
     res.json({ success: true });
   } catch (err) {
     console.error("Admin dispute update error:", err);
@@ -836,6 +963,7 @@ router.patch("/support/:id", authMiddleware, requireAdmin, requireSection("suppo
     }
 
     logAdmin(req.userId, "support_update", "support_ticket", req.params.id, `status=${status || ""}`);
+    emitAdminUpdate(req.app.get("io"), "support");
     res.json({ success: true });
   } catch (err) {
     console.error("Admin support update error:", err);
@@ -1000,6 +1128,7 @@ router.patch("/verification/:id", authMiddleware, requireAdmin, requireSection("
     }
 
     logAdmin(req.userId, "verification_review", "verification_request", req.params.id, `status=${status}`);
+    emitAdminUpdate(req.app.get("io"), "verification");
     res.json({ success: true });
   } catch (err) {
     console.error("Admin verification update error:", err);
@@ -1178,6 +1307,7 @@ router.post("/moderation/scan", authMiddleware, requireAdmin, requireSection("re
     for (const v of db.prepare("SELECT id, description FROM vacancies WHERE description != ''").all()) scanTarget("vacancy", v.id, v.description);
 
     logAdmin(req.userId, "content_scan", "content_flags", null, `${flagged} ta yangi belgi topildi`);
+    if (flagged > 0) emitAdminUpdate(req.app.get("io"), "flag");
     res.json({ success: true, flagged, scannedWords: words.length });
   } catch (err) {
     console.error("Admin moderation scan error:", err);
@@ -1240,6 +1370,7 @@ router.post("/flags", authMiddleware, requireAdmin, requireSection("reports"), (
       target_type, Number(target_id), reason || "", severity || "O'rta", "Ko'rib chiqilmoqda"
     );
     logAdmin(req.userId, "flag_create", "flag", result.lastInsertRowid, `${target_type}:${target_id}`);
+    emitAdminUpdate(req.app.get("io"), "flag");
     res.json({ id: result.lastInsertRowid });
   } catch (err) {
     console.error("Admin flag create error:", err);

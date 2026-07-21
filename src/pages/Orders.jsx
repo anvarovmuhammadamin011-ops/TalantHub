@@ -7,6 +7,7 @@ import {
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { useT } from "../context/I18nContext";
 
 const statusConfig = {
   "Yangi": { color: "bg-blue-50 text-blue-600", dot: "bg-blue-500", icon: AlertCircle },
@@ -25,6 +26,7 @@ const priorityConfig = {
 export default function Orders() {
   const { user } = useAuth();
   const showToast = useToast();
+  const { t } = useT();
   const [orders, setOrders] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
@@ -50,6 +52,7 @@ export default function Orders() {
       setStats(data.stats);
     } catch (err) {
       console.error(err);
+      showToast(err.message || t("pages.orders.loadError"), "error");
     } finally {
       setLoading(false);
     }
@@ -62,6 +65,7 @@ export default function Orders() {
       await loadOrders();
     } catch (err) {
       console.error(err);
+      showToast(err.message || t("pages.orders.statusUpdateError"), "error");
     } finally {
       setUpdatingId(null);
     }
@@ -93,9 +97,9 @@ export default function Orders() {
       await api(`/orders/${disputeModal.id}/dispute`, { method: "POST", body: { reason: disputeReason.trim() } });
       setDisputeModal(null);
       setDisputeReason("");
-      showToast("Nizo ochildi — administrator tez orada ko'rib chiqadi", "success");
+      showToast(t("pages.orders.disputeOpened"), "success");
     } catch (err) {
-      showToast(err.message || "Xatolik yuz berdi", "error");
+      showToast(err.message || t("common.error"), "error");
     } finally {
       setSubmittingDispute(false);
     }
@@ -105,23 +109,29 @@ export default function Orders() {
 
   const isEmployer = user?.role === "employer";
 
+  const priorityLabels = {
+    "Yuqori": t("pages.orders.priorityHigh"),
+    "O'rta": t("pages.orders.priorityMedium"),
+    "Past": t("pages.orders.priorityLow"),
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-ink tracking-tight">Zakazlar</h1>
+          <h1 className="text-2xl font-bold text-ink tracking-tight">{t("pages.orders.title")}</h1>
           <p className="text-ink-3 text-sm mt-1">
-            {isEmployer ? "Berilgan zakazlaringiz" : "Kelib tushgan zakazlaringiz"}
+            {isEmployer ? t("pages.orders.subtitleEmployer") : t("pages.orders.subtitleSpecialist")}
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[
-          { label: "Jami", value: stats.total, icon: Package, color: "bg-ink/5 text-ink" },
-          { label: "Yangi", value: stats.new, icon: AlertCircle, color: "bg-blue-50 text-blue-600" },
-          { label: "Jarayonda", value: stats.active, icon: TrendingUp, color: "bg-purple-50 text-purple-600" },
-          { label: "Tugatilgan", value: stats.completed, icon: CheckCircle, color: "bg-emerald-50 text-emerald-600" },
+          { label: t("pages.orders.statTotal"), value: stats.total, icon: Package, color: "bg-ink/5 text-ink" },
+          { label: t("status.Yangi"), value: stats.new, icon: AlertCircle, color: "bg-blue-50 text-blue-600" },
+          { label: t("status.Jarayonda"), value: stats.active, icon: TrendingUp, color: "bg-purple-50 text-purple-600" },
+          { label: t("status.Tugatildi"), value: stats.completed, icon: CheckCircle, color: "bg-emerald-50 text-emerald-600" },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-xl border border-border p-4">
             <div className="flex items-center justify-between mb-3">
@@ -141,18 +151,18 @@ export default function Orders() {
             className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
               filter === f ? "bg-ink text-white" : "bg-white text-ink-2 border border-border hover:bg-surface"
             }`}>
-            {f === "all" ? "Barchasi" : f}
+            {f === "all" ? t("common.all") : t(`status.${f}`)}
           </button>
         ))}
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-ink-3">Yuklanmoqda...</div>
+        <div className="text-center py-20 text-ink-3">{t("common.loading")}</div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20">
           <div className="text-4xl mb-4">📦</div>
-          <h3 className="font-semibold text-ink mb-1">Zakazlar topilmadi</h3>
-          <p className="text-ink-3 text-sm">Hozircha bu turdagi zakazlar yo'q</p>
+          <h3 className="font-semibold text-ink mb-1">{t("pages.orders.emptyTitle")}</h3>
+          <p className="text-ink-3 text-sm">{t("pages.orders.emptyDesc")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -167,11 +177,11 @@ export default function Orders() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-semibold text-ink text-sm">{order.title}</h3>
                         <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${sc.color}`}>
-                          {order.status}
+                          {t(`status.${order.status}`)}
                         </span>
                         {order.priority && (
                           <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${priorityConfig[order.priority] || ""}`}>
-                            {order.priority}
+                            {priorityLabels[order.priority] || order.priority}
                           </span>
                         )}
                       </div>
@@ -181,7 +191,7 @@ export default function Orders() {
                     <div className="flex items-center gap-4 text-xs text-ink-3">
                       <div className="flex items-center gap-1">
                         <Calendar className="w-3.5 h-3.5" />
-                        <span>Muddat: {order.deadline || "Belgilanmagan"}</span>
+                        <span>{t("pages.orders.deadline", { deadline: order.deadline || t("pages.orders.notSet") })}</span>
                       </div>
                       <span>{isEmployer ? order.specialist_name : order.employer_name}</span>
                       {order.rating > 0 && (
@@ -191,7 +201,7 @@ export default function Orders() {
                       )}
                       {order.specialist_rating > 0 && (
                         <span className="flex items-center gap-1 text-amber-500">
-                          <Star className="w-3.5 h-3.5 fill-amber-500" /> {order.specialist_rating} (sizning bahoyingiz)
+                          <Star className="w-3.5 h-3.5 fill-amber-500" /> {order.specialist_rating} {t("pages.orders.yourRating")}
                         </span>
                       )}
                     </div>
@@ -203,42 +213,42 @@ export default function Orders() {
                     {order.status === "Yangi" && !isEmployer && (
                       <button onClick={() => updateStatus(order.id, "Qabul qilindi")} disabled={updatingId === order.id}
                         className="px-4 py-2 bg-accent text-white text-sm font-medium rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-60">
-                        Qabul qilish
+                        {t("pages.orders.accept")}
                       </button>
                     )}
                     {order.status === "Yangi" && isEmployer && (
                       <button onClick={() => updateStatus(order.id, "Bekor qilindi")} disabled={updatingId === order.id}
                         className="px-4 py-2 bg-red-50 text-red-500 text-sm font-medium rounded-lg hover:bg-red-100 transition-colors disabled:opacity-60">
-                        Bekor qilish
+                        {t("common.cancel")}
                       </button>
                     )}
                     {order.status === "Qabul qilindi" && (
                       <button onClick={() => updateStatus(order.id, "Jarayonda")} disabled={updatingId === order.id}
                         className="px-4 py-2 bg-purple-500 text-white text-sm font-medium rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-60">
-                        Boshlash
+                        {t("pages.orders.start")}
                       </button>
                     )}
                     {order.status === "Jarayonda" && !isEmployer && (
                       <button onClick={() => updateStatus(order.id, "Tugatildi")} disabled={updatingId === order.id}
                         className="px-4 py-2 bg-accent text-white text-sm font-medium rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-60">
-                        Tugatish
+                        {t("pages.orders.finish")}
                       </button>
                     )}
                     {order.status === "Tugatildi" && isEmployer && !order.rating && (
                       <button onClick={() => { setRatingModal(order); setRatingValue(0); setRatingText(""); }}
                         className="px-4 py-2 bg-amber-50 text-amber-600 text-sm font-medium rounded-lg hover:bg-amber-100 transition-colors flex items-center gap-1">
-                        <Star className="w-4 h-4" /> Baholash
+                        <Star className="w-4 h-4" /> {t("pages.orders.rate")}
                       </button>
                     )}
                     {order.status === "Tugatildi" && !isEmployer && !order.specialist_rating && (
                       <button onClick={() => { setRatingModal(order); setRatingValue(0); setRatingText(""); }}
                         className="px-4 py-2 bg-amber-50 text-amber-600 text-sm font-medium rounded-lg hover:bg-amber-100 transition-colors flex items-center gap-1">
-                        <Star className="w-4 h-4" /> Ish beruvchini baholang
+                        <Star className="w-4 h-4" /> {t("pages.orders.rateEmployer")}
                       </button>
                     )}
                     {(order.status === "Qabul qilindi" || order.status === "Jarayonda") && (
                       <button onClick={() => { setDisputeModal(order); setDisputeReason(""); }}
-                        title="Nizo ochish"
+                        title={t("pages.orders.disputeOpen")}
                         className="w-9 h-9 flex items-center justify-center rounded-lg bg-surface text-ink-2 hover:bg-danger-soft hover:text-danger transition-colors">
                         <Flag className="w-4 h-4" />
                       </button>
@@ -257,9 +267,11 @@ export default function Orders() {
       {ratingModal && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setRatingModal(null)}>
           <div className="bg-white rounded-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-semibold text-ink text-lg mb-1">Baholash</h3>
+            <h3 className="font-semibold text-ink text-lg mb-1">{t("pages.orders.rate")}</h3>
             <p className="text-sm text-ink-3 mb-4">
-              {isEmployer ? `"${ratingModal.title}" zakazini baholang` : `"${ratingModal.employer_name}" ish beruvchini baholang`}
+              {isEmployer
+                ? t("pages.orders.ratingDescEmployer", { title: ratingModal.title })
+                : t("pages.orders.ratingDescSpecialist", { name: ratingModal.employer_name })}
             </p>
             <div className="flex items-center justify-center gap-2 mb-4">
               {[1, 2, 3, 4, 5].map((star) => (
@@ -271,16 +283,16 @@ export default function Orders() {
               ))}
             </div>
             <textarea value={ratingText} onChange={(e) => setRatingText(e.target.value)}
-              placeholder="Ixtiyoriy izoh..." rows={3}
+              placeholder={t("pages.orders.commentPlaceholder")} rows={3}
               className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:border-ink/30 outline-none resize-none mb-4" />
             <div className="flex gap-2">
               <button onClick={() => setRatingModal(null)}
                 className="flex-1 px-4 py-2.5 rounded-lg border border-border text-ink-2 text-sm font-medium hover:bg-surface transition-colors">
-                Bekor qilish
+                {t("common.cancel")}
               </button>
               <button onClick={submitRating} disabled={!ratingValue || submittingRating}
                 className="flex-1 px-4 py-2.5 bg-ink text-white rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors disabled:opacity-60">
-                {submittingRating ? "Yuborilmoqda..." : "Yuborish"}
+                {submittingRating ? t("pages.orders.submitting") : t("common.submit")}
               </button>
             </div>
           </div>
@@ -291,21 +303,21 @@ export default function Orders() {
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setDisputeModal(null)}>
           <div className="bg-white rounded-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-1">
-              <h3 className="font-semibold text-ink text-lg">Nizo ochish</h3>
+              <h3 className="font-semibold text-ink text-lg">{t("pages.orders.disputeOpen")}</h3>
               <button onClick={() => setDisputeModal(null)} className="text-ink-3 hover:text-ink"><X className="w-5 h-5" /></button>
             </div>
-            <p className="text-sm text-ink-3 mb-4">"{disputeModal.title}" — muammoni tasvirlab bering, administrator ko'rib chiqadi.</p>
+            <p className="text-sm text-ink-3 mb-4">{t("pages.orders.disputeDesc", { title: disputeModal.title })}</p>
             <textarea value={disputeReason} onChange={(e) => setDisputeReason(e.target.value)}
-              placeholder="Masalan: ish kelishilgan muddatda topshirilmadi..." rows={4}
+              placeholder={t("pages.orders.disputeReasonPlaceholder")} rows={4}
               className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:border-danger/40 outline-none resize-none mb-4" />
             <div className="flex gap-2">
               <button onClick={() => setDisputeModal(null)}
                 className="flex-1 px-4 py-2.5 rounded-lg border border-border text-ink-2 text-sm font-medium hover:bg-surface transition-colors">
-                Bekor qilish
+                {t("common.cancel")}
               </button>
               <button onClick={submitDispute} disabled={!disputeReason.trim() || submittingDispute}
                 className="flex-1 px-4 py-2.5 bg-danger text-white rounded-lg text-sm font-medium hover:opacity-90 transition-colors disabled:opacity-60">
-                {submittingDispute ? "Yuborilmoqda..." : "Nizo ochish"}
+                {submittingDispute ? t("pages.orders.submitting") : t("pages.orders.disputeOpen")}
               </button>
             </div>
           </div>
