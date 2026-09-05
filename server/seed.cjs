@@ -17,7 +17,9 @@ async function seed() {
   }
 
   if (!SEED_DEMO_DATA) {
-    console.log("SEED_DEMO_DATA=false — skipping demo dataset (users table is empty).");
+    if (existingUsers.count === 0) {
+      console.log("SEED_DEMO_DATA=false — no users were seeded. Admin account will be created on next step.");
+    }
     return;
   }
 

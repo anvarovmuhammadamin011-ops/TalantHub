@@ -50,7 +50,7 @@ router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), asyn
     const orders_completed = (await db.prepare("SELECT COUNT(*) as c FROM orders WHERE status='Tugatildi'").get()).c;
     const applications_total = (await db.prepare("SELECT COUNT(*) as c FROM applications").get()).c;
     const messages_total = (await db.prepare("SELECT COUNT(*) as c FROM messages").get()).c;
-    const new_users_7d = (await db.prepare("SELECT COUNT(*) as c FROM users WHERE created_at >= NOW() - INTERVAL '7 days'").get()).c;
+    const new_users_7d = (await db.prepare("SELECT COUNT(*) as c FROM users WHERE created_at >= datetime('now', '-7 days')").get()).c;
     const verified_users = (await db.prepare("SELECT COUNT(*) as c FROM users WHERE verified = 1").get()).c;
     const blocked_users = (await db.prepare("SELECT COUNT(*) as c FROM users WHERE blocked = 1").get()).c;
     const featured_users = (await db.prepare("SELECT COUNT(*) as c FROM users WHERE featured = 1").get()).c;
@@ -58,7 +58,7 @@ router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), asyn
     const signups_by_day = await db.prepare(`
       SELECT date(created_at) as date, COUNT(*) as count
       FROM users
-      WHERE created_at >= NOW() - INTERVAL '13 days'
+      WHERE created_at >= datetime('now', '-13 days')
       GROUP BY date(created_at)
       ORDER BY date(created_at) ASC
     `).all();
@@ -78,7 +78,7 @@ router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), asyn
     const vacanciesByDay = await db.prepare(`
       SELECT date(created_at) as date, COUNT(*) as count
       FROM vacancies
-      WHERE created_at >= NOW() - INTERVAL '29 days'
+      WHERE created_at >= datetime('now', '-29 days')
       GROUP BY date(created_at)
       ORDER BY date(created_at) ASC
     `).all();
@@ -114,19 +114,19 @@ router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), asyn
       rate: applications_total > 0 ? Math.round((hired / applications_total) * 1000) / 10 : 0,
     };
 
-    const pageviews_7d = (await db.prepare("SELECT COUNT(*) as c FROM analytics_events WHERE created_at >= NOW() - INTERVAL '7 days'").get()).c;
-    const applications_7d = (await db.prepare("SELECT COUNT(*) as c FROM applications WHERE created_at >= NOW() - INTERVAL '7 days'").get()).c;
+    const pageviews_7d = (await db.prepare("SELECT COUNT(*) as c FROM analytics_events WHERE created_at >= datetime('now', '-7 days')").get()).c;
+    const applications_7d = (await db.prepare("SELECT COUNT(*) as c FROM applications WHERE created_at >= datetime('now', '-7 days')").get()).c;
     const top_pages = await db.prepare(`
       SELECT path, COUNT(*) as count FROM analytics_events
-      WHERE created_at >= NOW() - INTERVAL '7 days'
+      WHERE created_at >= datetime('now', '-7 days')
       GROUP BY path ORDER BY count DESC LIMIT 8
     `).all();
     const analytics = { pageviews_7d, applications_7d, new_users_7d, top_pages };
 
     async function periodTrend(table, whereExtra = "") {
       const extra = whereExtra ? `AND ${whereExtra}` : "";
-      const current = (await db.prepare(`SELECT COUNT(*) as c FROM ${table} WHERE created_at >= NOW() - INTERVAL '7 days' ${extra}`).get()).c;
-      const prev = (await db.prepare(`SELECT COUNT(*) as c FROM ${table} WHERE created_at >= NOW() - INTERVAL '14 days' AND created_at < NOW() - INTERVAL '7 days' ${extra}`).get()).c;
+      const current = (await db.prepare(`SELECT COUNT(*) as c FROM ${table} WHERE created_at >= datetime('now', '-7 days') ${extra}`).get()).c;
+      const prev = (await db.prepare(`SELECT COUNT(*) as c FROM ${table} WHERE created_at >= datetime('now', '-14 days') AND created_at < datetime('now', '-7 days') ${extra}`).get()).c;
       const pct = prev === 0 ? null : Math.round(((current - prev) / prev) * 1000) / 10;
       return { current, prev, pct };
     }
@@ -138,10 +138,10 @@ router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), asyn
     };
 
     const applicationsByMonth = await db.prepare(`
-      SELECT to_char(created_at, 'YYYY-MM') as month, COUNT(*) as count
+      SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as count
       FROM applications
-      WHERE created_at >= date_trunc('month', NOW() - INTERVAL '5 months')
-      GROUP BY to_char(created_at, 'YYYY-MM')
+      WHERE created_at >= datetime('now', '-5 months', 'start of month')
+      GROUP BY strftime('%Y-%m', created_at)
     `).all();
     const applicationsByMonthMap = Object.fromEntries(applicationsByMonth.map((r) => [r.month, r.count]));
     const applications_monthly_series = [];
@@ -156,8 +156,8 @@ router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), asyn
     const upcomingVacancies = (await db.prepare(`
       SELECT id, title, company, start_date as date
       FROM vacancies
-      WHERE status='Faol' AND start_date IS NOT NULL AND start_date != '' AND start_date::date >= CURRENT_DATE
-      ORDER BY start_date::date ASC LIMIT 8
+      WHERE status='Faol' AND start_date IS NOT NULL AND start_date != '' AND date(start_date) >= date('now')
+      ORDER BY date(start_date) ASC LIMIT 8
     `).all()).map((v) => ({ type: "vacancy", id: v.id, title: v.title, subtitle: v.company, date: v.date }));
 
     const candidateOrders = await db.prepare(`
@@ -184,15 +184,15 @@ router.get("/stats", authMiddleware, requireAdmin, requireSection("stats"), asyn
     ) / 10;
 
     const appsByMonth12 = await db.prepare(`
-      SELECT to_char(created_at, 'YYYY-MM') as month, COUNT(*) as count
-      FROM applications WHERE created_at >= date_trunc('month', NOW() - INTERVAL '11 months')
-      GROUP BY to_char(created_at, 'YYYY-MM')
+      SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as count
+      FROM applications WHERE created_at >= datetime('now', '-11 months', 'start of month')
+      GROUP BY strftime('%Y-%m', created_at)
     `).all();
     const appsByMonth12Map = Object.fromEntries(appsByMonth12.map((r) => [r.month, r.count]));
     const vacsByMonth12 = await db.prepare(`
-      SELECT to_char(created_at, 'YYYY-MM') as month, COUNT(*) as count
-      FROM vacancies WHERE created_at >= date_trunc('month', NOW() - INTERVAL '11 months')
-      GROUP BY to_char(created_at, 'YYYY-MM')
+      SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as count
+      FROM vacancies WHERE created_at >= datetime('now', '-11 months', 'start of month')
+      GROUP BY strftime('%Y-%m', created_at)
     `).all();
     const vacsByMonth12Map = Object.fromEntries(vacsByMonth12.map((r) => [r.month, r.count]));
     const monthly_activity = [];
@@ -231,7 +231,7 @@ router.get("/companies", authMiddleware, requireAdmin, requireSection("companies
     `;
     const params = [];
     if (search) {
-      sql += ` AND (u.name ILIKE ? OR u.company_name ILIKE ?)`;
+      sql += ` AND (u.name LIKE ? OR u.company_name LIKE ?)`;
       params.push(`%${search}%`, `%${search}%`);
     }
 
@@ -259,7 +259,7 @@ router.get("/users", authMiddleware, requireAdmin, requireSection("users"), asyn
     const params = [];
 
     if (search) {
-      sql += ` AND (name ILIKE ? OR email ILIKE ?)`;
+      sql += ` AND (name LIKE ? OR email LIKE ?)`;
       params.push(`%${search}%`, `%${search}%`);
     }
     if (role) {
@@ -403,7 +403,7 @@ router.get("/vacancies", authMiddleware, requireAdmin, requireSection("vacancies
     const params = [];
 
     if (search) {
-      sql += ` AND (v.title ILIKE ? OR v.company ILIKE ?)`;
+      sql += ` AND (v.title LIKE ? OR v.company LIKE ?)`;
       params.push(`%${search}%`, `%${search}%`);
     }
     if (status) {
@@ -531,7 +531,7 @@ router.get("/finance/stats", authMiddleware, requireAdmin, requireSection("finan
     const revenueByDay = await db.prepare(`
       SELECT date(created_at) as date, COALESCE(SUM(amount), 0) as total
       FROM transactions
-      WHERE status = 'Tasdiqlangan' AND amount > 0 AND type != 'demo_topup' AND created_at >= NOW() - INTERVAL '29 days'
+      WHERE status = 'Tasdiqlangan' AND amount > 0 AND type != 'demo_topup' AND created_at >= datetime('now', '-29 days')
       GROUP BY date(created_at) ORDER BY date(created_at) ASC
     `).all();
     const revenueByDayMap = Object.fromEntries(revenueByDay.map((r) => [String(r.date).slice(0, 10), r.total]));
@@ -559,7 +559,7 @@ router.get("/finance/transactions", authMiddleware, requireAdmin, requireSection
     const params = [];
     if (status) { sql += ` AND tr.status = ?`; params.push(status); }
     if (type) { sql += ` AND tr.type = ?`; params.push(type); }
-    if (search) { sql += ` AND (u.name ILIKE ? OR u.email ILIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
+    if (search) { sql += ` AND (u.name LIKE ? OR u.email LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
 
     const countSql = sql.replace("SELECT tr.*, u.name as user_name, u.email as user_email", "SELECT COUNT(*) as total");
     const total = (await db.prepare(countSql).get(...params)).total;
@@ -723,7 +723,7 @@ router.get("/applications", authMiddleware, requireAdmin, requireSection("applic
     `;
     const params = [];
     if (search) {
-      sql += ` AND (v.title ILIKE ? OR u.name ILIKE ?)`;
+      sql += ` AND (v.title LIKE ? OR u.name LIKE ?)`;
       params.push(`%${search}%`, `%${search}%`);
     }
     if (status) {
@@ -790,7 +790,7 @@ router.get("/sessions", authMiddleware, requireAdmin, requireSection("users"), a
     `;
     const params = [];
     if (search) {
-      sql += ` AND (u.name ILIKE ? OR u.email ILIKE ?)`;
+      sql += ` AND (u.name LIKE ? OR u.email LIKE ?)`;
       params.push(`%${search}%`, `%${search}%`);
     }
     sql += ` ORDER BY l.created_at DESC LIMIT ?`;
@@ -1350,7 +1350,7 @@ router.get("/logs", authMiddleware, requireAdmin, requireSection("logs"), async 
       WHERE 1=1
     `;
     const params = [];
-    if (search) { sql += ` AND (a.name ILIKE ? OR l.details ILIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
+    if (search) { sql += ` AND (a.name LIKE ? OR l.details LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
     if (action) { sql += ` AND l.action = ?`; params.push(action); }
     sql += ` ORDER BY l.created_at DESC LIMIT 200`;
     const logs = await db.prepare(sql).all(...params);

@@ -10,10 +10,8 @@ router.get("/", async (req, res) => {
     let sql = `SELECT * FROM users WHERE role = 'specialist' AND 1=1`;
     const params = [];
 
-    // ILIKE, not LIKE — Postgres's LIKE is case-sensitive by default (SQLite's isn't for
-    // ASCII), and this is user-facing search matching that needs to stay case-insensitive.
     if (search) {
-      sql += ` AND (name ILIKE ? OR category ILIKE ? OR skills ILIKE ?)`;
+      sql += ` AND (name LIKE ? OR category LIKE ? OR skills LIKE ?)`;
       params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
     if (city) {
@@ -21,11 +19,11 @@ router.get("/", async (req, res) => {
       params.push(city);
     }
     if (field) {
-      sql += ` AND fields ILIKE ?`;
+      sql += ` AND fields LIKE ?`;
       params.push(`%${field}%`);
     }
     if (category) {
-      sql += ` AND categories ILIKE ?`;
+      sql += ` AND categories LIKE ?`;
       params.push(`%${category}%`);
     }
 

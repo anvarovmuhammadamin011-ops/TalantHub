@@ -128,6 +128,7 @@ io.on("connection", async (socket) => {
 // TABLE/ALTER TABLE ran synchronously at require() time); it does now.
 (async () => {
   try {
+    await db.init();
     await db.initSchema();
     await seed();
     await seed.ensureAdmin();

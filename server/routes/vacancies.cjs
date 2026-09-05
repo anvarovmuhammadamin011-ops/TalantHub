@@ -39,13 +39,12 @@ router.get("/", optionalAuthMiddleware, async (req, res) => {
     `;
     const params = [];
 
-    // ILIKE, not LIKE — Postgres's LIKE is case-sensitive by default.
     if (search) {
-      sql += ` AND (v.title ILIKE ? OR v.company ILIKE ? OR v.tags ILIKE ?)`;
+      sql += ` AND (v.title LIKE ? OR v.company LIKE ? OR v.tags LIKE ?)`;
       params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
     if (location) {
-      sql += ` AND v.location ILIKE ?`;
+      sql += ` AND v.location LIKE ?`;
       params.push(`%${location}%`);
     }
     if (format) {

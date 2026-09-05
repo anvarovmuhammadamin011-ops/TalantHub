@@ -64,9 +64,9 @@ router.post("/subscribe", authMiddleware, async (req, res) => {
 
       await trx.prepare("UPDATE tariffs_users SET active = 0 WHERE user_id = ? AND active = 1").run(req.userId);
 
-      await trx.prepare(`
-        INSERT INTO tariffs_users (user_id, tariff_id, expires_at) VALUES (?, ?, NOW() + (? * INTERVAL '1 day'))
-      `).run(req.userId, tariff.id, tariff.duration_days);
+      await trx.prepare(
+        `INSERT INTO tariffs_users (user_id, tariff_id, expires_at) VALUES (?, ?, datetime('now', '+' || ? || ' days'))`
+      ).run(req.userId, tariff.id, tariff.duration_days);
     });
 
     res.json({ success: true });
