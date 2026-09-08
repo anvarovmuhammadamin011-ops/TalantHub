@@ -378,6 +378,14 @@ const db = {
         specialty TEXT DEFAULT '',
         year INTEGER DEFAULT 0,
         stir TEXT DEFAULT '',
+        passport_url TEXT DEFAULT '',
+        selfie_url TEXT DEFAULT '',
+        face_score REAL DEFAULT 0,
+        face_auto INTEGER DEFAULT 0,
+        residence_address TEXT DEFAULT '',
+        address_doc_url TEXT DEFAULT '',
+        address_doc_type TEXT DEFAULT '',
+        capture_method TEXT DEFAULT '',
         status TEXT DEFAULT 'Kutilmoqda',
         reject_reason TEXT DEFAULT '',
         reviewed_by INTEGER REFERENCES users(id),
@@ -488,6 +496,14 @@ const db = {
     addColumnIfMissing("verification_requests", "institution", "TEXT DEFAULT ''");
     addColumnIfMissing("verification_requests", "specialty", "TEXT DEFAULT ''");
     addColumnIfMissing("verification_requests", "year", "INTEGER DEFAULT 0");
+    addColumnIfMissing("verification_requests", "passport_url", "TEXT DEFAULT ''");
+    addColumnIfMissing("verification_requests", "selfie_url", "TEXT DEFAULT ''");
+    addColumnIfMissing("verification_requests", "face_score", "REAL DEFAULT 0");
+    addColumnIfMissing("verification_requests", "face_auto", "INTEGER DEFAULT 0");
+    addColumnIfMissing("verification_requests", "residence_address", "TEXT DEFAULT ''");
+    addColumnIfMissing("verification_requests", "address_doc_url", "TEXT DEFAULT ''");
+    addColumnIfMissing("verification_requests", "address_doc_type", "TEXT DEFAULT ''");
+    addColumnIfMissing("verification_requests", "capture_method", "TEXT DEFAULT ''");
 
     // --- Phase 3: idempotent seed data ---
     const defaultCategories = [

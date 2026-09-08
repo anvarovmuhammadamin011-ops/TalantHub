@@ -11,10 +11,24 @@ router.post("/", authMiddleware, async (req, res) => {
       return res.status(403).json({ error: "Faqat mutaxassis yoki ish beruvchilar verifikatsiya so'rashi mumkin" });
     }
 
-    const { document_url, document_name, institution, specialty, year, stir } = req.body;
+    const {
+      document_url, document_name, institution, specialty, year, stir,
+      passport_url, selfie_url, face_score, face_auto,
+      residence_address, address_doc_url, address_doc_type, capture_method,
+    } = req.body;
     const type = user.role;
 
-    if (type === "specialist") {
+    // KYC rejimi (ro'yxatdan o'tishdagi pasport + face-check): pasport va jonli selfie majburiy.
+    // Eski VerificationPanel rejimida esa avvalgi qoidalar saqlanadi.
+    const isKyc = !!(passport_url && passport_url.trim());
+    if (isKyc) {
+      if (!selfie_url || !selfie_url.trim()) {
+        return res.status(400).json({ error: "Face-check uchun jonli selfie majburiy" });
+      }
+      if (!residence_address || !residence_address.trim()) {
+        return res.status(400).json({ error: "Yashash manzilini kiritish majburiy" });
+      }
+    } else if (type === "specialist") {
       if (!document_url || !document_url.trim()) {
         return res.status(400).json({ error: "Diplom yoki sertifikat havolasi kiritilishi shart" });
       }
@@ -27,9 +41,14 @@ router.post("/", authMiddleware, async (req, res) => {
     if (pending) return res.status(409).json({ error: "Sizda hali ko'rib chiqilayotgan so'rov mavjud" });
 
     const result = await db.prepare(`
-      INSERT INTO verification_requests (user_id, type, document_url, document_name, institution, specialty, year, stir)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(req.userId, type, document_url || "", document_name || "", institution || "", specialty || "", year || 0, stir || "");
+      INSERT INTO verification_requests (user_id, type, document_url, document_name, institution, specialty, year, stir,
+        passport_url, selfie_url, face_score, face_auto, residence_address, address_doc_url, address_doc_type, capture_method)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      req.userId, type, document_url || "", document_name || "", institution || "", specialty || "", year || 0, stir || "",
+      passport_url || "", selfie_url || "", Number(face_score) || 0, face_auto ? 1 : 0,
+      residence_address || "", address_doc_url || "", address_doc_type || "", capture_method || ""
+    );
 
     const request = await db.prepare("SELECT * FROM verification_requests WHERE id = ?").get(result.lastInsertRowid);
     res.json({ request });

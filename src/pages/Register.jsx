@@ -1,13 +1,17 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, Navigate } from "react-router-dom";
-import { ArrowRight, ArrowLeft, Briefcase, User, Code, BookOpen, CheckCircle, Smartphone, Shield } from "lucide-react";
+import { ArrowRight, ArrowLeft, Briefcase, User, Code, BookOpen, CheckCircle, Smartphone, Shield, ScanFace, MapPin } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { api, BASE_URL } from "../lib/api";
+import { api, apiUpload, BASE_URL } from "../lib/api";
+import { compareFaces } from "../lib/faceCheck";
+import CameraCapture from "../components/verification/CameraCapture";
+import DocumentUpload from "../components/verification/DocumentUpload";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import LanguageSwitcher from "../components/ui/LanguageSwitcher";
 import { useT } from "../context/I18nContext";
 
-const steps = ["Rol", "Yo'nalish", "Ma'lumotlar", "SMS", "Tasdiqlash"];
+const steps = ["Rol", "Yo'nalish", "Ma'lumotlar", "SMS", "Pasport", "Face-check", "Manzil", "Tasdiqlash"];
+const LAST_STEP = steps.length - 1;
 
 const countryFlags = { UZ: "🇺🇿", RU: "🇷🇺", US: "🇺🇸", KZ: "🇰🇿", TR: "🇹🇷", KG: "🇰🇬", TJ: "🇹🇯", TM: "🇹🇲" };
 
@@ -42,9 +46,26 @@ export default function Register() {
   const [smsSent, setSmsSent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [stepError, setStepError] = useState("");
+  const [kycStage, setKycStage] = useState("");
+  const [kycFailed, setKycFailed] = useState(false);
   const [passwordError, setPasswordError] = useState("");
   const [phoneError, setPhoneError] = useState("");
   const [detectedCountry, setDetectedCountry] = useState(null);
+  // KYC: pasport → face-check → manzil/hujjatlar
+  const [passport, setPassport] = useState(null);
+  const [selfie, setSelfie] = useState(null);
+  const [faceResult, setFaceResult] = useState(null);
+  const [faceChecking, setFaceChecking] = useState(false);
+  const [residence, setResidence] = useState({ region: "", district: "", street: "" });
+  const [addressDoc, setAddressDoc] = useState(null);
+  const [addressDocType, setAddressDocType] = useState("propiska");
+  const [diploma, setDiploma] = useState(null);
+  const [diplomaUrl, setDiplomaUrl] = useState("");
+  const [institution, setInstitution] = useState("");
+  const [specialty, setSpecialty] = useState("");
+  const [gradYear, setGradYear] = useState("");
+  const [stir, setStir] = useState("");
   const { register, isLoggedIn, loading } = useAuth();
   const navigate = useNavigate();
   const [categoriesByField, setCategoriesByField] = useState({});
@@ -62,11 +83,25 @@ export default function Register() {
       .catch(() => {});
   }, []);
 
+  // Face-check: pasport va selfie tayyor bo'lgach avtomatik solishtirish
+  // (early-return'dan oldinda bo'lishi shart — Hook qoidasi)
+  useEffect(() => {
+    if (step !== 5 || !passport || !selfie) return;
+    let cancelled = false;
+    setFaceChecking(true);
+    setFaceResult(null);
+    compareFaces(passport.previewUrl, selfie.previewUrl)
+      .then((res) => { if (!cancelled) { setFaceResult(res); setFaceChecking(false); } })
+      .catch(() => { if (!cancelled) { setFaceResult({ score: 0, faceFoundPassport: false, faceFoundSelfie: false, auto: false, passed: false, error: true }); setFaceChecking(false); } });
+    return () => { cancelled = true; };
+  }, [step, passport?.previewUrl, selfie?.previewUrl]);
+
   if (!loading && isLoggedIn) {
     return <Navigate to="/" replace />;
   }
 
   const next = () => {
+    setStepError("");
     if (step === 2) {
       if (form.password.length < 8) {
         setPasswordError(t("pages.register.passwordErrorMsg"));
@@ -85,7 +120,44 @@ export default function Register() {
       setSmsSent(true);
       setSmsError("");
     }
-    setStep(Math.min(step + 1, 4));
+    if (step === 4 && !passport) {
+      setStepError(t("pages.register.kyc.passportRequired"));
+      return;
+    }
+    if (step === 5) {
+      if (!selfie) {
+        setStepError(t("pages.register.kyc.selfieRequired"));
+        return;
+      }
+      if (!faceResult || faceChecking) {
+        setStepError(t("pages.register.kyc.faceWait"));
+        return;
+      }
+      // Avtomatik rejimda yuz topilmasa yoki o'xshashlik past bo'lsa — o'tkazmaydi
+      if (faceResult.auto && (!faceResult.faceFoundSelfie || !faceResult.passed)) {
+        setStepError(
+          !faceResult.faceFoundSelfie
+            ? t("pages.register.kyc.faceNoFace")
+            : t("pages.register.kyc.faceMismatch")
+        );
+        return;
+      }
+    }
+    if (step === 6) {
+      if (!residence.region.trim() || !residence.district.trim() || !residence.street.trim()) {
+        setStepError(t("pages.register.kyc.addressRequired"));
+        return;
+      }
+      if (!addressDoc) {
+        setStepError(t("pages.register.kyc.addressDocRequired"));
+        return;
+      }
+      if (role === "employer" && !stir.trim()) {
+        setStepError(t("pages.register.kyc.stirRequired"));
+        return;
+      }
+    }
+    setStep(Math.min(step + 1, LAST_STEP));
   };
 
   const prev = () => {
@@ -131,7 +203,9 @@ export default function Register() {
 
   const handleFinish = async () => {
     setSubmitError("");
+    setKycFailed(false);
     setSubmitting(true);
+    setKycStage(t("pages.register.kyc.stageAccount"));
     const result = await register({
       name: form.name || t("pages.register.defaultUserName"),
       email: form.email,
@@ -143,11 +217,58 @@ export default function Register() {
       categories: selectedCats,
       category: selectedCats[0] || "",
     });
-    setSubmitting(false);
-    if (result.success) {
-      navigate("/");
-    } else {
+    if (!result.success) {
+      setSubmitting(false);
+      setKycStage("");
       setSubmitError(result.error);
+      return;
+    }
+    // KYC hujjatlarini yuklash + verifikatsiya so'rovi yaratish
+    try {
+      const uploadBlob = async (capture, stage) => {
+        setKycStage(stage);
+        const { url } = await apiUpload("/upload", capture.blob);
+        return url;
+      };
+      const passportUrl = await uploadBlob(passport, t("pages.register.kyc.stagePassport"));
+      const selfieUrl = await uploadBlob(selfie, t("pages.register.kyc.stageSelfie"));
+      const addressDocUrl = await uploadBlob(addressDoc, t("pages.register.kyc.stageDocs"));
+      let diplomaDocUrl = diplomaUrl.trim();
+      if (diploma) {
+        diplomaDocUrl = await uploadBlob(diploma, t("pages.register.kyc.stageDocs"));
+      }
+      setKycStage(t("pages.register.kyc.stageVerify"));
+      const residenceAddress = `${residence.region}, ${residence.district}, ${residence.street}`;
+      const captureMethod = passport.method === "camera" && selfie.method === "camera" ? "camera" : "upload";
+      await api("/verification", {
+        method: "POST",
+        body: {
+          passport_url: passportUrl,
+          selfie_url: selfieUrl,
+          face_score: faceResult?.score || 0,
+          face_auto: faceResult?.auto ? 1 : 0,
+          residence_address: residenceAddress,
+          address_doc_url: addressDocUrl,
+          address_doc_type: addressDocType,
+          capture_method: captureMethod,
+          document_url: diplomaDocUrl,
+          document_name: role === "specialist" ? `Diplom — ${institution || form.name}` : "",
+          institution,
+          specialty,
+          year: gradYear ? parseInt(gradYear, 10) : 0,
+          stir: role === "employer" ? stir.trim() : "",
+        },
+      });
+      setSubmitting(false);
+      setKycStage("");
+      navigate("/");
+    } catch (err) {
+      console.error("KYC submit error:", err);
+      setSubmitting(false);
+      setKycStage("");
+      // Hisob yaratildi, lekin hujjatlar yuborilmadi — foydalanuvchi keyin Profildan to'ldiradi
+      setKycFailed(true);
+      setSubmitError(err.message || t("pages.register.kyc.kycError"));
     }
   };
 
@@ -166,16 +287,16 @@ export default function Register() {
           <span className="text-lg font-semibold text-ink tracking-tight">TalentHub</span>
         </Link>
 
-        <div className="flex items-center justify-center gap-1.5 sm:gap-2 mb-6 sm:mb-8">
+        <div className="flex items-center justify-center gap-1 sm:gap-1.5 mb-6 sm:mb-8">
           {steps.map((s, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors ${
+            <div key={i} className="flex items-center gap-1 sm:gap-1.5" title={s}>
+              <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-semibold transition-colors ${
                 i <= step ? "bg-ink text-white" : "bg-border text-ink-3"
               }`}>
                 {i < step ? <CheckCircle className="w-3.5 h-3.5" /> : i + 1}
               </div>
               {i < steps.length - 1 && (
-                <div className={`w-8 h-0.5 rounded-full ${i < step ? "bg-ink" : "bg-border"}`} />
+                <div className={`w-3 sm:w-6 h-0.5 rounded-full ${i < step ? "bg-ink" : "bg-border"}`} />
               )}
             </div>
           ))}
@@ -445,8 +566,201 @@ export default function Register() {
             </div>
           )}
 
-          {/* Step 4: Confirm */}
+          {/* Step 4: Passport photo (kamera orqali, screenshot emas) */}
           {step === 4 && (
+            <div>
+              <button onClick={prev} className="flex items-center gap-1 text-ink-3 hover:text-ink mb-6 text-sm transition-colors">
+                <ArrowLeft className="w-4 h-4" /> {t("common.back")}
+              </button>
+              <h2 className="text-xl font-semibold text-ink mb-1.5 text-center tracking-tight">{t("pages.register.kyc.passportTitle")}</h2>
+              <p className="text-ink-3 text-sm text-center mb-6">{t("pages.register.kyc.passportDesc")}</p>
+              <CameraCapture
+                facingMode="environment"
+                initialPreview={passport?.previewUrl}
+                onCapture={(cap) => { setPassport(cap); setStepError(""); }}
+              />
+              {stepError && <p className="text-xs text-red-500 mt-3 text-center">{stepError}</p>}
+              {passport && (
+                <button onClick={next} className="w-full mt-6 bg-ink text-white py-3 rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors flex items-center justify-center gap-2">
+                  {t("pages.register.continueButton")} <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Step 5: Face-check (jonli selfie) */}
+          {step === 5 && (
+            <div>
+              <button onClick={prev} className="flex items-center gap-1 text-ink-3 hover:text-ink mb-6 text-sm transition-colors">
+                <ArrowLeft className="w-4 h-4" /> {t("common.back")}
+              </button>
+              <div className="text-center mb-6">
+                <div className="w-14 h-14 bg-surface rounded-2xl flex items-center justify-center mx-auto mb-3">
+                  <ScanFace className="w-7 h-7 text-ink" strokeWidth={1.75} />
+                </div>
+                <h2 className="text-xl font-semibold text-ink mb-1.5 tracking-tight">{t("pages.register.kyc.selfieTitle")}</h2>
+                <p className="text-ink-3 text-sm">{t("pages.register.kyc.selfieDesc")}</p>
+              </div>
+              <CameraCapture
+                facingMode="user"
+                initialPreview={selfie?.previewUrl}
+                onCapture={(cap) => { setSelfie(cap); setStepError(""); }}
+              />
+
+              {selfie && (
+                <div className="mt-4">
+                  {faceChecking && (
+                    <div className="flex items-center justify-center gap-2 text-sm text-ink-3 py-3">
+                      <div className="w-4 h-4 border-2 border-ink border-t-transparent rounded-full animate-spin" />
+                      {t("pages.register.kyc.faceChecking")}
+                    </div>
+                  )}
+                  {!faceChecking && faceResult && !faceResult.error && (
+                    <div className={`rounded-xl p-4 ${faceResult.passed || !faceResult.auto ? "bg-emerald-50" : "bg-red-50"}`}>
+                      <div className="flex items-center justify-between text-sm mb-2">
+                        <span className={`font-medium ${faceResult.passed || !faceResult.auto ? "text-emerald-600" : "text-red-600"}`}>
+                          {faceResult.auto
+                            ? (faceResult.passed ? t("pages.register.kyc.facePass") : t("pages.register.kyc.faceMismatch"))
+                            : t("pages.register.kyc.faceManualReview")}
+                        </span>
+                        <span className="font-semibold text-ink">{Math.round(faceResult.score * 100)}%</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-white overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${faceResult.passed || !faceResult.auto ? "bg-emerald-500" : "bg-red-500"}`}
+                          style={{ width: `${Math.round(faceResult.score * 100)}%` }}
+                        />
+                      </div>
+                      {!faceResult.faceFoundSelfie && faceResult.auto && (
+                        <p className="text-xs text-red-600 mt-2">{t("pages.register.kyc.faceNoFace")}</p>
+                      )}
+                      {!faceResult.auto && (
+                        <p className="text-xs text-emerald-600 mt-2">{t("pages.register.kyc.faceManualNote")}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {stepError && <p className="text-xs text-red-500 mt-3 text-center">{stepError}</p>}
+              <div className="flex gap-2 mt-6">
+                <button onClick={prev} className="px-5 py-3 rounded-lg border border-border text-ink-2 text-sm font-medium hover:bg-surface transition-colors">
+                  {t("common.back")}
+                </button>
+                <button onClick={next} disabled={!selfie || faceChecking}
+                  className="flex-1 bg-ink text-white py-3 rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                  {t("pages.register.continueButton")} <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 6: Yashash manzil + hujjatlar */}
+          {step === 6 && (
+            <div>
+              <button onClick={prev} className="flex items-center gap-1 text-ink-3 hover:text-ink mb-6 text-sm transition-colors">
+                <ArrowLeft className="w-4 h-4" /> {t("common.back")}
+              </button>
+              <div className="text-center mb-6">
+                <div className="w-14 h-14 bg-surface rounded-2xl flex items-center justify-center mx-auto mb-3">
+                  <MapPin className="w-7 h-7 text-ink" strokeWidth={1.75} />
+                </div>
+                <h2 className="text-xl font-semibold text-ink mb-1.5 tracking-tight">{t("pages.register.kyc.addressTitle")}</h2>
+                <p className="text-ink-3 text-sm">{t("pages.register.kyc.addressDesc")}</p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-ink-2 mb-1.5">{t("pages.register.kyc.regionLabel")} *</label>
+                  <input value={residence.region} onChange={(e) => setResidence({ ...residence, region: e.target.value })}
+                    placeholder={t("pages.register.kyc.regionPlaceholder")}
+                    className="w-full px-4 py-3 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors text-sm" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-ink-2 mb-1.5">{t("pages.register.kyc.districtLabel")} *</label>
+                    <input value={residence.district} onChange={(e) => setResidence({ ...residence, district: e.target.value })}
+                      placeholder={t("pages.register.kyc.districtPlaceholder")}
+                      className="w-full px-4 py-3 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-ink-2 mb-1.5">{t("pages.register.kyc.streetLabel")} *</label>
+                    <input value={residence.street} onChange={(e) => setResidence({ ...residence, street: e.target.value })}
+                      placeholder={t("pages.register.kyc.streetPlaceholder")}
+                      className="w-full px-4 py-3 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors text-sm" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-ink-2 mb-1.5">{t("pages.register.kyc.addressDocTypeLabel")} *</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {["propiska", "ijara", "kommunal"].map((dt) => (
+                      <button key={dt} onClick={() => setAddressDocType(dt)}
+                        className={`p-2.5 rounded-lg border text-xs font-medium transition-colors ${
+                          addressDocType === dt ? "border-ink bg-surface text-ink" : "border-border text-ink-2 hover:border-ink/30"
+                        }`}>
+                        {t(`pages.register.kyc.addressDocType.${dt}`)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-ink-2 mb-1.5">{t("pages.register.kyc.addressDocLabel")} *</label>
+                  <DocumentUpload
+                    initialPreview={addressDoc?.previewUrl}
+                    onSelect={(cap) => { setAddressDoc(cap); setStepError(""); }}
+                  />
+                </div>
+
+                {role === "specialist" ? (
+                  <div className="pt-2 border-t border-border-soft">
+                    <label className="block text-sm font-medium text-ink-2 mb-1.5">{t("pages.register.kyc.diplomaLabel")}</label>
+                    <CameraCapture
+                      facingMode="environment"
+                      initialPreview={diploma?.previewUrl}
+                      onCapture={(cap) => setDiploma(cap)}
+                    />
+                    <input value={diplomaUrl} onChange={(e) => setDiplomaUrl(e.target.value)}
+                      placeholder={t("pages.register.kyc.diplomaUrlPlaceholder")}
+                      className="w-full mt-2 px-4 py-3 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors text-sm" />
+                    <div className="grid grid-cols-2 gap-3 mt-3">
+                      <input value={institution} onChange={(e) => setInstitution(e.target.value)}
+                        placeholder={t("pages.register.kyc.institutionPlaceholder")}
+                        className="w-full px-4 py-3 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors text-sm" />
+                      <input value={specialty} onChange={(e) => setSpecialty(e.target.value)}
+                        placeholder={t("pages.register.kyc.specialtyPlaceholder")}
+                        className="w-full px-4 py-3 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors text-sm" />
+                    </div>
+                    <input value={gradYear} onChange={(e) => setGradYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      placeholder={t("pages.register.kyc.gradYearPlaceholder")} maxLength={4} inputMode="numeric"
+                      className="w-full mt-3 px-4 py-3 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors text-sm" />
+                  </div>
+                ) : (
+                  <div className="pt-2 border-t border-border-soft">
+                    <label className="block text-sm font-medium text-ink-2 mb-1.5">{t("pages.register.kyc.stirLabel")} *</label>
+                    <input value={stir} onChange={(e) => setStir(e.target.value.replace(/\D/g, "").slice(0, 9))} inputMode="numeric"
+                      placeholder="123456789"
+                      className="w-full px-4 py-3 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors text-sm" />
+                  </div>
+                )}
+              </div>
+
+              {stepError && <p className="text-xs text-red-500 mt-3 text-center">{stepError}</p>}
+              <div className="flex gap-2 mt-6">
+                <button onClick={prev} className="px-5 py-3 rounded-lg border border-border text-ink-2 text-sm font-medium hover:bg-surface transition-colors">
+                  {t("common.back")}
+                </button>
+                <button onClick={next}
+                  className="flex-1 bg-ink text-white py-3 rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors flex items-center justify-center gap-2">
+                  {t("pages.register.continueButton")} <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 7: Confirm */}
+          {step === 7 && (
             <div className="text-center">
               <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center mx-auto mb-6">
                 <CheckCircle className="w-8 h-8 text-accent" strokeWidth={1.75} />
@@ -474,14 +788,47 @@ export default function Register() {
                   <span className="text-ink-3">{t("pages.register.confirmEmailLabel")}</span>
                   <span className="font-medium text-ink">{form.email}</span>
                 </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-ink-3">{t("pages.register.kyc.summaryAddress")}</span>
+                  <span className="font-medium text-ink text-right max-w-[200px]">{residence.region}, {residence.district}, {residence.street}</span>
+                </div>
+                {faceResult && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-ink-3">{t("pages.register.kyc.summaryFace")}</span>
+                    <span className="font-medium text-emerald-600">{Math.round(faceResult.score * 100)}% ✓</span>
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2 mb-8">
+                {[passport, selfie, addressDoc].map((cap, i) => (
+                  cap && <img key={i} src={cap.previewUrl} alt="kyc" className="w-full h-20 object-cover rounded-lg border border-border" />
+                ))}
               </div>
               {submitError && (
                 <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-xl mb-4 text-left">{submitError}</div>
               )}
-              <button onClick={handleFinish} disabled={submitting}
-                className="inline-flex items-center gap-2 bg-ink text-white px-8 py-3 rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors disabled:opacity-60">
-                {submitting ? t("common.loading") : t("auth.register")} <ArrowRight className="w-4 h-4" />
-              </button>
+              {submitting && kycStage && (
+                <div className="flex items-center justify-center gap-2 text-sm text-ink-3 mb-4">
+                  <div className="w-4 h-4 border-2 border-ink border-t-transparent rounded-full animate-spin" />
+                  {kycStage}
+                </div>
+              )}
+              {!kycFailed ? (
+                <div className="flex gap-2 justify-center">
+                  <button onClick={prev} className="px-5 py-3 rounded-lg border border-border text-ink-2 text-sm font-medium hover:bg-surface transition-colors">
+                    {t("common.back")}
+                  </button>
+                  <button onClick={handleFinish} disabled={submitting}
+                    className="inline-flex items-center gap-2 bg-ink text-white px-8 py-3 rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors disabled:opacity-60">
+                    {submitting ? t("common.loading") : t("auth.register")} <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => navigate("/")}
+                  className="inline-flex items-center gap-2 bg-ink text-white px-8 py-3 rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors">
+                  {t("pages.register.kyc.continueWithoutKyc")} <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -86,6 +86,48 @@ export default function AdminVerificationPage() {
                       </a>
                     )}
                     {v.stir && <p className="text-xs text-ink-3 mt-1">{t("pages.adminVerification.stirLabel")} <span className="font-mono">{v.stir}</span></p>}
+                    {(v.passport_url || v.selfie_url) && (
+                      <div className="mt-3 rounded-xl border border-border p-3 bg-surface/50">
+                        <div className="flex items-center gap-2 flex-wrap mb-2">
+                          <span className="text-[10px] font-semibold text-ink">KYC</span>
+                          {v.face_score > 0 && (
+                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${v.face_score >= 0.55 ? "bg-success-soft text-success" : "bg-danger-soft text-danger"}`}>
+                              Face: {Math.round(v.face_score * 100)}%
+                            </span>
+                          )}
+                          {v.face_auto ? (
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-surface text-ink-2">{t("pages.adminVerification.faceAuto")}</span>
+                          ) : (
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#B45309]">{t("pages.adminVerification.faceManual")}</span>
+                          )}
+                          {v.capture_method === "upload" && (
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#B45309]">{t("pages.adminVerification.uploadMethod")}</span>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          {v.passport_url && (
+                            <a href={v.passport_url} target="_blank" rel="noreferrer" className="flex-1">
+                              <img src={v.passport_url} alt="passport" className="w-full h-28 object-cover rounded-lg border border-border hover:opacity-90" />
+                              <p className="text-[10px] text-ink-3 mt-1 text-center">{t("pages.adminVerification.passportLabel")}</p>
+                            </a>
+                          )}
+                          {v.selfie_url && (
+                            <a href={v.selfie_url} target="_blank" rel="noreferrer" className="flex-1">
+                              <img src={v.selfie_url} alt="selfie" className="w-full h-28 object-cover rounded-lg border border-border hover:opacity-90" />
+                              <p className="text-[10px] text-ink-3 mt-1 text-center">{t("pages.adminVerification.selfieLabel")}</p>
+                            </a>
+                          )}
+                        </div>
+                        {v.residence_address && (
+                          <p className="text-xs text-ink-2 mt-2">📍 {v.residence_address}</p>
+                        )}
+                        {v.address_doc_url && (
+                          <a href={v.address_doc_url} target="_blank" rel="noreferrer" className="text-xs text-accent hover:underline flex items-center gap-1 mt-1">
+                            <ExternalLink className="w-3 h-3" /> {t("pages.adminVerification.addressDocLabel")}{v.address_doc_type ? ` (${v.address_doc_type})` : ""}
+                          </a>
+                        )}
+                      </div>
+                    )}
                     {v.reject_reason && <p className="text-xs text-danger mt-1">{t("pages.adminVerification.rejectReasonLabel")} {v.reject_reason}</p>}
                     {v.reviewed_by_name && <p className="text-xs text-ink-3 mt-1">{t("pages.adminVerification.reviewedByLabel")} {v.reviewed_by_name}</p>}
                   </div>
