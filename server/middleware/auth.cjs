@@ -16,7 +16,14 @@ function loadOrCreateSecret() {
   }
 
   const secret = crypto.randomBytes(48).toString("hex");
-  fs.writeFileSync(secretPath, secret, { mode: 0o600 });
+  try {
+    // Vercel serverless FS is read-only — persisting fails there. Must not throw
+    // at require-time (that would take down every /api route); fall back to an
+    // in-memory secret (tokens invalidate on cold start in that case).
+    fs.writeFileSync(secretPath, secret, { mode: 0o600 });
+  } catch (e) {
+    console.error("JWT secret persist failed, using in-memory secret:", e.message);
+  }
   return secret;
 }
 
