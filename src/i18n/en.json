@@ -505,6 +505,7 @@
         "selfieDesc": "Now take a selfie looking at the camera. The system will compare it with the face in your passport.",
         "selfieRequired": "Take a selfie to continue",
         "takePhoto": "Take photo",
+        "switchCamera": "Switch camera (front/rear)",
         "retake": "Retake",
         "uploadFromDevice": "Upload from device (fallback)",
         "uploadFallbackNote": "This photo was uploaded from the device. An admin will review it extra carefully.",

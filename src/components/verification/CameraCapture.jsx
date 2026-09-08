@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Camera, RefreshCw, Upload, AlertTriangle } from "lucide-react";
+import { Camera, RefreshCw, Upload, AlertTriangle, SwitchCamera } from "lucide-react";
 import { useT } from "../../context/I18nContext";
 
 const MAX_SIDE = 1280;
 
-// Jonli kameradan rasmga olish. Fayl input faqat kamera bo'lmaganda zaxira sifatida
-// ko'rinadi va "upload" deb belgilanadi (admin tekshiruvida ko'rinadi).
-// Screenshot'ni to'liq bloklab bo'lmaydi, lekin kamera-orqali olish majburiy bo'lgani
-// uchun ekrandagi tayyor rasmni to'g'ridan-to'g'ri yuborib bo'lmaydi.
+// Jonli kameradan rasmga olish: old (selfie) va orqa kamera o'rtasida
+// almashtirish tugmasi bor + avtomatik fallback (so'ralgan kamera topilmasa
+// ikkinchisi, u ham bo'lmasa istalgan kamera ishga tushadi).
+// Fayl input faqat kamera umuman bo'lmaganda zaxira sifatida ko'rinadi va
+// "upload" deb belgilanadi (admin tekshiruvida ko'rinadi).
 export default function CameraCapture({ facingMode = "user", onCapture, initialPreview = null, aspectClass = "aspect-[4/3]" }) {
   const { t } = useT();
   const videoRef = useRef(null);
@@ -17,6 +18,10 @@ export default function CameraCapture({ facingMode = "user", onCapture, initialP
   const [method, setMethod] = useState(null);
   const [error, setError] = useState("");
   const [starting, setStarting] = useState(true);
+  const [facing, setFacing] = useState(facingMode);
+  const [hasMultiple, setHasMultiple] = useState(false);
+  const facingRef = useRef(facingMode);
+  facingRef.current = facing;
 
   const stopStream = useCallback(() => {
     if (streamRef.current) {
@@ -25,36 +30,79 @@ export default function CameraCapture({ facingMode = "user", onCapture, initialP
     }
   }, []);
 
-  const startStream = useCallback(async () => {
+  const countCameras = useCallback(async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      setHasMultiple(devices.filter((d) => d.kind === "videoinput").length > 1);
+    } catch { /* ignore */ }
+  }, []);
+
+  const startStream = useCallback(async (wantedFacing) => {
     setError("");
     setStarting(true);
     stopStream();
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error("no-device");
+        throw Object.assign(new Error("no-device"), { code: "no-device" });
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: { facingMode, width: { ideal: 1280 }, height: { ideal: 960 } },
-      });
+      const base = { width: { ideal: 1280 }, height: { ideal: 960 } };
+      const other = wantedFacing === "user" ? "environment" : "user";
+      // 1) aniq so'ralgan kamera → 2) qarama-qarshi kamera → 3) yumshoq so'rov → 4) istalgan kamera
+      const attempts = [
+        { ...base, facingMode: { exact: wantedFacing } },
+        { ...base, facingMode: { exact: other } },
+        { ...base, facingMode: wantedFacing },
+        { ...base },
+      ];
+      let stream = null;
+      let fatal = null;
+      for (const vc of attempts) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: vc });
+          break;
+        } catch (e) {
+          if (e?.name === "NotAllowedError" || e?.name === "SecurityError") { fatal = e; break; }
+          // OverconstrainedError / NotFoundError → keyingi urinish
+        }
+      }
+      if (fatal) throw fatal;
+      if (!stream) throw Object.assign(new Error("no-device"), { code: "no-device" });
+
       streamRef.current = stream;
+      // Amalda qaysi kamera ochilganini aniqlab, ko'zgu aksini shunga moslaymiz
+      try {
+        const realFacing = stream.getVideoTracks()[0]?.getSettings()?.facingMode;
+        if (realFacing === "user" || realFacing === "environment") {
+          setFacing(realFacing);
+          facingRef.current = realFacing;
+        }
+      } catch { /* ignore */ }
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play().catch(() => {});
       }
+      countCameras();
     } catch (err) {
       console.error("Camera start error:", err);
       setError(err?.name === "NotAllowedError" ? "permission" : "no-device");
     } finally {
       setStarting(false);
     }
-  }, [facingMode, stopStream]);
+  }, [stopStream, countCameras]);
 
   useEffect(() => {
-    if (!preview) startStream();
+    if (!preview) startStream(facingRef.current);
     else setStarting(false);
     return () => stopStream();
-  }, [preview, startStream, stopStream]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preview]);
+
+  const switchCamera = useCallback(() => {
+    const next = facingRef.current === "user" ? "environment" : "user";
+    setFacing(next);
+    facingRef.current = next;
+    startStream(next);
+  }, [startStream]);
 
   const emit = useCallback((blob, previewUrl, captureMethod) => {
     setPreview(previewUrl);
@@ -74,7 +122,7 @@ export default function CameraCapture({ facingMode = "user", onCapture, initialP
     canvas.height = h;
     const ctx = canvas.getContext("2d");
     // Old kamera (selfie) — ko'zgu aksini to'g'rilaymiz
-    if (facingMode === "user") {
+    if (facingRef.current === "user") {
       ctx.translate(w, 0);
       ctx.scale(-1, 1);
     }
@@ -83,7 +131,7 @@ export default function CameraCapture({ facingMode = "user", onCapture, initialP
       if (!blob) return;
       emit(blob, URL.createObjectURL(blob), "camera");
     }, "image/jpeg", 0.85);
-  }, [emit, facingMode]);
+  }, [emit]);
 
   const handleFile = (e) => {
     const file = e.target.files?.[0];
@@ -107,6 +155,8 @@ export default function CameraCapture({ facingMode = "user", onCapture, initialP
     setMethod(null);
     onCapture?.(null);
   };
+
+  const isFront = facing === "user";
 
   return (
     <div>
@@ -142,14 +192,21 @@ export default function CameraCapture({ facingMode = "user", onCapture, initialP
               <video
                 ref={videoRef} autoPlay playsInline muted
                 className="w-full h-full object-cover"
-                style={facingMode === "user" ? { transform: "scaleX(-1)" } : undefined}
+                style={isFront ? { transform: "scaleX(-1)" } : undefined}
               />
             )}
             {/* Markaziy ramka yo'naltirgich */}
             {!error && !starting && (
               <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                <div className={`border-2 border-dashed border-white/60 rounded-xl ${facingMode === "user" ? "w-40 h-52" : "w-56 h-40"}`} />
+                <div className={`border-2 border-dashed border-white/60 rounded-xl ${isFront ? "w-40 h-52" : "w-56 h-40"}`} />
               </div>
+            )}
+            {/* Old/orqa kamera almashtirish */}
+            {!error && !starting && hasMultiple && (
+              <button onClick={switchCamera} title={t("pages.register.kyc.switchCamera")}
+                className="absolute top-2 right-2 w-9 h-9 flex items-center justify-center rounded-lg bg-black/60 text-white hover:bg-black/80 transition-colors">
+                <SwitchCamera className="w-4 h-4" />
+              </button>
             )}
           </div>
 
@@ -158,6 +215,12 @@ export default function CameraCapture({ facingMode = "user", onCapture, initialP
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-ink text-white text-sm font-medium hover:bg-ink/90 transition-colors disabled:opacity-40">
               <Camera className="w-4 h-4" /> {t("pages.register.kyc.takePhoto")}
             </button>
+            {hasMultiple && !error && (
+              <button onClick={switchCamera} title={t("pages.register.kyc.switchCamera")}
+                className="w-11 h-11 flex items-center justify-center rounded-lg border border-border text-ink-2 hover:bg-surface transition-colors flex-shrink-0">
+                <SwitchCamera className="w-4 h-4" />
+              </button>
+            )}
             <button onClick={() => fileRef.current?.click()} title={t("pages.register.kyc.uploadFromDevice")}
               className="w-11 h-11 flex items-center justify-center rounded-lg border border-border text-ink-2 hover:bg-surface transition-colors flex-shrink-0">
               <Upload className="w-4 h-4" />
