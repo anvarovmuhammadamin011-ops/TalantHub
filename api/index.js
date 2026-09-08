@@ -11,6 +11,13 @@
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "../server/.env") });
 
+// Vercel serverless filesystem is read-only except /tmp — the sql.js database
+// file must live there (db.cjs reads SQLITE_DB_PATH at require-time, so this
+// has to be set before the require below).
+if (process.env.VERCEL && !process.env.SQLITE_DB_PATH) {
+  process.env.SQLITE_DB_PATH = path.join("/tmp", "talenthub.db");
+}
+
 const db = require("../server/db.cjs");
 const seed = require("../server/seed.cjs");
 const app = require("../server/app.cjs");
@@ -19,6 +26,9 @@ let initPromise = null;
 function ensureInit() {
   if (!initPromise) {
     initPromise = (async () => {
+      // NOTE: db.init() (WASM load + open DB) is mandatory before initSchema() —
+      // without it _db is null and every query throws.
+      await db.init();
       await db.initSchema();
       await seed();
       await seed.ensureAdmin();

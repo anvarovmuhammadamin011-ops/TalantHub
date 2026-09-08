@@ -30,8 +30,15 @@ if (useBlob) {
     },
   });
 } else {
-  const UPLOAD_DIR = path.join(__dirname, "../uploads");
-  if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, "../uploads");
+  try {
+    // Vercel serverless FS is read-only — mkdir throws EROFS there. Must not crash
+    // module load (that would take down every /api route); per-request writes will
+    // then fail gracefully with a JSON error instead.
+    if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  } catch (e) {
+    console.error("Upload dir init failed (read-only filesystem?):", e.message);
+  }
 
   upload = multer({
     storage: multer.diskStorage({
@@ -52,6 +59,11 @@ if (useBlob) {
 }
 
 router.post("/", authMiddleware, (req, res) => {
+  // Serverless (Vercel) without a Blob store has nowhere persistent to write —
+  // fail fast with a clear message instead of a cryptic multer disk error.
+  if (!useBlob && process.env.VERCEL) {
+    return res.status(500).json({ error: "Fayl yuklash xizmati sozlanmagan (BLOB_READ_WRITE_TOKEN)" });
+  }
   upload.single("file")(req, res, async (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === "LIMIT_FILE_SIZE") {

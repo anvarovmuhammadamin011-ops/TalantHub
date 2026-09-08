@@ -9,7 +9,7 @@ const MAX_SIDE = 1280;
 // ikkinchisi, u ham bo'lmasa istalgan kamera ishga tushadi).
 // Fayl input faqat kamera umuman bo'lmaganda zaxira sifatida ko'rinadi va
 // "upload" deb belgilanadi (admin tekshiruvida ko'rinadi).
-export default function CameraCapture({ facingMode = "user", onCapture, initialPreview = null, aspectClass = "aspect-[4/3]" }) {
+export default function CameraCapture({ facingMode = "user", onCapture, initialPreview = null, aspectClass = "aspect-[4/3]", cropFace = false }) {
   const { t } = useT();
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -111,12 +111,45 @@ export default function CameraCapture({ facingMode = "user", onCapture, initialP
     onCapture?.({ blob, previewUrl, method: captureMethod });
   }, [onCapture, stopStream]);
 
-  const takePhoto = useCallback(() => {
+  const takePhoto = useCallback(async () => {
     const video = videoRef.current;
     if (!video || !video.videoWidth) return;
-    const scale = Math.min(1, MAX_SIDE / Math.max(video.videoWidth, video.videoHeight));
-    const w = Math.round(video.videoWidth * scale);
-    const h = Math.round(video.videoHeight * scale);
+    // 1) To'liq kadrni olamiz
+    const full = document.createElement("canvas");
+    full.width = video.videoWidth;
+    full.height = video.videoHeight;
+    full.getContext("2d").drawImage(video, 0, 0);
+
+    // 2) cropFace yoqilgan bo'lsa (selfie) — yuzni to'liq ajratib kesib olamiz
+    let sx = 0, sy = 0, sw = full.width, sh = full.height;
+    if (cropFace) {
+      try {
+        if (typeof FaceDetector !== "undefined") {
+          const detector = new FaceDetector({ fastMode: false, maxDetectedFaces: 3 });
+          const faces = await detector.detect(full);
+          if (faces && faces.length > 0) {
+            let box = faces[0].boundingBox;
+            let bestArea = box.width * box.height;
+            for (const f of faces) {
+              const b = f.boundingBox;
+              const area = b.width * b.height;
+              if (area > bestArea) { box = b; bestArea = area; }
+            }
+            const pad = 0.3;
+            const pw = box.width * pad, ph = box.height * pad;
+            sx = Math.max(0, Math.round(box.x - pw));
+            sy = Math.max(0, Math.round(box.y - ph));
+            sw = Math.min(full.width - sx, Math.round(box.width + pw * 2));
+            sh = Math.min(full.height - sy, Math.round(box.height + ph * 2));
+          }
+        }
+      } catch { /* yuz topilmasa — to'liq kadr saqlanadi */ }
+    }
+
+    // 3) Masshtab + ko'zgu tuzatish + JPEG
+    const scale = Math.min(1, MAX_SIDE / Math.max(sw, sh));
+    const w = Math.max(1, Math.round(sw * scale));
+    const h = Math.max(1, Math.round(sh * scale));
     const canvas = document.createElement("canvas");
     canvas.width = w;
     canvas.height = h;
@@ -126,12 +159,12 @@ export default function CameraCapture({ facingMode = "user", onCapture, initialP
       ctx.translate(w, 0);
       ctx.scale(-1, 1);
     }
-    ctx.drawImage(video, 0, 0, w, h);
+    ctx.drawImage(full, sx, sy, sw, sh, 0, 0, w, h);
     canvas.toBlob((blob) => {
       if (!blob) return;
       emit(blob, URL.createObjectURL(blob), "camera");
     }, "image/jpeg", 0.85);
-  }, [emit]);
+  }, [emit, cropFace]);
 
   const handleFile = (e) => {
     const file = e.target.files?.[0];
@@ -195,10 +228,14 @@ export default function CameraCapture({ facingMode = "user", onCapture, initialP
                 style={isFront ? { transform: "scaleX(-1)" } : undefined}
               />
             )}
-            {/* Markaziy ramka yo'naltirgich */}
+            {/* Markaziy yo'naltirgich: selfie uchun dumaloq, hujjat uchun to'rtburchak */}
             {!error && !starting && (
               <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                <div className={`border-2 border-dashed border-white/60 rounded-xl ${isFront ? "w-40 h-52" : "w-56 h-40"}`} />
+                {isFront ? (
+                  <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-full border-[3px] border-dashed border-white/70 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
+                ) : (
+                  <div className="w-56 h-40 border-2 border-dashed border-white/60 rounded-xl" />
+                )}
               </div>
             )}
             {/* Old/orqa kamera almashtirish */}

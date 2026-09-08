@@ -603,6 +603,7 @@ export default function Register() {
               </div>
               <CameraCapture
                 facingMode="user"
+                cropFace
                 initialPreview={selfie?.previewUrl}
                 onCapture={(cap) => { setSelfie(cap); setStepError(""); }}
               />
