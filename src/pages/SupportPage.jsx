@@ -8,7 +8,7 @@ import { useT } from "../context/I18nContext";
 export default function SupportPage() {
   const { t } = useT();
   return (
-    <div className="max-w-lg mx-auto px-4 sm:px-6 py-6">
+    <div className="max-w-lg mx-auto px-4 sm:px-6 py-4 sm:py-6">
       <Link to="/profile" className="inline-flex items-center gap-2 text-ink-3 hover:text-ink mb-4 text-sm font-medium transition-colors">
         <ArrowLeft className="w-4 h-4" /> {t("nav.profile")}
       </Link>

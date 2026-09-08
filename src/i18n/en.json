@@ -720,7 +720,28 @@
       "reportReasonPrompt": "Enter the reason for your report:",
       "reportSuccess": "Your report has been received. An administrator will review it soon.",
       "loadChatsError": "Failed to load chats",
-      "loadMessagesError": "Failed to load messages"
+      "loadMessagesError": "Failed to load messages",
+      "call": {
+        "videoCall": "Video call",
+        "audioCall": "Audio call",
+        "calling": "Calling...",
+        "incomingVideo": "Incoming video call",
+        "incomingAudio": "Incoming audio call",
+        "connecting": "Connecting...",
+        "accept": "Accept",
+        "reject": "Decline",
+        "end": "End call",
+        "mute": "Mute",
+        "unmute": "Unmute",
+        "cameraOff": "Turn camera off",
+        "cameraOn": "Turn camera on",
+        "rejected": "Call declined",
+        "cancelled": "Call cancelled",
+        "no-answer": "No answer",
+        "permission": "Camera/microphone permission denied. Please allow access in browser settings.",
+        "media": "Could not start camera/microphone",
+        "camera-missing": "No camera/microphone found on this device"
+      }
     },
     "wallet": {
       "balanceLabel": "Balance",

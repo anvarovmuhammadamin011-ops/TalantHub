@@ -77,17 +77,17 @@ export default function VacancyApplicants() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
       <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-ink-3 hover:text-ink mb-6 text-sm font-medium transition-colors">
         <ArrowLeft className="w-4 h-4" /> {t("common.back")}
       </button>
 
-      <div className="mb-6">
-        <h1 className="text-xl md:text-2xl font-semibold text-ink tracking-tight">{vacancy?.title}</h1>
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-lg sm:text-xl md:text-2xl font-semibold text-ink tracking-tight">{vacancy?.title}</h1>
         <p className="text-ink-3 text-sm mt-1">{t("pages.vacancyApplicants.applicationsCount", { count: applications.length })}</p>
       </div>
 
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
+      <div className="flex gap-1.5 sm:gap-2 mb-4 sm:mb-6 overflow-x-auto pb-2 scrollbar-hide">
         {STATUS_TABS.map((tab) => (
           <button key={tab.value} onClick={() => setStatusFilter(tab.value)}
             className={`px-3.5 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${

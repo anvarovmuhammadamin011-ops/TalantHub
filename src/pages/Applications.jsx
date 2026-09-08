@@ -106,29 +106,29 @@ export default function Applications() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="mb-8">
-        <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight mb-1.5">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+      <div className="mb-5 md:mb-8">
+        <h1 className="text-xl md:text-2xl lg:text-3xl font-semibold text-ink tracking-tight mb-1.5">
           {isEmployer ? t("pages.applications.titleEmployer") : t("pages.applications.titleSpecialist")}
         </h1>
         <p className="text-ink-3 text-sm">{t("pages.applications.applicationsCount", { count: applications.length })}</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 mb-6 md:mb-8">
         {[
           { label: t("pages.applications.statTotal"), value: stats.total || applications.length, icon: Briefcase, color: "bg-blue-50 text-blue-600" },
           { label: t("status.Interview"), value: stats.interview || grouped["Interview"]?.length || 0, icon: Clock, color: "bg-amber-50 text-amber-600" },
           { label: t("status.Qabul qilindi"), value: stats.accepted || grouped["Qabul qilindi"]?.length || 0, icon: Award, color: "bg-green-50 text-green-600" },
           { label: t("pages.applications.statAvgMatch"), value: avgMatch === null ? "—" : `${avgMatch}%`, icon: TrendingUp, color: "bg-purple-50 text-purple-600" },
         ].map((stat) => (
-          <div key={stat.label} className="bg-white rounded-xl border border-border p-4">
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${stat.color}`}>
-                <stat.icon className="w-5 h-5" />
+          <div key={stat.label} className="bg-white rounded-xl border border-border p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center ${stat.color}`}>
+                <stat.icon className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div>
-                <div className="text-lg font-bold text-ink">{stat.value}</div>
-                <div className="text-xs text-ink-3">{stat.label}</div>
+                <div className="text-base sm:text-lg font-bold text-ink">{stat.value}</div>
+                <div className="text-[10px] sm:text-xs text-ink-3">{stat.label}</div>
               </div>
             </div>
           </div>
@@ -145,7 +145,7 @@ export default function Applications() {
         </div>
       ) : (
         <>
-          <div className="flex flex-wrap gap-3 mb-6">
+          <div className="flex flex-wrap gap-2 sm:gap-3 mb-5 sm:mb-6">
             <div className="flex-1 min-w-[200px] relative">
               <Search className="w-4 h-4 text-ink-3 absolute left-3 top-1/2 -translate-y-1/2" />
               <input value={search} onChange={(e) => setSearch(e.target.value)}
@@ -163,7 +163,7 @@ export default function Applications() {
             <div className="text-center py-10 text-ink-3 text-sm mb-6">{t("pages.applications.noSearchResults")}</div>
           )}
 
-          <div className="flex gap-2 mb-6 overflow-x-auto pb-2 md:grid md:grid-cols-5 md:gap-4">
+          <div className="flex gap-2 mb-5 md:mb-6 overflow-x-auto pb-2 md:grid md:grid-cols-5 md:gap-4 scrollbar-hide">
             {statusOrder.map((status) => (
               <div key={status} className="min-w-[250px] md:min-w-0">
                 <div className="flex items-center gap-2 mb-3">

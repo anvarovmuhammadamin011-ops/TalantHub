@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useT } from "../context/I18nContext";
 import AiChatPanel from "../components/chat/AiChatPanel";
+import { useVideoCall } from "../context/VideoCallContext";
 
 async function reportMessage(messageId, t) {
   const reason = prompt(t("pages.chat.reportReasonPrompt"));
@@ -40,6 +41,7 @@ export default function Chat() {
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const { socket } = useSocket();
+  const { startCall, inCall } = useVideoCall();
 
   useEffect(() => {
     async function loadChats() {
@@ -147,8 +149,8 @@ export default function Chat() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="bg-white rounded-xl border border-border overflow-hidden h-[calc(100dvh-244px)] md:h-[calc(100dvh-144px)] min-h-[500px]">
+    <div className="max-w-6xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-10">
+      <div className="bg-white rounded-xl border border-border overflow-hidden h-[calc(100dvh-180px)] sm:h-[calc(100dvh-244px)] md:h-[calc(100dvh-144px)] min-h-[400px]">
         <div className="flex h-full">
           {/* Chat list */}
           <div className={`w-full md:w-80 border-r border-border flex flex-col ${showMobileChat ? "hidden md:flex" : "flex"}`}>
@@ -250,10 +252,16 @@ export default function Chat() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button className="w-9 h-9 flex items-center justify-center rounded-lg text-ink-3 hover:bg-surface transition-colors">
+                    <button
+                      onClick={() => !inCall && activeChat && startCall(activeChat, false)}
+                      title={t("pages.chat.call.audioCall")}
+                      className="w-9 h-9 flex items-center justify-center rounded-lg text-ink-3 hover:bg-surface transition-colors disabled:opacity-40">
                       <Phone className="w-4 h-4" />
                     </button>
-                    <button className="w-9 h-9 flex items-center justify-center rounded-lg text-ink-3 hover:bg-surface transition-colors">
+                    <button
+                      onClick={() => !inCall && activeChat && startCall(activeChat, true)}
+                      title={t("pages.chat.call.videoCall")}
+                      className="w-9 h-9 flex items-center justify-center rounded-lg text-ink-3 hover:bg-surface transition-colors disabled:opacity-40">
                       <Video className="w-4 h-4" />
                     </button>
                     <button className="w-9 h-9 flex items-center justify-center rounded-lg text-ink-3 hover:bg-surface transition-colors">

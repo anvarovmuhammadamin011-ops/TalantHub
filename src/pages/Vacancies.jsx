@@ -235,10 +235,10 @@ export default function Vacancies() {
   );
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="mb-8 flex items-start justify-between gap-4">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+      <div className="mb-5 md:mb-8 flex items-start justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight mb-1.5">
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-semibold text-ink tracking-tight mb-1.5">
             {filters.category === "Ta'lim" ? t("pages.vacancies.titleTeacher") : filters.category === "IT" ? t("pages.vacancies.titleIt") : t("pages.vacancies.titleAll")}
           </h1>
           <p className="text-ink-3 text-sm">
@@ -257,8 +257,7 @@ export default function Vacancies() {
         )}
       </div>
 
-      {/* Search */}
-      <div className="flex gap-3 mb-6">
+      {/* Search */}        <div className="flex gap-2 sm:gap-3 mb-5 sm:mb-6">
         <div className="flex-1 relative">
           <Search className="w-4 h-4 text-ink-3 absolute left-4 top-1/2 -translate-y-1/2" />
           <input
@@ -294,7 +293,7 @@ export default function Vacancies() {
       </div>
 
       {/* Popular categories */}
-      <div className="mb-6">
+      <div className="mb-5 sm:mb-6">
         <h2 className="text-sm font-semibold text-ink mb-3">{t("pages.vacancies.popularCategoriesTitle")}</h2>
         <div className="grid grid-cols-4 gap-2 sm:gap-3">
           {popularCategories.map((cat) => (
@@ -343,7 +342,7 @@ export default function Vacancies() {
           {loading && <VacancyCardSkeletonList count={4} />}
 
           {!loading && filtered.map((v) => (
-            <div key={v.id} className="bg-white rounded-xl border border-border p-6 hover:border-ink/20 transition-colors">
+            <div key={v.id} className="bg-white rounded-xl border border-border p-4 sm:p-6 hover:border-ink/20 transition-colors">
               <div className="flex items-start gap-4">
                 <CompanyLogo name={v.company} logo={v.company_logo} size="ml" />
                 <div className="flex-1 min-w-0">

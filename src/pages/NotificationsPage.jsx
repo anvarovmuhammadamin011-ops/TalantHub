@@ -58,8 +58,8 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 md:py-10">
+      <div className="flex items-center justify-between mb-5 md:mb-6 flex-wrap gap-2 sm:gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-ink tracking-tight">{t("profile.notifications")}</h1>
           <p className="text-ink-3 text-sm mt-1">{unread > 0 ? t("pages.notificationsPage.unreadCount", { count: unread }) : t("pages.notificationsPage.allRead")}</p>

@@ -157,20 +157,20 @@ export default function VacancyDetail() {
   const unmatchedTags = vacancy.tags.filter((t) => !matchedTags.includes(t));
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-28 md:pb-10">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 pb-28 md:pb-10">
       <Link to="/vacancies" className="inline-flex items-center gap-2 text-ink-3 hover:text-ink mb-6 text-sm font-medium transition-colors">
         <ArrowLeft className="w-4 h-4" /> {t("nav.vacancies")}
       </Link>
 
       {/* Header */}
-      <div className="bg-white rounded-xl border border-border p-6 md:p-8 mb-4">
+      <div className="bg-white rounded-xl border border-border p-4 sm:p-6 md:p-8 mb-4">
         <div className="flex items-start gap-4">
           <CompanyLogo name={vacancy.company} logo={vacancy.company_logo} size="lg" />
           <div className="flex-1">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h1 className="text-xl md:text-2xl font-semibold text-ink tracking-tight">{vacancy.title}</h1>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-sm text-ink-3">
+                <h1 className="text-lg sm:text-xl md:text-2xl font-semibold text-ink tracking-tight">{vacancy.title}</h1>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 sm:mt-2 text-xs sm:text-sm text-ink-3">
                   <span className="flex items-center gap-1"><Building className="w-3.5 h-3.5" /> {vacancy.company}</span>
                   <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {vacancy.location}</span>
                   <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {timeAgo(vacancy.created_at)}</span>
@@ -328,10 +328,10 @@ export default function VacancyDetail() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {/* Market salary */}
           {marketSalary && (
-            <div className="bg-white rounded-xl border border-border p-6">
+            <div className="bg-white rounded-xl border border-border p-4 sm:p-6">
               <h3 className="font-semibold text-ink text-sm mb-1 flex items-center gap-1.5">
                 <TrendingUp className="w-4 h-4 text-ink-3" /> {t("pages.vacancyDetail.marketSalaryTitle")}
               </h3>
@@ -354,7 +354,7 @@ export default function VacancyDetail() {
           )}
 
           {/* Match details */}
-          <div className="bg-white rounded-xl border border-border p-6">
+          <div className="bg-white rounded-xl border border-border p-4 sm:p-6">
             <h3 className="font-semibold text-ink text-sm mb-4 text-center">{t("pages.vacancyDetail.matchAnalysisTitle")}</h3>
             <div className="space-y-4">
               {matchedTags.length > 0 && (
@@ -385,7 +385,7 @@ export default function VacancyDetail() {
           </div>
 
           {/* Company */}
-          <div className="bg-white rounded-xl border border-border p-6">
+          <div className="bg-white rounded-xl border border-border p-4 sm:p-6">
             <h3 className="font-semibold text-ink text-sm mb-4">{t("pages.vacancyDetail.companyTitle")}</h3>
             <Link to={`/companies/${vacancy.author_id}`} className="flex items-center gap-3 group">
               <CompanyLogo name={vacancy.company} logo={vacancy.company_logo} size="ml" />

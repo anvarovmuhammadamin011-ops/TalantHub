@@ -75,14 +75,14 @@ export default function SpecialistDetail() {
   const initials = specialist.name.split(" ").map((n) => n[0]).join("").slice(0, 2);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
       <Link to="/specialists" className="inline-flex items-center gap-2 text-ink-3 hover:text-ink mb-6 text-sm font-medium transition-colors">
         <ArrowLeft className="w-4 h-4" /> {t("nav.specialists")}
       </Link>
 
       <div className="bg-white rounded-xl border border-border overflow-hidden mb-4">
         <div className="h-24 bg-gradient-to-r from-ink via-ink/80 to-ink/60" />
-        <div className="px-6 pb-6 relative">
+        <div className="px-4 sm:px-6 pb-5 sm:pb-6 relative">
           <div className="absolute -top-10 left-6">
             {specialist.avatar ? (
               <img src={specialist.avatar} alt={specialist.name} className="w-20 h-20 rounded-2xl object-cover border-4 border-white shadow-md" />
@@ -92,7 +92,7 @@ export default function SpecialistDetail() {
               </div>
             )}
           </div>
-          <div className="pt-14 flex items-start justify-between flex-wrap gap-4">
+          <div className="pt-12 sm:pt-14 flex items-start justify-between flex-wrap gap-3">
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-semibold text-ink tracking-tight">{specialist.name}</h1>
@@ -104,7 +104,7 @@ export default function SpecialistDetail() {
                 )}
               </div>
               <p className="text-ink-2 font-medium mt-0.5 text-sm">{specialist.category}</p>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-ink-3">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs sm:text-sm text-ink-3">
                 <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {specialist.city}</span>
                 <span className="flex items-center gap-1"><Briefcase className="w-3.5 h-3.5" /> {specialist.experience}</span>
                 <span className="flex items-center gap-1"><Star className="w-3.5 h-3.5 text-ink fill-ink" /> {specialist.rating} ({specialist.reviews_count})</span>
@@ -112,12 +112,12 @@ export default function SpecialistDetail() {
             </div>
             <div className="flex gap-2">
               <button onClick={startChat} disabled={creating}
-                className="h-9 px-4 flex items-center gap-1.5 rounded-lg bg-ink text-white text-sm font-medium hover:bg-ink/90 transition-colors disabled:opacity-60">
+                className="h-8 sm:h-9 px-3 sm:px-4 flex items-center gap-1.5 rounded-lg bg-ink text-white text-xs sm:text-sm font-medium hover:bg-ink/90 transition-colors disabled:opacity-60">
                 <Send className="w-3.5 h-3.5" /> {creating ? "..." : t("pages.specialistDetail.sendMessage")}
               </button>
               {isEmployer && (
                 <button onClick={() => setShowOrderModal(true)}
-                  className="h-9 px-4 flex items-center gap-1.5 rounded-lg border border-accent text-accent text-sm font-medium hover:bg-accent-soft transition-colors">
+                  className="h-8 sm:h-9 px-3 sm:px-4 flex items-center gap-1.5 rounded-lg border border-accent text-accent text-xs sm:text-sm font-medium hover:bg-accent-soft transition-colors">
                   <Package className="w-3.5 h-3.5" /> {t("pages.specialistDetail.hireButton")}
                 </button>
               )}
@@ -133,15 +133,15 @@ export default function SpecialistDetail() {
 
       <div className="grid md:grid-cols-3 gap-4">
         <div className="md:col-span-2 space-y-4">
-          <div className="bg-white rounded-xl border border-border p-6">
+          <div className="bg-white rounded-xl border border-border p-4 sm:p-5">
             <h3 className="font-semibold text-ink text-sm mb-3">{t("pages.specialistDetail.aboutTitle")}</h3>
             <p className="text-ink-2 text-sm leading-relaxed">{specialist.bio || t("pages.specialistDetail.noBio")}</p>
           </div>
 
           {specialist.skills?.length > 0 && (
-            <div className="bg-white rounded-xl border border-border p-6">
-              <h3 className="font-semibold text-ink text-sm mb-3">{t("pages.specialistDetail.skillsTitle")}</h3>
-              <div className="flex flex-wrap gap-2">
+            <div className="bg-white rounded-xl border border-border p-4 sm:p-5">
+              <h3 className="font-semibold text-ink text-sm mb-2 sm:mb-3">{t("pages.specialistDetail.skillsTitle")}</h3>
+              <div className="flex flex-wrap gap-1.5 sm:gap-2">
                 {specialist.skills.map((skill) => (
                   <span key={skill} className="px-3 py-1.5 bg-surface text-ink rounded-lg text-sm font-medium border border-border">{skill}</span>
                 ))}
@@ -150,8 +150,8 @@ export default function SpecialistDetail() {
           )}
 
           {specialist.timeline?.length > 0 && (
-            <div className="bg-white rounded-xl border border-border p-6">
-              <h3 className="font-semibold text-ink text-sm mb-4">{t("pages.specialistDetail.experienceTitle")}</h3>
+            <div className="bg-white rounded-xl border border-border p-4 sm:p-5">
+              <h3 className="font-semibold text-ink text-sm mb-3 sm:mb-4">{t("pages.specialistDetail.experienceTitle")}</h3>
               {specialist.timeline.map((item, i) => (
                 <div key={i} className="flex gap-4">
                   <div className="flex flex-col items-center">
@@ -173,8 +173,8 @@ export default function SpecialistDetail() {
         </div>
 
         <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-border p-5">
-            <div className="grid grid-cols-2 gap-3">
+          <div className="bg-white rounded-xl border border-border p-4 sm:p-5">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               {[
                 { label: t("pages.specialistDetail.statExpectedSalary"), value: specialist.salary || "—" },
                 { label: t("pages.specialistDetail.statHourlyRate"), value: specialist.hourly_price || "—" },
@@ -190,8 +190,8 @@ export default function SpecialistDetail() {
           </div>
 
           {specialist.certificates?.length > 0 && (
-            <div className="bg-white rounded-xl border border-border p-5">
-              <h3 className="font-semibold text-ink text-sm mb-3">{t("pages.specialistDetail.certificatesTitle")}</h3>
+            <div className="bg-white rounded-xl border border-border p-4 sm:p-5">
+              <h3 className="font-semibold text-ink text-sm mb-2 sm:mb-3">{t("pages.specialistDetail.certificatesTitle")}</h3>
               <div className="space-y-3">
                 {specialist.certificates.map((cert, i) => (
                   <div key={i} className="flex items-start gap-3">
@@ -204,8 +204,8 @@ export default function SpecialistDetail() {
           )}
 
           {(specialist.social_telegram || specialist.social_instagram || specialist.social_github) && (
-            <div className="bg-white rounded-xl border border-border p-5">
-              <h3 className="font-semibold text-ink text-sm mb-3">{t("pages.specialistDetail.socialTitle")}</h3>
+            <div className="bg-white rounded-xl border border-border p-4 sm:p-5">
+              <h3 className="font-semibold text-ink text-sm mb-2 sm:mb-3">{t("pages.specialistDetail.socialTitle")}</h3>
               <div className="space-y-2 text-sm text-ink-2">
                 {specialist.social_telegram && <div>{specialist.social_telegram}</div>}
                 {specialist.social_instagram && <div>{specialist.social_instagram}</div>}

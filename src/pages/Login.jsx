@@ -58,7 +58,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-surface flex items-center justify-center py-12 px-4">
+    <div className="min-h-screen bg-surface flex items-center justify-center py-8 sm:py-12 px-4">
       <div className="max-w-md w-full">
         <div className="flex justify-center mb-4">
           <LanguageSwitcher />

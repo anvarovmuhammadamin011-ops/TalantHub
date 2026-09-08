@@ -81,24 +81,24 @@ export default function Statistics() {
   }));
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="mb-8">
-        <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight mb-1.5">{t("nav.statistics")}</h1>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+      <div className="mb-5 md:mb-8">
+        <h1 className="text-xl md:text-2xl lg:text-3xl font-semibold text-ink tracking-tight mb-1.5">{t("nav.statistics")}</h1>
         <p className="text-ink-3 text-sm">{t("pages.statistics.subtitle")}</p>
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-5 sm:mb-6">
         {[
           { label: t("pages.statistics.totalApplications"), value: total, icon: Send },
           { label: t("pages.statistics.interviewOffers"), value: interview, icon: TrendingUp },
           { label: t("status.Qabul qilindi"), value: accepted, icon: Award },
           { label: t("pages.statistics.avgMatch"), value: `${avgMatch}%`, icon: Briefcase },
         ].map((stat) => (
-          <div key={stat.label} className="bg-white rounded-xl border border-border p-5">
-            <stat.icon className="w-4 h-4 text-ink-3 mb-4" strokeWidth={1.75} />
-            <div className="text-2xl font-semibold text-ink tracking-tight">{stat.value}</div>
-            <div className="text-sm text-ink-3 mt-1">{stat.label}</div>
+          <div key={stat.label} className="bg-white rounded-xl border border-border p-3 sm:p-5">
+            <stat.icon className="w-4 h-4 text-ink-3 mb-3 sm:mb-4" strokeWidth={1.75} />
+            <div className="text-xl sm:text-2xl font-semibold text-ink tracking-tight">{stat.value}</div>
+            <div className="text-xs sm:text-sm text-ink-3 mt-1">{stat.label}</div>
           </div>
         ))}
       </div>

@@ -137,9 +137,9 @@ export default function Home() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 mb-5">
+      <div className="flex items-start justify-between gap-3 mb-4 sm:mb-5">
         <div>
           <h1 className="text-xl font-bold text-ink tracking-tight mb-1">{t("pages.home.greeting", { name: user?.name?.split(" ")[0] || "" })}</h1>
           <p className="text-sm text-ink-3">{t("pages.home.subtitle")}</p>
@@ -152,7 +152,7 @@ export default function Home() {
       {/* Search bar */}
       <form
         onSubmit={(e) => { e.preventDefault(); goSearch(homeSearch); }}
-        className="flex gap-3 mb-6"
+        className="flex gap-2 sm:gap-3 mb-5 sm:mb-6"
       >
         <div className="flex-1 relative">
           <Search className="w-4 h-4 text-ink-3 absolute left-4 top-1/2 -translate-y-1/2" />
@@ -172,7 +172,7 @@ export default function Home() {
       {/* Hero banner */}
       <Link
         to="/chat?ai=1"
-        className="block bg-gradient-to-br from-ink via-ink to-ink/80 rounded-2xl p-6 text-white relative overflow-hidden mb-6 hover:shadow-lg transition-shadow"
+        className="block bg-gradient-to-br from-ink via-ink to-ink/80 rounded-2xl p-4 sm:p-6 text-white relative overflow-hidden mb-5 sm:mb-6 hover:shadow-lg transition-shadow"
       >
         <div className="absolute right-0 top-0 w-40 h-40 bg-white/5 rounded-full -mr-16 -mt-16" />
         <div className="absolute right-8 bottom-0 w-24 h-24 bg-white/5 rounded-full -mb-10" />
@@ -197,7 +197,7 @@ export default function Home() {
       </Link>
 
       {/* Popular categories */}
-      <div className="mb-6">
+      <div className="mb-5 sm:mb-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-ink">{t("pages.home.popularCategoriesTitle")}</h2>
           <Link to="/vacancies" className="text-xs font-medium text-ink-2 hover:text-ink transition-colors">{t("common.seeAll")} <ArrowRight className="w-3 h-3 inline" /></Link>
@@ -219,7 +219,7 @@ export default function Home() {
       </div>
 
       {/* Trust signals */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-5 sm:mb-6">
         {trustSignals.map((signal) => (
           <div key={signal.key} className="flex flex-col items-center text-center gap-1.5 bg-white border border-border rounded-xl p-3">
             <signal.icon className="w-4 h-4 text-ink-2" />
@@ -229,38 +229,38 @@ export default function Home() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <div className="bg-white rounded-xl border border-border p-4 hover:shadow-sm transition-shadow">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-blue-50 text-blue-600 mb-2">
-            <Package className="w-[18px] h-[18px]" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-5 sm:mb-6">
+        <div className="bg-white rounded-xl border border-border p-3 sm:p-4 hover:shadow-sm transition-shadow">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center bg-blue-50 text-blue-600 mb-2">
+            <Package className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
           </div>
-          <div className="text-2xl font-bold text-ink">{orderStats.active || 0}</div>
-          <div className="text-xs text-ink-3 mt-0.5">{t("pages.home.statActiveOrders")}</div>
+          <div className="text-xl sm:text-2xl font-bold text-ink">{orderStats.active || 0}</div>
+          <div className="text-[11px] sm:text-xs text-ink-3 mt-0.5">{t("pages.home.statActiveOrders")}</div>
         </div>
-        <div className="bg-white rounded-xl border border-border p-4 hover:shadow-sm transition-shadow">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-amber-50 text-amber-600 mb-2">
-            <AlertCircle className="w-[18px] h-[18px]" />
+        <div className="bg-white rounded-xl border border-border p-3 sm:p-4 hover:shadow-sm transition-shadow">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center bg-amber-50 text-amber-600 mb-2">
+            <AlertCircle className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
           </div>
-          <div className="text-2xl font-bold text-ink">{orderStats.new || 0}</div>
-          <div className="text-xs text-ink-3 mt-0.5">{t("pages.home.statPendingResponse")}</div>
+          <div className="text-xl sm:text-2xl font-bold text-ink">{orderStats.new || 0}</div>
+          <div className="text-[11px] sm:text-xs text-ink-3 mt-0.5">{t("pages.home.statPendingResponse")}</div>
         </div>
-        <div className="bg-white rounded-xl border border-border p-4 hover:shadow-sm transition-shadow">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-ink/5 text-ink mb-2">
-            <Star className="w-[18px] h-[18px]" />
+        <div className="bg-white rounded-xl border border-border p-3 sm:p-4 hover:shadow-sm transition-shadow">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center bg-ink/5 text-ink mb-2">
+            <Star className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
           </div>
-          <div className="text-2xl font-bold text-ink">{user?.rating || 0}</div>
-          <div className="text-xs text-ink-3 mt-0.5">{t("pages.home.statOverallRating")}</div>
+          <div className="text-xl sm:text-2xl font-bold text-ink">{user?.rating || 0}</div>
+          <div className="text-[11px] sm:text-xs text-ink-3 mt-0.5">{t("pages.home.statOverallRating")}</div>
         </div>
-        <div className="bg-white rounded-xl border border-border p-4 hover:shadow-sm transition-shadow">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-emerald-50 text-emerald-600 mb-2">
-            <TrendingUp className="w-[18px] h-[18px]" />
+        <div className="bg-white rounded-xl border border-border p-3 sm:p-4 hover:shadow-sm transition-shadow">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center bg-emerald-50 text-emerald-600 mb-2">
+            <TrendingUp className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
           </div>
-          <div className="text-2xl font-bold text-ink">{applications.length > 0 ? Math.round((applications.filter((a) => a.status === "Qabul qilindi" || a.status === "Interview").length / applications.length) * 100) : 0}%</div>
-          <div className="text-xs text-ink-3 mt-0.5">{t("pages.home.statAcceptanceRate")}</div>
+          <div className="text-xl sm:text-2xl font-bold text-ink">{applications.length > 0 ? Math.round((applications.filter((a) => a.status === "Qabul qilindi" || a.status === "Interview").length / applications.length) * 100) : 0}%</div>
+          <div className="text-[11px] sm:text-xs text-ink-3 mt-0.5">{t("pages.home.statAcceptanceRate")}</div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-6">
           {/* 2. Active Orders */}

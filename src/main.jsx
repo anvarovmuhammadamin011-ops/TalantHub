@@ -5,6 +5,8 @@ import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { SocketProvider } from './context/SocketContext.jsx'
+import { VideoCallProvider } from './context/VideoCallContext.jsx'
+import VideoCallUI from './components/call/VideoCallUI.jsx'
 import { I18nProvider } from './context/I18nContext.jsx'
 import { ToastProvider } from './context/ToastContext.jsx'
 
@@ -17,9 +19,12 @@ createRoot(document.getElementById('root')).render(
     <I18nProvider>
       <AuthProvider>
         <SocketProvider>
-          <ToastProvider>
-            <App />
-          </ToastProvider>
+          <VideoCallProvider>
+            <ToastProvider>
+              <App />
+              <VideoCallUI />
+            </ToastProvider>
+          </VideoCallProvider>
         </SocketProvider>
       </AuthProvider>
     </I18nProvider>

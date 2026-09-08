@@ -89,9 +89,9 @@ export default function EmployerHome() {
   const recentApplications = applications.slice(0, 4);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
+      <div className="flex items-start justify-between gap-3 sm:gap-4 flex-wrap mb-4 sm:mb-6">
         <div>
           <h1 className="text-xl font-bold text-ink tracking-tight mb-1">{t("pages.employerHome.greeting", { name: user?.name?.split(" ")[0] })}</h1>
           <p className="text-sm text-ink-3">
@@ -104,34 +104,34 @@ export default function EmployerHome() {
       </div>
 
       {/* 1. Quick Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <div className="bg-white rounded-xl border border-border p-4 hover:shadow-sm transition-shadow">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-ink/5 text-ink mb-2">
-            <Briefcase className="w-[18px] h-[18px]" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-5 sm:mb-6">
+        <div className="bg-white rounded-xl border border-border p-3 sm:p-4 hover:shadow-sm transition-shadow">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center bg-ink/5 text-ink mb-2">
+            <Briefcase className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
           </div>
-          <div className="text-2xl font-bold text-ink">{activeVacancies.length}</div>
-          <div className="text-xs text-ink-3 mt-0.5">{t("pages.employerHome.statActiveVacancies")}</div>
+          <div className="text-xl sm:text-2xl font-bold text-ink">{activeVacancies.length}</div>
+          <div className="text-[10px] sm:text-xs text-ink-3 mt-0.5">{t("pages.employerHome.statActiveVacancies")}</div>
         </div>
-        <div className="bg-white rounded-xl border border-border p-4 hover:shadow-sm transition-shadow">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-amber-50 text-amber-600 mb-2">
-            <Users className="w-[18px] h-[18px]" />
+        <div className="bg-white rounded-xl border border-border p-3 sm:p-4 hover:shadow-sm transition-shadow">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center bg-amber-50 text-amber-600 mb-2">
+            <Users className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
           </div>
-          <div className="text-2xl font-bold text-ink">{pendingApplications.length}</div>
-          <div className="text-xs text-ink-3 mt-0.5">{t("pages.employerHome.statUnseenApplications")}</div>
+          <div className="text-xl sm:text-2xl font-bold text-ink">{pendingApplications.length}</div>
+          <div className="text-[10px] sm:text-xs text-ink-3 mt-0.5">{t("pages.employerHome.statUnseenApplications")}</div>
         </div>
-        <div className="bg-white rounded-xl border border-border p-4 hover:shadow-sm transition-shadow">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-purple-50 text-purple-600 mb-2">
-            <Package className="w-[18px] h-[18px]" />
+        <div className="bg-white rounded-xl border border-border p-3 sm:p-4 hover:shadow-sm transition-shadow">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center bg-purple-50 text-purple-600 mb-2">
+            <Package className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
           </div>
-          <div className="text-2xl font-bold text-ink">{activeOrders.length}</div>
-          <div className="text-xs text-ink-3 mt-0.5">{t("pages.employerHome.statActiveOrders")}</div>
+          <div className="text-xl sm:text-2xl font-bold text-ink">{activeOrders.length}</div>
+          <div className="text-[10px] sm:text-xs text-ink-3 mt-0.5">{t("pages.employerHome.statActiveOrders")}</div>
         </div>
-        <div className="bg-white rounded-xl border border-border p-4 hover:shadow-sm transition-shadow">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-emerald-50 text-emerald-600 mb-2">
-            <TrendingUp className="w-[18px] h-[18px]" />
+        <div className="bg-white rounded-xl border border-border p-3 sm:p-4 hover:shadow-sm transition-shadow">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center bg-emerald-50 text-emerald-600 mb-2">
+            <TrendingUp className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
           </div>
-          <div className="text-2xl font-bold text-ink">{acceptRate}%</div>
-          <div className="text-xs text-ink-3 mt-0.5">{t("pages.employerHome.statAcceptRate")}</div>
+          <div className="text-xl sm:text-2xl font-bold text-ink">{acceptRate}%</div>
+          <div className="text-[10px] sm:text-xs text-ink-3 mt-0.5">{t("pages.employerHome.statAcceptRate")}</div>
         </div>
       </div>
 
@@ -220,14 +220,14 @@ export default function EmployerHome() {
         </div>
 
         {/* Right column */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* 4. My vacancies */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-semibold text-ink">{t("profile.myVacancies")}</h2>
               <Link to="/vacancies/new" className="text-xs font-medium text-ink-2 hover:text-ink transition-colors">{t("pages.employerHome.addNew")} <Plus className="w-3 h-3 inline" /></Link>
             </div>
-            <div className="bg-white rounded-xl border border-border p-5">
+            <div className="bg-white rounded-xl border border-border p-4 sm:p-5">
               {activeVacancies.length === 0 ? (
                 <div className="text-center py-4">
                   <p className="text-sm text-ink-3 mb-3">{t("pages.employerHome.noActiveVacancies")}</p>
@@ -257,7 +257,7 @@ export default function EmployerHome() {
               <Link to="/chat" className="text-xs font-medium text-ink-2 hover:text-ink transition-colors">{t("common.seeAll")} <ArrowRight className="w-3 h-3 inline" /></Link>
             </div>
             {chats.length === 0 ? (
-              <div className="bg-white rounded-xl border border-border p-5 text-center">
+              <div className="bg-white rounded-xl border border-border p-4 sm:p-5 text-center">
                 <MessageSquare className="w-7 h-7 text-ink-3 mx-auto mb-2" />
                 <p className="text-xs text-ink-3">{t("pages.employerHome.noUnreadMessages")}</p>
               </div>
@@ -284,7 +284,7 @@ export default function EmployerHome() {
 
           {/* 7. AI Assistant Banner */}
           <Link to="/chat?ai=1"
-            className="bg-gradient-to-br from-ink to-ink/70 rounded-xl p-5 text-white block hover:shadow-lg transition-shadow relative overflow-hidden">
+            className="bg-gradient-to-br from-ink to-ink/70 rounded-xl p-4 sm:p-5 text-white block hover:shadow-lg transition-shadow relative overflow-hidden">
             <div className="absolute right-0 top-0 w-24 h-24 bg-white/5 rounded-full -mr-8 -mt-8" />
             <div className="relative">
               <Sparkles className="w-6 h-6 text-white/40 mb-2" />

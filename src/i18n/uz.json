@@ -720,7 +720,28 @@
       "reportReasonPrompt": "Shikoyat sababini kiriting:",
       "reportSuccess": "Shikoyatingiz qabul qilindi. Administrator tez orada ko'rib chiqadi.",
       "loadChatsError": "Suhbatlarni yuklashda xatolik",
-      "loadMessagesError": "Xabarlarni yuklashda xatolik"
+      "loadMessagesError": "Xabarlarni yuklashda xatolik",
+      "call": {
+        "videoCall": "Video qo'ng'iroq",
+        "audioCall": "Audio qo'ng'iroq",
+        "calling": "Qo'ng'iroq qilinmoqda...",
+        "incomingVideo": "Kiruvchi video qo'ng'iroq",
+        "incomingAudio": "Kiruvchi audio qo'ng'iroq",
+        "connecting": "Ulanmoqda...",
+        "accept": "Qabul qilish",
+        "reject": "Rad etish",
+        "end": "Yakunlash",
+        "mute": "Ovozni o'chirish",
+        "unmute": "Ovozni yoqish",
+        "cameraOff": "Kamerani o'chirish",
+        "cameraOn": "Kamerani yoqish",
+        "rejected": "Qo'ng'iroq rad etildi",
+        "cancelled": "Qo'ng'iroq bekor qilindi",
+        "no-answer": "Javob bo'lmadi",
+        "permission": "Kamera/mikrofon ruxsati berilmagan. Brauzer sozlamalaridan ruxsat bering.",
+        "media": "Kamera/mikrofonni ishga tushirib bo'lmadi",
+        "camera-missing": "Bu qurilmada kamera/mikrofon topilmadi"
+      }
     },
     "wallet": {
       "balanceLabel": "Balans",

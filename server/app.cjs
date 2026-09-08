@@ -32,6 +32,7 @@ const uploadRoutes = require("./routes/upload.cjs");
 const savedSearchRoutes = require("./routes/savedSearches.cjs");
 const companyRoutes = require("./routes/companies.cjs");
 const analyticsRoutes = require("./routes/analytics.cjs");
+const telegramRoutes = require("./routes/telegram.cjs");
 
 const allowedOrigins = [
   process.env.FRONTEND_URL || "http://localhost:5173",
@@ -88,6 +89,7 @@ app.use("/api/upload", uploadRoutes);
 app.use("/api/saved-searches", savedSearchRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/telegram", telegramRoutes);
 
 if (process.env.SENTRY_DSN) {
   Sentry.setupExpressErrorHandler(app);

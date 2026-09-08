@@ -55,8 +55,8 @@ const emptyForm = {
   start_date: "",
 };
 
-const inputClass = "w-full px-4 py-2.5 rounded-lg border border-border text-sm focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-colors";
-const cardClass = "bg-white rounded-xl border border-border shadow-sm p-6 sm:p-8";
+const inputClass = "w-full px-3.5 sm:px-4 py-2.5 rounded-lg border border-border text-sm focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-colors";
+const cardClass = "bg-white rounded-xl border border-border shadow-sm p-4 sm:p-6 sm:p-8";
 const labelClass = "block text-xs font-medium text-ink-3 uppercase tracking-wide mb-1.5";
 const chipBase = "px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors";
 const chipOn = "bg-accent text-white border-accent";
@@ -214,7 +214,7 @@ export default function VacancyCreate() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 space-y-4">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 md:py-10 space-y-3 sm:space-y-4">
       <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-ink-3 hover:text-ink mb-2 text-sm font-medium transition-colors">
         <ArrowLeft className="w-4 h-4" /> {t("common.back")}
       </button>
@@ -230,7 +230,7 @@ export default function VacancyCreate() {
       </div>
 
       {/* 1. Asosiy */}
-      <div className={cardClass}>
+      <div className="bg-white rounded-xl border border-border shadow-sm p-4 sm:p-6 sm:p-8">
         <h2 className="text-sm font-semibold text-ink mb-4">{t("pages.vacancyCreate.section1Title")}</h2>
         <div className="space-y-5">
           <div>

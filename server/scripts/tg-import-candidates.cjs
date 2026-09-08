@@ -99,7 +99,6 @@ async function main() {
 
   console.log(`Parsed candidates: ${candidates.length}, deduped: ${deduped.length}`);
   console.log(`Inserted: ${inserted}, skipped (already existed): ${skipped}`);
-  await db.pool.end();
 }
 
 main().catch((err) => {

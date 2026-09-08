@@ -109,6 +109,115 @@ io.on("connection", async (socket) => {
       }
     });
 
+    // ---- Video / audio call signaling (WebRTC, face-to-face) ----
+    // In-memory registry: callId -> { chatId, callerId, targetId, isVideo }
+    // Socket instance does not have a shared map, so attach to io object.
+    if (!io._calls) io._calls = new Map();
+    const calls = io._calls;
+
+    async function getCallTarget(chatId) {
+      const chat = await db.prepare("SELECT * FROM chats WHERE id = ?").get(chatId);
+      if (!chat) return null;
+      if (chat.user1_id === userId) return chat.user2_id;
+      if (chat.user2_id === userId) return chat.user1_id;
+      return null;
+    }
+
+    socket.on("call:initiate", async ({ chatId, isVideo, callId: clientCallId }) => {
+      try {
+        const targetId = await getCallTarget(chatId);
+        if (!targetId) return;
+        const caller = await db.prepare("SELECT id, name FROM users WHERE id = ?").get(userId);
+        const callId = clientCallId || `${Date.now()}_${userId}_${targetId}`;
+        if (calls.has(callId)) return;
+        calls.set(callId, { chatId, callerId: userId, targetId, isVideo: isVideo !== false });
+        socket.join(`call_${callId}`);
+        io.to(`user_${targetId}`).emit("call:incoming", {
+          callId,
+          chatId,
+          fromUserId: userId,
+          fromName: caller?.name || "Foydalanuvchi",
+          isVideo: isVideo !== false,
+        });
+      } catch (err) {
+        console.error("call:initiate error:", err);
+      }
+    });
+
+    socket.on("call:accept", async ({ callId }) => {
+      try {
+        const call = calls.get(callId);
+        if (!call) return;
+        if (userId !== call.targetId) return;
+        socket.join(`call_${callId}`);
+        io.to(`user_${call.callerId}`).emit("call:accepted", { callId, chatId: call.chatId });
+      } catch (err) {
+        console.error("call:accept error:", err);
+      }
+    });
+
+    socket.on("call:reject", async ({ callId }) => {
+      try {
+        const call = calls.get(callId);
+        if (!call) return;
+        io.to(`user_${call.callerId}`).emit("call:rejected", { callId });
+        io.to(`user_${call.targetId}`).emit("call:ended", { callId, reason: "rejected" });
+        calls.delete(callId);
+      } catch (err) {
+        console.error("call:reject error:", err);
+      }
+    });
+
+    socket.on("call:cancel", async ({ callId }) => {
+      try {
+        const call = calls.get(callId);
+        if (!call) return;
+        if (userId !== call.callerId) return;
+        io.to(`user_${call.targetId}`).emit("call:cancelled", { callId });
+        calls.delete(callId);
+      } catch (err) {
+        console.error("call:cancel error:", err);
+      }
+    });
+
+    socket.on("call:hangup", async ({ callId }) => {
+      try {
+        const call = calls.get(callId);
+        if (!call) {
+          // Still broadcast to room in case registry was cleared
+          socket.to(`call_${callId}`).emit("call:ended", { callId, reason: "hangup" });
+          return;
+        }
+        const otherId = userId === call.callerId ? call.targetId : call.callerId;
+        io.to(`user_${otherId}`).emit("call:ended", { callId, reason: "hangup" });
+        socket.to(`call_${callId}`).emit("call:ended", { callId, reason: "hangup" });
+        calls.delete(callId);
+      } catch (err) {
+        console.error("call:hangup error:", err);
+      }
+    });
+
+    socket.on("call:offer", ({ callId, sdp }) => {
+      const call = calls.get(callId);
+      if (!call) return;
+      const otherId = userId === call.callerId ? call.targetId : call.callerId;
+      io.to(`user_${otherId}`).emit("call:offer", { callId, sdp });
+    });
+
+    socket.on("call:answer", ({ callId, sdp }) => {
+      const call = calls.get(callId);
+      if (!call) return;
+      const otherId = userId === call.callerId ? call.targetId : call.callerId;
+      io.to(`user_${otherId}`).emit("call:answer", { callId, sdp });
+    });
+
+    socket.on("call:ice", ({ callId, candidate }) => {
+      const call = calls.get(callId);
+      if (!call) return;
+      const otherId = userId === call.callerId ? call.targetId : call.callerId;
+      io.to(`user_${otherId}`).emit("call:ice", { callId, candidate });
+    });
+
     socket.on("disconnect", async () => {
       try {
         await db.prepare("UPDATE users SET online = 0 WHERE id = ?").run(userId);

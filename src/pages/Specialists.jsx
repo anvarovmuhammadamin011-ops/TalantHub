@@ -104,13 +104,13 @@ export default function Specialists() {
   );
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="mb-8">
-        <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight mb-1.5">{t("pages.specialists.title")}</h1>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+      <div className="mb-5 md:mb-8">
+        <h1 className="text-xl md:text-2xl lg:text-3xl font-semibold text-ink tracking-tight mb-1.5">{t("pages.specialists.title")}</h1>
         <p className="text-ink-3 text-sm">{t("pages.specialists.count", { count: filtered.length })}</p>
       </div>
 
-      <div className="flex gap-3 mb-6">
+      <div className="flex gap-3 mb-5 md:mb-6">
         <div className="flex-1 relative">
           <Search className="w-4 h-4 text-ink-3 absolute left-4 top-1/2 -translate-y-1/2" />
           <input
@@ -132,7 +132,7 @@ export default function Specialists() {
       </div>
 
       {showFilters && (
-        <div className="bg-white rounded-xl border border-border p-6 mb-6">
+        <div className="bg-white rounded-xl border border-border p-4 sm:p-6 mb-5 md:mb-6">
           <FilterPanel />
         </div>
       )}
@@ -140,10 +140,10 @@ export default function Specialists() {
       {loading && <div className="text-center py-20 text-ink-3 text-sm">{t("common.loading")}</div>}
 
       {!loading && (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map((s) => (
             <Link key={s.id} to={`/specialists/${s.id}`}
-              className="bg-white rounded-xl border border-border p-6 hover:border-ink/20 hover:shadow-md transition-all">
+              className="bg-white rounded-xl border border-border p-4 hover:border-ink/20 hover:shadow-md transition-all">
               <div className="flex items-start gap-3 mb-4">
                 <div className="relative">
                   {s.avatar ? (
@@ -174,7 +174,7 @@ export default function Specialists() {
                 <MatchIndicator percent={s.matchPercent} />
               </div>
 
-              <div className="flex flex-wrap gap-1.5 mb-4">
+              <div className="flex flex-wrap gap-1.5 mb-3">
                 <StatusBadge status={s.experience_level} />
                 {s.skills.slice(0, 3).map((tag) => (
                   <span key={tag} className="px-2 py-1 bg-surface text-ink-2 rounded-full text-xs font-medium">
@@ -183,7 +183,7 @@ export default function Specialists() {
                 ))}
               </div>
 
-              <div className="pt-4 border-t border-border-soft">
+              <div className="pt-3 md:pt-4 border-t border-border-soft">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1 text-sm">
                     <Star className="w-3.5 h-3.5 text-ink fill-ink" />

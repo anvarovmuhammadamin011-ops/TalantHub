@@ -103,10 +103,10 @@ export default function EmployerDashboard() {
   const recentApplications = applications.slice(0, 6);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+      <div className="flex items-center justify-between mb-5 md:mb-8 flex-wrap gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight">{t("nav.dashboard")}</h1>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-semibold text-ink tracking-tight">{t("nav.dashboard")}</h1>
           <p className="text-ink-3 text-sm mt-1">{t("pages.employerDashboard.subtitle", { name: user?.name })}</p>
         </div>
         <Link to="/vacancies/new" className="flex items-center gap-2 bg-ink text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors">
@@ -114,22 +114,22 @@ export default function EmployerDashboard() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-5 sm:mb-6">
         {statsCards.map((stat) => (
-          <div key={stat.label} className="bg-white rounded-xl border border-border p-5 hover:shadow-sm transition-shadow">
-            <div className="flex items-center justify-between mb-4">
-              <div className={`w-10 h-10 ${stat.bg} rounded-xl flex items-center justify-center`}>
-                <stat.icon className={`w-5 h-5 ${stat.color}`} strokeWidth={1.75} />
+          <div key={stat.label} className="bg-white rounded-xl border border-border p-3 sm:p-5 hover:shadow-sm transition-shadow">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <div className={`w-9 h-9 sm:w-10 sm:h-10 ${stat.bg} rounded-xl flex items-center justify-center`}>
+                <stat.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${stat.color}`} strokeWidth={1.75} />
               </div>
             </div>
-            <div className="text-2xl font-semibold text-ink tracking-tight">{stat.value}</div>
-            <div className="text-sm text-ink-3 mt-1">{stat.label}</div>
+            <div className="text-xl sm:text-2xl font-semibold text-ink tracking-tight">{stat.value}</div>
+            <div className="text-xs sm:text-sm text-ink-3 mt-1">{stat.label}</div>
           </div>
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-white rounded-xl border border-border p-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 bg-white rounded-xl border border-border p-4 sm:p-5">
           <div className="flex items-center justify-between mb-5">
             <h2 className="font-semibold text-ink text-sm">{t("pages.employerDashboard.recentApplications")}</h2>
             <Link to="/applications" className="text-sm text-ink-3 hover:text-ink font-medium transition-colors">{t("common.seeAll")}</Link>
@@ -154,8 +154,8 @@ export default function EmployerDashboard() {
             </div>
           )}
         </div>
-        <div className="bg-white rounded-xl border border-border p-5">
-          <div className="flex items-center justify-between mb-5">
+        <div className="bg-white rounded-xl border border-border p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-4 sm:mb-5">
             <h2 className="font-semibold text-ink text-sm">{t("profile.myVacancies")}</h2>
             <Link to="/vacancies/new" className="text-xs text-ink font-medium hover:text-accent transition-colors flex items-center gap-1">
               <Plus className="w-3 h-3" /> {t("pages.employerDashboard.addNew")}

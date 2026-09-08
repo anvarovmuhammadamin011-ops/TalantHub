@@ -34,12 +34,12 @@ export default function CompanyProfile() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
       <Link to="/vacancies" className="inline-flex items-center gap-2 text-ink-3 hover:text-ink mb-6 text-sm font-medium transition-colors">
         <ArrowLeft className="w-4 h-4" /> {t("nav.vacancies")}
       </Link>
 
-      <div className="bg-white rounded-xl border border-border p-6 md:p-8 mb-4">
+      <div className="bg-white rounded-xl border border-border p-4 sm:p-6 md:p-8 mb-4">
         <div className="flex items-start gap-4">
           <CompanyLogo name={company.display_name} logo={company.company_logo} size="xl" />
           <div className="flex-1 min-w-0">

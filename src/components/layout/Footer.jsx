@@ -4,8 +4,8 @@ import { Mail, Phone, MapPin, Globe, MessageCircle, Users, Send } from "lucide-r
 export default function Footer() {
   return (
     <footer className="bg-ink text-white/60">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-8 sm:gap-10">
           <div>
             <Link to="/vacancies" className="flex items-center gap-2 mb-4">
               <div className="w-7 h-7 bg-white rounded-md flex items-center justify-center">
@@ -73,7 +73,7 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-white/10 mt-12 pt-8 text-center text-xs text-white/30">
+        <div className="border-t border-white/10 mt-8 sm:mt-12 pt-6 sm:pt-8 text-center text-xs text-white/30">
           © 2026 TalentHub. Barcha huquqlar himoyalangan.
         </div>
       </div>

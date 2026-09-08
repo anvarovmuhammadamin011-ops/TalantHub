@@ -154,7 +154,7 @@ export default function Register() {
   const isStep1Valid = role === "specialist" ? fields.length > 0 && selectedCats.length > 0 : role === "employer";
 
   return (
-    <div className="min-h-screen bg-surface py-12 px-4">
+    <div className="min-h-screen bg-surface py-8 sm:py-12 px-4">
       <div className="max-w-lg mx-auto">
         <div className="flex justify-center mb-4">
           <LanguageSwitcher />
@@ -166,7 +166,7 @@ export default function Register() {
           <span className="text-lg font-semibold text-ink tracking-tight">TalentHub</span>
         </Link>
 
-        <div className="flex items-center justify-center gap-2 mb-8">
+        <div className="flex items-center justify-center gap-1.5 sm:gap-2 mb-6 sm:mb-8">
           {steps.map((s, i) => (
             <div key={i} className="flex items-center gap-2">
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors ${

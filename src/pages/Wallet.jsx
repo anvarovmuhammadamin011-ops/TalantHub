@@ -86,8 +86,8 @@ export default function Wallet() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
-      <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight mb-8">{t("nav.wallet")}</h1>
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 md:py-10">
+      <h1 className="text-xl md:text-2xl lg:text-3xl font-semibold text-ink tracking-tight mb-5 sm:mb-8">{t("nav.wallet")}</h1>
 
       <div className="rounded-2xl p-6 sm:p-8 mb-8 text-white" style={{ background: "linear-gradient(135deg, #6366F1, #8B5CF6)" }}>
         <div className="flex items-center gap-2 mb-2 opacity-90">
@@ -117,7 +117,7 @@ export default function Wallet() {
         <h2 className="font-semibold text-ink text-sm">{t("pages.wallet.tariffsTitle")}</h2>
         <p className="text-xs text-ink-3 mt-0.5">{t("pages.wallet.tariffsDesc")}</p>
       </div>
-      <div className="grid sm:grid-cols-3 gap-4 mb-10">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-8 sm:mb-10">
         {tariffs.map((tariff) => {
           const isActive = data.active_tariff?.tariff_id === tariff.id || data.active_tariff?.name === tariff.name;
           const Icon = TARIFF_ICON[tariff.name];
@@ -155,7 +155,7 @@ export default function Wallet() {
       {data.transactions.length === 0 ? (
         <p className="text-sm text-ink-3">{t("pages.wallet.noTransactions")}</p>
       ) : (
-        <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden overflow-x-auto">
+        <div className="bg-white rounded-xl border border-border shadow-sm overflow-x-auto -mx-4 sm:mx-0">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">

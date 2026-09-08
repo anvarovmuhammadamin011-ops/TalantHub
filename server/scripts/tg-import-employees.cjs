@@ -185,7 +185,6 @@ async function main() {
     }
     if (preview.length > 30) console.log(`  ...va yana ${preview.length - 30} ta`);
   }
-  await db.pool.end();
 }
 
 main().catch((err) => {

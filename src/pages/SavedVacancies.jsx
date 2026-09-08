@@ -56,9 +56,9 @@ export default function SavedVacancies() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-semibold text-ink tracking-tight mb-1.5">{t("profile.savedJobs")}</h1>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl md:text-2xl lg:text-3xl font-semibold text-ink tracking-tight mb-1.5">{t("profile.savedJobs")}</h1>
         <p className="text-ink-3 text-sm">{t("pages.savedVacancies.subtitle")}</p>
       </div>
 
@@ -100,7 +100,7 @@ export default function SavedVacancies() {
         <div className="space-y-3">
           {vacancies.map((v) => {
             return (
-              <Link key={v.id} to={`/vacancies/${v.id}`} className="block bg-white rounded-xl border border-border p-6 hover:border-ink/20 transition-colors">
+              <Link key={v.id} to={`/vacancies/${v.id}`} className="block bg-white rounded-xl border border-border p-4 sm:p-6 hover:border-ink/20 transition-colors">
                 <div className="flex items-start gap-4">
                   <CompanyLogo name={v.company} logo={v.company_logo} size="ml" />
                   <div className="flex-1 min-w-0">
