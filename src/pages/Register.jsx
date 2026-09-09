@@ -145,9 +145,7 @@ export default function Register() {
       setPhoneError("");
       setForm((f) => ({ ...f, phone: normalizeUzPhone(f.phone) }));
     }
-    if (step === 3 && !smsSent && !smsSending) {
-      sendTelegramCode(form.phone);
-    }
+    // 3-qadamda kod avtomatik yuborilmaydi — foydalanuvchi "Kod olish" tugmasini bosganda chiqadi.
     if (step === 4 && !passport) {
       setStepError(t("pages.register.kyc.passportRequired"));
       return;
@@ -602,6 +600,12 @@ export default function Register() {
                 <h2 className="text-xl font-semibold text-ink mb-1.5 tracking-tight">{t("pages.register.smsTitle")}</h2>
                 <p className="text-ink-3 text-sm mb-2">{t("pages.register.smsSubtitle", { phone: form.phone })}</p>
                 <p className="text-xs text-ink-3 mb-4">{t("pages.register.smsTelegramHint")}</p>
+                {!smsSent && !smsSending && (
+                  <button onClick={() => sendTelegramCode(form.phone)}
+                    className="w-full bg-ink text-white py-3 rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors mb-6">
+                    {t("pages.register.smsGetCode")}
+                  </button>
+                )}
                 {smsSending && (
                   <p className="text-xs text-ink-3 mb-4">{t("pages.register.smsSending")}</p>
                 )}
@@ -636,6 +640,7 @@ export default function Register() {
                   <p className="text-xs text-ink-3 mb-6">{t("pages.register.smsResendCooldown", { seconds: smsCooldown })}</p>
                 )}
 
+                {smsSent && (
                 <div className="flex justify-center gap-3 mb-4">
                   {smsCode.map((digit, i) => (
                     <input
@@ -651,6 +656,7 @@ export default function Register() {
                     />
                   ))}
                 </div>
+                )}
 
                 {smsError && (
                   <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-xl mb-4">{smsError}</div>

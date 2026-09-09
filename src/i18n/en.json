@@ -500,7 +500,7 @@
       "smsResend": "Resend the code",
       "smsResendCooldown": "You can resend in {seconds}s",
       "smsDemoCode": "Demo: {code}",
-      "smsGetCode": "Get SMS code",
+      "smsGetCode": "Get code",
       "smsErrorMsg": "Incorrect code. Please try again.",
       "smsSecureNote": "Your number is stored securely",
       "confirmTitle": "Confirm your details",

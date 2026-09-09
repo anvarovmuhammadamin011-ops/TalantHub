@@ -500,7 +500,7 @@
       "smsResend": "Отправить код повторно",
       "smsResendCooldown": "Повторная отправка через {seconds} с",
       "smsDemoCode": "Демо: {code}",
-      "smsGetCode": "Получить SMS-код",
+      "smsGetCode": "Получить код",
       "smsErrorMsg": "Неверный код. Попробуйте ещё раз.",
       "smsSecureNote": "Ваш номер надёжно защищён",
       "confirmTitle": "Подтвердите данные",

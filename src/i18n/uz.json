@@ -500,7 +500,7 @@
       "smsResend": "Kodni qayta yuborish",
       "smsResendCooldown": "{seconds} soniyadan keyin qayta yuborish mumkin",
       "smsDemoCode": "Demo: {code}",
-      "smsGetCode": "SMS kod olish",
+      "smsGetCode": "Kod olish",
       "smsErrorMsg": "Noto'g'ri kod. Qaytadan urinib ko'ring.",
       "smsSecureNote": "Sizning raqamingiz xavfsiz saqlanadi",
       "confirmTitle": "Ma'lumotlarni tasdiqlang",
