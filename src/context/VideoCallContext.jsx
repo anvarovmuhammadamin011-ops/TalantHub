@@ -1,6 +1,7 @@
 import { createContext, useContext, useCallback, useEffect, useRef, useState } from "react";
 import { useSocket } from "./SocketContext";
 import { useAuth } from "./AuthContext";
+import { playRingtone, stopRingtone } from "../lib/callRingtone";
 
 const VideoCallContext = createContext(null);
 
@@ -20,6 +21,11 @@ export function VideoCallProvider({ children }) {
   const [cameraOff, setCameraOff] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
   const [mediaError, setMediaError] = useState(null);
+  // Telegram uslubi: suhbat davom etayotganda ekranni kichraytirish
+  const [minimized, setMinimized] = useState(false);
+  // Karnay (chiqish qurilmasi) — faqat bir nechta audiooutput bo'lsa ko'rsatiladi
+  const [speakerOn, setSpeakerOn] = useState(true);
+  const [audioOutputs, setAudioOutputs] = useState([]);
 
   const pcRef = useRef(null);
   const localStreamRef = useRef(null);
@@ -33,6 +39,7 @@ export function VideoCallProvider({ children }) {
   callRef.current = call;
 
   const cleanupMedia = useCallback(() => {
+    stopRingtone();
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((t) => t.stop());
       localStreamRef.current = null;
@@ -47,6 +54,8 @@ export function VideoCallProvider({ children }) {
     setMuted(false);
     setCameraOff(false);
     setCallDuration(0);
+    setMinimized(false);
+    setSpeakerOn(true);
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
   }, []);
@@ -122,6 +131,7 @@ export function VideoCallProvider({ children }) {
     }
     try {
       const stream = await acquireMedia(isVideo);
+      refreshAudioOutputs();
       const targetId = chat.other_id;
       // Avval socket'ga initiate yuboramiz — server callId yaratib target'ga uzatadi.
       // Lekin WebRTC offer uchun bizga callId kerak emas: server'dan qaytgan
@@ -154,6 +164,7 @@ export function VideoCallProvider({ children }) {
         const c = callRef.current;
         if (c && c.status === "calling") {
           socket.emit("call:cancel", { callId: c.callId });
+          logCall(c.chatId, `📞 ${c.isVideo ? "Video" : "Audio"} qo'ng'iroq — javob bo'lmadi`);
           endCallSilent();
           setMediaError("no-answer");
         }
@@ -163,13 +174,14 @@ export function VideoCallProvider({ children }) {
       cleanupMedia();
       setMediaError(err?.name === "NotAllowedError" ? "permission" : "media");
     }
-  }, [socket, user?.id, acquireMedia, createPeerConnection, cleanupMedia, endCallSilent]);
+  }, [socket, user?.id, acquireMedia, createPeerConnection, cleanupMedia, endCallSilent, logCall, refreshAudioOutputs]);
 
   const acceptCall = useCallback(async () => {
     const c = callRef.current;
     if (!c || !socket) return;
     try {
       const stream = await acquireMedia(c.isVideo);
+      refreshAudioOutputs();
       const pc = createPeerConnection(c.callId);
       stream.getTracks().forEach((t) => pc.addTrack(t, stream));
       setCall((prev) => (prev ? { ...prev, status: "connecting" } : prev));
@@ -178,7 +190,7 @@ export function VideoCallProvider({ children }) {
       console.error("acceptCall error:", err);
       setMediaError(err?.name === "NotAllowedError" ? "permission" : "media");
     }
-  }, [socket, acquireMedia, createPeerConnection]);
+  }, [socket, acquireMedia, createPeerConnection, refreshAudioOutputs]);
 
   const rejectCall = useCallback(() => {
     const c = callRef.current;
@@ -209,6 +221,70 @@ export function VideoCallProvider({ children }) {
     track.enabled = !track.enabled;
     setCameraOff(!track.enabled);
   }, []);
+
+  // Chatga qo'ng'iroq tarixi yozuvi (o'tkazib yuborilgan / rad etilgan / yakunlangan)
+  const logCall = useCallback((chatId, text) => {
+    if (!chatId) return;
+    try { sendMessage(chatId, text); } catch { /* noop */ }
+  }, [sendMessage]);
+
+  // Chiqish audio qurilmalari ro'yxati (karnay tugmasi shunga qarab chiqadi)
+  const refreshAudioOutputs = useCallback(async () => {
+    try {
+      if (!navigator.mediaDevices?.enumerateDevices) return;
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      setAudioOutputs(devices.filter((d) => d.kind === "audiooutput"));
+    } catch { /* noop */ }
+  }, []);
+
+  const toggleSpeaker = useCallback(() => {
+    setSpeakerOn((prev) => !prev);
+  }, []);
+
+  // Old/orqa kamera almashtirish (telefonlarda) — jonli track almashtirish
+  const switchCamera = useCallback(async () => {
+    const stream = localStreamRef.current;
+    const pc = pcRef.current;
+    const oldTrack = stream?.getVideoTracks()?.[0];
+    if (!oldTrack || !pc) return;
+    const currentMode = oldTrack.getSettings?.().facingMode || "user";
+    const nextMode = currentMode === "environment" ? "user" : "environment";
+    try {
+      let newStream = null;
+      try {
+        newStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: nextMode } }, audio: false,
+        });
+      } catch {
+        newStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: nextMode }, audio: false,
+        });
+      }
+      const newTrack = newStream.getVideoTracks()[0];
+      if (!newTrack) return;
+      const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+      if (sender) await sender.replaceTrack(newTrack);
+      oldTrack.stop();
+      stream.removeTrack(oldTrack);
+      stream.addTrack(newTrack);
+      setLocalStream(new MediaStream(stream.getTracks()));
+      setCameraOff(false);
+    } catch (err) {
+      console.error("switchCamera error:", err);
+      setMediaError("media");
+    }
+  }, []);
+
+  // ---- Ringtone: holatga qarab avtomatik ----
+  const callStatus = call?.status;
+  const callDirection = call?.direction;
+  useEffect(() => {
+    if (!call) { stopRingtone(); return; }
+    if (callStatus === "calling" && callDirection === "outgoing") playRingtone("outgoing");
+    else if (callStatus === "ringing") playRingtone("incoming");
+    else stopRingtone();
+    return () => stopRingtone();
+  }, [call, callStatus, callDirection]);
 
   // ---- Socket signaling handlers ----
   useEffect(() => {
@@ -305,8 +381,18 @@ export function VideoCallProvider({ children }) {
       }
     };
 
-    const onRejected = () => { endCallSilent(); setMediaError("rejected"); };
-    const onCancelled = () => { endCallSilent(); setMediaError("cancelled"); };
+    const onRejected = () => {
+      const c = callRef.current;
+      if (c) logCall(c.chatId, `📞 ${c.isVideo ? "Video" : "Audio"} qo'ng'iroq rad etildi`);
+      endCallSilent();
+      setMediaError("rejected");
+    };
+    const onCancelled = () => {
+      const c = callRef.current;
+      if (c) logCall(c.chatId, `📞 O'tkazib yuborilgan ${c.isVideo ? "video" : "audio"} qo'ng'iroq`);
+      endCallSilent();
+      setMediaError("cancelled");
+    };
     const onEnded = ({ callId } = {}) => {
       const c = callRef.current;
       if (callId && c && c.callId !== callId) return;
@@ -332,10 +418,11 @@ export function VideoCallProvider({ children }) {
       socket.off("call:cancelled", onCancelled);
       socket.off("call:ended", onEnded);
     };
-  }, [socket, acquireMedia, createPeerConnection, endCallSilent, hangup]);
+  }, [socket, acquireMedia, createPeerConnection, endCallSilent, hangup, logCall]);
 
   // Unmount'da tozalash
   useEffect(() => () => {
+    stopRingtone();
     if (pcRef.current) { try { pcRef.current.close(); } catch { /* noop */ } }
     if (localStreamRef.current) localStreamRef.current.getTracks().forEach((t) => t.stop());
     if (timerRef.current) clearInterval(timerRef.current);
@@ -346,7 +433,8 @@ export function VideoCallProvider({ children }) {
     <VideoCallContext.Provider value={{
       call, localStream, remoteStream, muted, cameraOff, callDuration, mediaError,
       setMediaError, startCall, acceptCall, rejectCall, cancelOutgoing, hangup,
-      toggleMute, toggleCamera, inCall: !!call,
+      toggleMute, toggleCamera, switchCamera, minimized, setMinimized,
+      speakerOn, toggleSpeaker, audioOutputs, refreshAudioOutputs, inCall: !!call,
     }}>
       {children}
     </VideoCallContext.Provider>
