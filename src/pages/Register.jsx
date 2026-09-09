@@ -512,15 +512,6 @@ export default function Register() {
                 <div>
                   <label className="block text-sm font-medium text-ink-2 mb-1.5">{t("pages.register.phoneLabel")}</label>
                   <div className="relative">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-sm pointer-events-none">
-                      <span>🇺🇿</span>
-                      <span className="text-xs text-ink-3 font-medium">UZ</span>
-                      {detectedOperator && (
-                        <span className="text-[11px] font-semibold text-accent bg-accent/10 px-1.5 py-0.5 rounded">
-                          {detectedOperator.name}
-                        </span>
-                      )}
-                    </div>
                     <input
                       type="tel"
                       inputMode="tel"
@@ -539,8 +530,13 @@ export default function Register() {
                       }}
                       className={`w-full py-3 rounded-lg border ${
                         phoneError ? "border-red-300" : "border-border"
-                      } focus:border-ink/30 outline-none transition-colors text-sm pl-24 pr-4`}
+                      } focus:border-ink/30 outline-none transition-colors text-sm px-4 ${detectedOperator ? "pr-24" : ""}`}
                     />
+                    {detectedOperator && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-accent bg-accent/10 px-1.5 py-0.5 rounded pointer-events-none">
+                        {detectedOperator.name}
+                      </span>
+                    )}
                   </div>
                   {phoneError && <p className="text-xs text-red-500 mt-1">{phoneError}</p>}
                   {!phoneError && (
@@ -615,12 +611,23 @@ export default function Register() {
                 {smsSentVia === "telegram" && (
                   <p className="text-xs text-emerald-600 font-medium mb-4">✓ {t("pages.register.smsTelegramSent")}</p>
                 )}
-                {smsBotLink && (
-                  <a href={smsBotLink} target="_blank" rel="noreferrer" className="inline-block text-xs text-ink font-medium mb-6 underline">
-                    {t("pages.register.smsOpenBot")}
-                  </a>
+                {smsBotLink && smsSentVia === "demo" && (
+                  <div className="bg-surface rounded-xl p-4 mb-4">
+                    <div className="flex flex-col gap-2">
+                      <a href={smsBotLink} target="_blank" rel="noreferrer"
+                        className="w-full bg-ink text-white py-2.5 rounded-lg text-xs font-medium hover:bg-ink/90 transition-colors text-center">
+                        {t("pages.register.smsOpenBot")}
+                      </a>
+                      {!smsSending && smsCooldown <= 0 && smsSent && (
+                        <button onClick={() => sendTelegramCode(form.phone)}
+                          className="w-full py-2.5 rounded-lg border border-border text-xs font-medium text-ink hover:bg-white transition-colors">
+                          {t("pages.register.smsResend")}
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 )}
-                {!smsSending && smsCooldown <= 0 && smsSent && (
+                {!smsBotLink && !smsSending && smsCooldown <= 0 && smsSent && (
                   <button onClick={() => sendTelegramCode(form.phone)} className="block mx-auto text-xs text-ink font-medium mb-6 underline">
                     {t("pages.register.smsResend")}
                   </button>
