@@ -122,6 +122,22 @@ export function VideoCallProvider({ children }) {
     return stream;
   }, []);
 
+  // Chatga qo'ng'iroq tarixi yozuvi (o'tkazib yuborilgan / rad etilgan / yakunlangan)
+  // startCall'dan OLDIN e'lon qilinishi shart (TDZ) — startCall deps'da ishlatadi.
+  const logCall = useCallback((chatId, text) => {
+    if (!chatId) return;
+    try { sendMessage(chatId, text); } catch { /* noop */ }
+  }, [sendMessage]);
+
+  // Chiqish audio qurilmalari ro'yxati (karnay tugmasi shunga qarab chiqadi)
+  const refreshAudioOutputs = useCallback(async () => {
+    try {
+      if (!navigator.mediaDevices?.enumerateDevices) return;
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      setAudioOutputs(devices.filter((d) => d.kind === "audiooutput"));
+    } catch { /* noop */ }
+  }, []);
+
   const startCall = useCallback(async (chat, isVideo = true) => {
     if (!socket || !chat) return;
     if (callRef.current) return; // allaqachon qo'ng'iroq bor
@@ -220,21 +236,6 @@ export function VideoCallProvider({ children }) {
     if (!track) return;
     track.enabled = !track.enabled;
     setCameraOff(!track.enabled);
-  }, []);
-
-  // Chatga qo'ng'iroq tarixi yozuvi (o'tkazib yuborilgan / rad etilgan / yakunlangan)
-  const logCall = useCallback((chatId, text) => {
-    if (!chatId) return;
-    try { sendMessage(chatId, text); } catch { /* noop */ }
-  }, [sendMessage]);
-
-  // Chiqish audio qurilmalari ro'yxati (karnay tugmasi shunga qarab chiqadi)
-  const refreshAudioOutputs = useCallback(async () => {
-    try {
-      if (!navigator.mediaDevices?.enumerateDevices) return;
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      setAudioOutputs(devices.filter((d) => d.kind === "audiooutput"));
-    } catch { /* noop */ }
   }, []);
 
   const toggleSpeaker = useCallback(() => {

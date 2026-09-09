@@ -5,6 +5,13 @@
 let ctx = null;
 let timerId = null;
 let currentNodes = [];
+let didVibrate = false;
+
+function cancelVibrate() {
+  if (!didVibrate) return;
+  didVibrate = false;
+  try { window.navigator?.vibrate?.(0); } catch { /* noop */ }
+}
 
 function ensureCtx() {
   if (!ctx) {
@@ -47,9 +54,7 @@ function clearNodes() {
 export function stopRingtone() {
   if (timerId) { clearInterval(timerId); timerId = null; }
   clearNodes();
-  if (window.navigator?.vibrate) {
-    try { window.navigator.vibrate(0); } catch { /* noop */ }
-  }
+  cancelVibrate();
 }
 
 export function playRingtone(type = "incoming") {
@@ -61,7 +66,9 @@ export function playRingtone(type = "incoming") {
       ring();
       timerId = setInterval(ring, 3000);
       if (window.navigator?.vibrate) {
-        try { window.navigator.vibrate([500, 500, 500, 1500]); } catch { /* noop */ }
+        try {
+          if (window.navigator.vibrate([500, 500, 500, 1500])) didVibrate = true;
+        } catch { /* noop */ }
       }
     } else {
       // Ringback: 1 soniya ohang + 4 soniya pauza
