@@ -323,6 +323,52 @@ router.post("/delete-account", authMiddleware, async (req, res) => {
 
 const SWITCHABLE_ROLES = ["specialist", "employer"];
 
+// --- Telefon + Telegram orqali tasdiqlash kodi ---
+// Frontend ro'yxatdan o'tishda shu API'ni chaqiradi: kod Telegram bot orqali
+// bog'langan chat'ga boradi, bot bog'lanmagan bo'lsa dev'da debugCode qaytadi.
+const phoneVerify = require("../lib/phoneVerify.cjs");
+const phoneCodeRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
+
+router.post("/phone/send-code", phoneCodeRateLimit, async (req, res) => {
+  try {
+    const { phone } = req.body || {};
+    if (!phone) return res.status(400).json({ error: "Telefon raqam majburiy" });
+    const result = await phoneVerify.createAndSendCode(phone);
+    if (result.error) return res.status(429).json({ error: result.error, retry_after: result.retryAfter || 0 });
+    res.json(result);
+  } catch (err) {
+    console.error("Phone send-code error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.post("/phone/verify-code", phoneCodeRateLimit, async (req, res) => {
+  try {
+    const { phone, code } = req.body || {};
+    if (!phone || !code) return res.status(400).json({ error: "Telefon va kod majburiy" });
+    const result = phoneVerify.checkCode(phone, code);
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    res.json({ success: true, phone: result.phone });
+  } catch (err) {
+    console.error("Phone verify-code error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
+router.get("/phone/bot-link", async (req, res) => {
+  try {
+    const { phone } = req.query || {};
+    const link = phoneVerify.botLinkFor(phone || "+998");
+    res.json({
+      botLink: link,
+      botConfigured: !!process.env.TELEGRAM_BOT_TOKEN,
+      chatLinked: phone ? !!phoneVerify.getChatFor(phone) : false,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
 async function currentRoles(userId) {
   const row = await db.prepare("SELECT roles, role FROM users WHERE id = ?").get(userId);
   try {

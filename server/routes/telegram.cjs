@@ -10,6 +10,75 @@ const router = express.Router();
 const SESSION_FILE = path.join(__dirname, "..", ".tg-session");
 const EXPORT_DIR = path.join(__dirname, "..", ".tg-export");
 
+// POST /api/telegram/webhook — Telegram Bot webhook (public, bot token bilan himoyalangan).
+// Foydalanuvchi botda /start +998901234567 yuborsa yoki telefon kontaktini
+// ulashsa, telefon <-> chat_id bog'lanadi va keyingi tasdiqlash kodlari
+// shu chat'ga (shu nomerdagi Telegram'ga) yuboriladi.
+router.post("/webhook", async (req, res) => {
+  try {
+    const secret = req.headers["x-telegram-bot-api-secret-token"];
+    const expected = process.env.TELEGRAM_WEBHOOK_SECRET;
+    if (expected && secret !== expected) return res.status(403).json({ error: "Forbidden" });
+
+    const update = req.body || {};
+    const msg = update.message;
+    if (!msg) return res.json({ ok: true });
+
+    const chatId = msg.chat?.id;
+    const text = String(msg.text || "").trim();
+    const { linkChat, normalizeUzPhone } = require("../lib/phoneVerify.cjs");
+
+    const sendReply = async (replyText) => {
+      const token = process.env.TELEGRAM_BOT_TOKEN;
+      if (!token || !chatId) return;
+      try {
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: chatId, text: replyText }),
+        });
+      } catch { /* ignore */ }
+    };
+
+    // Kontakt ulashish tugmasi orqali yuborilgan telefon
+    const contactPhone = msg.contact?.phone_number;
+    if (contactPhone && msg.contact?.user_id && String(msg.contact.user_id) === String(msg.from?.id)) {
+      const linked = linkChat(contactPhone.startsWith("+") ? contactPhone : "+" + contactPhone, chatId);
+      if (linked) await sendReply(`✅ ${linked} raqami TalentHub'ga bog'landi. Endi tasdiqlash kodlari shu yerga keladi.`);
+      else await sendReply("❌ Telefon raqam noto'g'ri. +998 XX XXX XX XX formatda yuboring.");
+      return res.json({ ok: true });
+    }
+
+    const m = text.match(/^\/start\s*(.*)$/);
+    if (m) {
+      const payload = (m[1] || "").trim();
+      if (payload && normalizeUzPhone(payload)) {
+        linkChat(payload, chatId);
+        await sendReply(`✅ ${normalizeUzPhone(payload)} raqami bog'landi. Tasdiqlash kodlari shu Telegram'ga keladi.`);
+      } else {
+        await sendReply(
+          "Assalomu alaykum! TalentHub tasdiqlash boti.\n\n" +
+          "Kodlarni olish uchun telefon raqamingizni yuboring:\n" +
+          "/start +998901234567\n\n" +
+          "yoki kontaktni ulashing."
+        );
+      }
+      return res.json({ ok: true });
+    }
+
+    if (text && normalizeUzPhone(text)) {
+      linkChat(text, chatId);
+      await sendReply(`✅ ${normalizeUzPhone(text)} raqami bog'landi. Tasdiqlash kodlari shu yerga keladi.`);
+      return res.json({ ok: true });
+    }
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Telegram webhook error:", err);
+    res.status(500).json({ error: "Server xatoligi" });
+  }
+});
+
 // In-memory status tracking for running imports
 let importStatus = {
   running: false,

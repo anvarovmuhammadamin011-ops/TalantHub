@@ -6,31 +6,22 @@ import { api, apiUpload, BASE_URL } from "../lib/api";
 import { compareFaces } from "../lib/faceCheck";
 import CameraCapture from "../components/verification/CameraCapture";
 import DocumentUpload from "../components/verification/DocumentUpload";
-import { parsePhoneNumberFromString } from "libphonenumber-js";
 import LanguageSwitcher from "../components/ui/LanguageSwitcher";
 import { useT } from "../context/I18nContext";
+import { REGIONS, REGION_NAMES } from "../lib/uzbekistanRegions";
+import { formatUzPhone, normalizeUzPhone, isValidUzPhone, detectUzOperator } from "../lib/phoneUz";
 
 const steps = ["Rol", "Yo'nalish", "Ma'lumotlar", "SMS", "Pasport", "Face-check", "Manzil", "Tasdiqlash"];
 const LAST_STEP = steps.length - 1;
 
-const countryFlags = { UZ: "🇺🇿", RU: "🇷🇺", US: "🇺🇸", KZ: "🇰🇿", TR: "🇹🇷", KG: "🇰🇬", TJ: "🇹🇯", TM: "🇹🇲" };
-
+// Ro'yxatdan o'tish faqat O'zbekiston raqamlari bilan: +998 maska avtomatik,
+// operator prefiks bo'yicha o'zi aniqlanadi.
 function formatPhone(value) {
-  const digits = value.replace(/\D/g, "");
-  if (!digits) return "";
-  const phone = parsePhoneNumberFromString("+" + digits);
-  if (phone && phone.isValid()) {
-    return phone.formatInternational();
-  }
-  return "+" + digits;
+  return formatUzPhone(value);
 }
 
-function detectCountry(value) {
-  const digits = value.replace(/\D/g, "");
-  if (!digits) return null;
-  const phone = parsePhoneNumberFromString("+" + digits);
-  if (phone && phone.country) return phone.country;
-  return null;
+function detectOperator(value) {
+  return detectUzOperator(value);
 }
 
 export default function Register() {
@@ -39,11 +30,15 @@ export default function Register() {
   const [role, setRole] = useState("");
   const [fields, setFields] = useState([]);
   const [selectedCats, setSelectedCats] = useState([]);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", city: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "+998 ", password: "", city: "" });
   const [smsCode, setSmsCode] = useState(["", "", "", ""]);
   const [generatedCode, setGeneratedCode] = useState("");
   const [smsError, setSmsError] = useState("");
   const [smsSent, setSmsSent] = useState(false);
+  const [smsSending, setSmsSending] = useState(false);
+  const [smsSentVia, setSmsSentVia] = useState("demo");
+  const [smsBotLink, setSmsBotLink] = useState("");
+  const [smsCooldown, setSmsCooldown] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [stepError, setStepError] = useState("");
@@ -51,7 +46,7 @@ export default function Register() {
   const [kycFailed, setKycFailed] = useState(false);
   const [passwordError, setPasswordError] = useState("");
   const [phoneError, setPhoneError] = useState("");
-  const [detectedCountry, setDetectedCountry] = useState(null);
+  const [detectedOperator, setDetectedOperator] = useState(null);
   // KYC: pasport → face-check → manzil/hujjatlar
   const [passport, setPassport] = useState(null);
   const [selfie, setSelfie] = useState(null);
@@ -96,9 +91,40 @@ export default function Register() {
     return () => { cancelled = true; };
   }, [step, passport?.previewUrl, selfie?.previewUrl]);
 
+  // Qayta yuborish taymeri (early-return'dan oldinda — Hook qoidasi)
+  useEffect(() => {
+    if (smsCooldown <= 0) return;
+    const id = setTimeout(() => setSmsCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [smsCooldown]);
+
   if (!loading && isLoggedIn) {
     return <Navigate to="/" replace />;
   }
+
+  const sendTelegramCode = async (phone) => {
+    const normalized = normalizeUzPhone(phone);
+    if (!normalized) return;
+    setSmsSending(true);
+    setSmsError("");
+    try {
+      const data = await api("/auth/phone/send-code", { method: "POST", body: { phone: normalized } });
+      if (data.debugCode) setGeneratedCode(data.debugCode);
+      setSmsSent(true);
+      setSmsSentVia(data.sentVia || "demo");
+      setSmsBotLink(data.botLink || "");
+      setSmsCooldown(60);
+    } catch {
+      // Backend ishlamasa ham ro'yxatdan o'tish to'xtamasin — lokal demo kod
+      const code = String(Math.floor(1000 + Math.random() * 9000));
+      setGeneratedCode(code);
+      setSmsSent(true);
+      setSmsSentVia("demo");
+      setSmsError("");
+    } finally {
+      setSmsSending(false);
+    }
+  };
 
   const next = () => {
     setStepError("");
@@ -107,18 +133,20 @@ export default function Register() {
         setPasswordError(t("pages.register.passwordErrorMsg"));
         return;
       }
-      if (form.phone.replace(/\D/g, "").length < 9) {
+      if (!isValidUzPhone(form.phone)) {
         setPhoneError(t("pages.register.phoneErrorMsg"));
+        return;
+      }
+      if (!form.city) {
+        setStepError(t("pages.register.cityRequired"));
         return;
       }
       setPasswordError("");
       setPhoneError("");
+      setForm((f) => ({ ...f, phone: normalizeUzPhone(f.phone) }));
     }
-    if (step === 3 && !smsSent) {
-      const code = String(Math.floor(1000 + Math.random() * 9000));
-      setGeneratedCode(code);
-      setSmsSent(true);
-      setSmsError("");
+    if (step === 3 && !smsSent && !smsSending) {
+      sendTelegramCode(form.phone);
     }
     if (step === 4 && !passport) {
       setStepError(t("pages.register.kyc.passportRequired"));
@@ -165,8 +193,36 @@ export default function Register() {
       setSmsSent(false);
       setSmsCode(["", "", "", ""]);
       setSmsError("");
+      setSmsCooldown(0);
     }
     setStep(Math.max(step - 1, 0));
+  };
+
+  const verifySmsCode = async (fullCode) => {
+    try {
+      const data = await api("/auth/phone/verify-code", {
+        method: "POST",
+        body: { phone: normalizeUzPhone(form.phone), code: fullCode },
+      });
+      if (data.success) {
+        setTimeout(() => setStep(4), 300);
+        return;
+      }
+    } catch (err) {
+      // Backend'da kod topilmasa (server qayta ishga tushgan bo'lsa) — lokal demo kod bilan solishtiramiz
+      if (generatedCode && fullCode === generatedCode) {
+        setTimeout(() => setStep(4), 300);
+        return;
+      }
+      setSmsError(err.message || t("pages.register.smsErrorMsg"));
+      return;
+    }
+    // Lokal fallback (backend verify muvaffaqiyatsiz, lekin demo kod mos bo'lsa)
+    if (generatedCode && fullCode === generatedCode) {
+      setTimeout(() => setStep(4), 300);
+    } else {
+      setSmsError(t("pages.register.smsErrorMsg"));
+    }
   };
 
   const handleSmsChange = (index, value) => {
@@ -179,10 +235,8 @@ export default function Register() {
       const nextInput = document.getElementById(`sms-${index + 1}`);
       if (nextInput) nextInput.focus();
     }
-    if (newCode.every((c) => c !== "") && newCode.join("") === generatedCode) {
-      setTimeout(() => setStep(4), 300);
-    } else if (newCode.every((c) => c !== "")) {
-      setSmsError(t("pages.register.smsErrorMsg"));
+    if (newCode.every((c) => c !== "")) {
+      verifySmsCode(newCode.join(""));
     }
   };
 
@@ -458,32 +512,57 @@ export default function Register() {
                 <div>
                   <label className="block text-sm font-medium text-ink-2 mb-1.5">{t("pages.register.phoneLabel")}</label>
                   <div className="relative">
-                    {detectedCountry && (
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-sm">
-                        <span>{countryFlags[detectedCountry] || ""}</span>
-                        <span className="text-xs text-ink-3 font-medium">{detectedCountry}</span>
-                      </div>
-                    )}
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-sm pointer-events-none">
+                      <span>🇺🇿</span>
+                      <span className="text-xs text-ink-3 font-medium">UZ</span>
+                      {detectedOperator && (
+                        <span className="text-[11px] font-semibold text-accent bg-accent/10 px-1.5 py-0.5 rounded">
+                          {detectedOperator.name}
+                        </span>
+                      )}
+                    </div>
                     <input
                       type="tel"
+                      inputMode="tel"
                       placeholder={t("pages.register.phonePlaceholder")}
                       value={form.phone}
+                      onFocus={(e) => {
+                        if (!e.target.value) {
+                          setForm((f) => ({ ...f, phone: formatUzPhone("") }));
+                        }
+                      }}
                       onChange={(e) => {
                         const formatted = formatPhone(e.target.value);
                         setForm({ ...form, phone: formatted });
-                        setDetectedCountry(detectCountry(formatted));
+                        setDetectedOperator(detectOperator(formatted));
                         setPhoneError("");
                       }}
                       className={`w-full py-3 rounded-lg border ${
                         phoneError ? "border-red-300" : "border-border"
-                      } focus:border-ink/30 outline-none transition-colors text-sm ${detectedCountry ? "pl-20 pr-4" : "px-4"}`}
+                      } focus:border-ink/30 outline-none transition-colors text-sm pl-24 pr-4`}
                     />
                   </div>
                   {phoneError && <p className="text-xs text-red-500 mt-1">{phoneError}</p>}
+                  {!phoneError && (
+                    <p className="text-[11px] text-ink-3 mt-1">{t("pages.register.phoneAutoHint")}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-ink-2 mb-1.5">{t("pages.register.cityLabel")} *</label>
+                  <select
+                    value={form.city}
+                    onChange={(e) => { setForm({ ...form, city: e.target.value }); setStepError(""); }}
+                    className="w-full px-4 py-3 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors text-sm bg-white"
+                  >
+                    <option value="">{t("pages.register.cityPlaceholder")}</option>
+                    {REGION_NAMES.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
                 </div>
 
                 {[
-                  { label: t("pages.register.cityLabel"), key: "city", placeholder: t("pages.register.cityPlaceholder") },
                   { label: t("auth.password"), key: "password", placeholder: t("pages.register.passwordPlaceholder"), type: "password" },
                 ].map((f) => (
                   <div key={f.key}>
@@ -507,6 +586,7 @@ export default function Register() {
                   </div>
                 ))}
               </div>
+              {stepError && <p className="text-xs text-red-500 mt-3 text-center">{stepError}</p>}
               <button onClick={next} className="w-full mt-6 bg-ink text-white py-3 rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors flex items-center justify-center gap-2">
                 {t("pages.register.continueButton")} <ArrowRight className="w-4 h-4" />
               </button>
@@ -525,17 +605,28 @@ export default function Register() {
                 </div>
                 <h2 className="text-xl font-semibold text-ink mb-1.5 tracking-tight">{t("pages.register.smsTitle")}</h2>
                 <p className="text-ink-3 text-sm mb-2">{t("pages.register.smsSubtitle", { phone: form.phone })}</p>
-                {generatedCode && (
-                  <p className="text-xs text-accent font-medium mb-6">{t("pages.register.smsDemoCode", { code: generatedCode })}</p>
+                <p className="text-xs text-ink-3 mb-4">{t("pages.register.smsTelegramHint")}</p>
+                {smsSending && (
+                  <p className="text-xs text-ink-3 mb-4">{t("pages.register.smsSending")}</p>
                 )}
-                {!generatedCode && (
-                  <button onClick={() => {
-                    const code = String(Math.floor(1000 + Math.random() * 9000));
-                    setGeneratedCode(code);
-                    setSmsSent(true);
-                  }} className="text-xs text-ink font-medium mb-6 underline">
-                    {t("pages.register.smsGetCode")}
+                {generatedCode && smsSentVia === "demo" && (
+                  <p className="text-xs text-accent font-medium mb-4">{t("pages.register.smsDemoCode", { code: generatedCode })}</p>
+                )}
+                {smsSentVia === "telegram" && (
+                  <p className="text-xs text-emerald-600 font-medium mb-4">✓ {t("pages.register.smsTelegramSent")}</p>
+                )}
+                {smsBotLink && (
+                  <a href={smsBotLink} target="_blank" rel="noreferrer" className="inline-block text-xs text-ink font-medium mb-6 underline">
+                    {t("pages.register.smsOpenBot")}
+                  </a>
+                )}
+                {!smsSending && smsCooldown <= 0 && smsSent && (
+                  <button onClick={() => sendTelegramCode(form.phone)} className="block mx-auto text-xs text-ink font-medium mb-6 underline">
+                    {t("pages.register.smsResend")}
                   </button>
+                )}
+                {smsCooldown > 0 && (
+                  <p className="text-xs text-ink-3 mb-6">{t("pages.register.smsResendCooldown", { seconds: smsCooldown })}</p>
                 )}
 
                 <div className="flex justify-center gap-3 mb-4">
@@ -673,16 +764,31 @@ export default function Register() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-ink-2 mb-1.5">{t("pages.register.kyc.regionLabel")} *</label>
-                  <input value={residence.region} onChange={(e) => setResidence({ ...residence, region: e.target.value })}
-                    placeholder={t("pages.register.kyc.regionPlaceholder")}
-                    className="w-full px-4 py-3 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors text-sm" />
+                  <select
+                    value={residence.region}
+                    onChange={(e) => { setResidence({ ...residence, region: e.target.value, district: "" }); setStepError(""); }}
+                    className="w-full px-4 py-3 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors text-sm bg-white"
+                  >
+                    <option value="">{t("pages.register.kyc.regionPlaceholder")}</option>
+                    {REGION_NAMES.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-ink-2 mb-1.5">{t("pages.register.kyc.districtLabel")} *</label>
-                    <input value={residence.district} onChange={(e) => setResidence({ ...residence, district: e.target.value })}
-                      placeholder={t("pages.register.kyc.districtPlaceholder")}
-                      className="w-full px-4 py-3 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors text-sm" />
+                    <select
+                      value={residence.district}
+                      onChange={(e) => setResidence({ ...residence, district: e.target.value })}
+                      disabled={!residence.region}
+                      className="w-full px-4 py-3 rounded-lg border border-border focus:border-ink/30 outline-none transition-colors text-sm bg-white disabled:opacity-50"
+                    >
+                      <option value="">{t("pages.register.kyc.districtPlaceholder")}</option>
+                      {(REGIONS[residence.region] || []).map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-ink-2 mb-1.5">{t("pages.register.kyc.streetLabel")} *</label>
